@@ -19,7 +19,8 @@
 #   console  the web console at /console/ (it signs people in through the IdP, so the
 #            console profile starts Keycloak as well)
 #   harness  personal assistant containers of people: launcher + Docker socket proxy;
-#            people talk to their assistant in the console (start it with console)
+#            a person signs in to their assistant through the IdP, so the harness profile
+#            starts Keycloak as well; people talk to the assistant in the console
 #   fleet    fleet-controller: places agents described in catalog packages on nodes
 #            (a node itself runs on the executor's machine — deploy/node/)
 #   edge     Caddy — the only container facing the outside — and the guide guide/
@@ -407,14 +408,15 @@ services:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/healthz', timeout=3)"]
       <<: *healthcheck-py
 
-  # ----------------------------------------------------------- idp (console)
+  # ------------------------------------------------- idp (console, harness)
   # Keycloak is an external IdP for people: its token goes only to IAM
   # (federation:exchange); there are no roles or tenant in the realm — authority lives in
-  # IAM and the Control Plane. The console signs people in through it, so these services
-  # belong to both the idp and the console profiles. Admin API scripts — deploy/keycloak/.
+  # IAM and the Control Plane. The console and the assistant launcher sign people in through
+  # it, so these services belong to the idp, console and harness profiles. Admin API
+  # scripts — deploy/keycloak/.
   keycloak-db:
     image: postgres:16-alpine
-    profiles: [idp, console]
+    profiles: [idp, console, harness]
     restart: unless-stopped
     environment:
       POSTGRES_DB: keycloak
@@ -436,7 +438,7 @@ services:
   # through the Admin API (deploy/keycloak/).
   realm-render:
     image: busybox:1.36
-    profiles: [idp, console]
+    profiles: [idp, console, harness]
     entrypoint: ["/bin/sh", "-c"]
     command:
       # Literal substitution (awk index/substr, values from ENVIRON): unlike sed,
@@ -471,7 +473,7 @@ services:
 
   keycloak:
     image: ${KEYCLOAK_IMAGE:-quay.io/keycloak/keycloak:26.5.2}
-    profiles: [idp, console]
+    profiles: [idp, console, harness]
     restart: unless-stopped
     command: ["start", "--import-realm"]
     environment:

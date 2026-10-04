@@ -72,5 +72,9 @@ removes it when idle. Add templates and pull their images in compose.yml: the Do
 keeps `IMAGES` closed, so the node never pulls images itself.
 
 A node on the same machine as a local installation reaches it as
-`http://host.docker.internal` (Docker Desktop; the local Caddyfile serves that name). On
-Linux use the host's address in the local network.
+`http://host.docker.internal` (Docker Desktop; the local Caddyfile serves that name).
+
+> **Linux:** containers do not resolve `host.docker.internal` there by default. Set
+> `CONTROL_PLANE_SERVER`, `CONTROL_PLANE_IAM_URL` and `FLEET_CONTROLLER_URL` in
+> `deploy/node/.env` to `http://<host address>` — the host's address in the local
+> network — and add the same address to the site addresses of your Caddyfile.

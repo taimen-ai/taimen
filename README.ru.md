@@ -191,7 +191,7 @@ Compose запускается из корня с файлом `deploy/local/com
 | `core` | IAM, Control Plane (api / worker / context-adapter), memory-service, их БД, MinIO для артефактов |
 | `notify` | notification-service и его БД |
 | `console` | веб-консоль на `/console/` и Keycloak, через который входят люди |
-| `harness` | персональные ассистенты: launcher и Docker socket proxy во внутренней сети; вместе с `console` |
+| `harness` | персональные ассистенты: launcher, Docker socket proxy во внутренней сети и Keycloak, через который входят люди; говорят с ассистентом в консоли |
 | `fleet` | fleet-controller: размещает агентов по узлам ([deploy/node/](deploy/node/README.md)) |
 | `idp` | только Keycloak — внешний IdP людей через federation IAM, для ваших приложений |
 | `edge` | Caddy — единственный вход снаружи — и руководство `guide/` |

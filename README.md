@@ -195,7 +195,7 @@ Compose profiles:
 | `core` | IAM, Control Plane (api / worker / context-adapter), memory-service, their databases, MinIO for artifacts |
 | `notify` | notification-service and its database |
 | `console` | the web console at `/console/` and Keycloak, through which people sign in |
-| `harness` | personal assistants: the launcher and a Docker socket proxy on an internal network; use with `console` |
+| `harness` | personal assistants: the launcher, a Docker socket proxy on an internal network and Keycloak, through which people sign in; people talk to the assistant in the console |
 | `fleet` | fleet-controller: places agents on nodes ([deploy/node/](deploy/node/README.md)) |
 | `idp` | Keycloak alone — an external IdP for people via IAM federation, for your own applications |
 | `edge` | Caddy — the only entry point from outside — and the guide `guide/` |

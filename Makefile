@@ -130,9 +130,13 @@ test-iam-service test-fleet test-notification-service: test-%:
 test-%:
 	@echo "== pytest: $*"; cd $(call component_dir,$*) && uv run --quiet pytest -q
 
-tools-check: ## ruff + tests of the tools/ and deploy/ scripts
+# The bootstrap tests run deploy/bootstrap.py against in-process fake IAM and Control Plane
+# servers (no stack, no network) and import the package SDK from sdk/package-sdk.
+TOOLS_TEST_PY = uv run --quiet --no-project --with pytest --with pyyaml --with jsonschema --with ruamel.yaml python
+
+tools-check: ## ruff + tests of the tools/ and deploy/ scripts (bootstrap against fake servers)
 	@uvx ruff check tools deploy
-	@uv run --quiet --no-project --with pytest python -m pytest -q tools/tests
+	@$(TOOLS_TEST_PY) -m pytest -q tools/tests
 
 linkcheck: ## Check relative links in the umbrella documentation
 	@python3 tools/linkcheck.py

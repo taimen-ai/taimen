@@ -183,7 +183,8 @@ jobs:
         run: |
           uvx ruff check tools deploy
           uvx ruff format --check tools deploy
-          uv run --no-project --with pytest python -m pytest -q tools/tests
+          # the bootstrap tests use fake IAM and Control Plane servers and the package SDK of sdk/package-sdk
+          uv run --no-project --with pytest --with pyyaml --with jsonschema --with ruamel.yaml python -m pytest -q tools/tests
       - name: Compose interpolation, every profile alone and all together (clean .env, make secrets)
         run: |
           cp .env.example .env

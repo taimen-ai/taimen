@@ -121,7 +121,8 @@ docker run --rm --network taimen_default -v "$PWD/deploy/keycloak:/s:ro" \
 ## Personal assistants (the harness profile)
 
 The launcher creates one assistant container per person from the `human-harness` image;
-people talk to the assistant in the console. Docker is reached only through a socket
+a person signs in through the IdP (the harness profile starts Keycloak as well, with the
+client `human-harness` of the realm template) and talks to the assistant in the console. Docker is reached only through a socket
 proxy on the internal `harness-control` network; people's containers live on
 `harness-people` with the core, the notification service and the edge, but without the
 proxy, the databases, IAM or memory. `make bootstrap ARGS="--harness-people
@@ -155,7 +156,7 @@ email. The bot webhook is the public address `/notify/…` behind Caddy.
 - Set `TAIMEN_PUBLIC_URL` (https, without a trailing `/`) and `TAIMEN_PUBLIC_HOST`,
   provide your own Caddyfile with the domain (Caddy issues TLS) and point `CADDYFILE` at
   it; take the path layout from `caddy/Caddyfile.local`, without the `/memory/*` route.
-- `KEYCLOAK_HOSTNAME_STRICT=true` if the `idp` or `console` profile is started.
+- `KEYCLOAK_HOSTNAME_STRICT=true` if the `idp`, `console` or `harness` profile is started.
 - The IAM issuer (`${TAIMEN_PUBLIC_URL}/iam`) goes into tokens and into Control Plane
   bindings: changing the public address means migrating the bindings and the redirect
   addresses of the Keycloak clients.
