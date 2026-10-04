@@ -68,7 +68,7 @@ x-healthcheck-py: &healthcheck-py
 services:
   # ---------------------------------------------------------------- core: IAM
   iam-db:
-    image: postgres:16-alpine
+    image: postgres:18-alpine
     profiles: [core]
     restart: unless-stopped
     environment:
@@ -116,7 +116,7 @@ services:
 
   # ------------------------------------------------------- core: Control Plane
   control-plane-db:
-    image: postgres:16-alpine
+    image: postgres:18-alpine
     profiles: [core]
     restart: unless-stopped
     environment:
@@ -351,7 +351,7 @@ services:
   # channels, a consumer of core events. Its own database; service account —
   # secrets/notification-iam.env (written by deploy/bootstrap.py, step 5c).
   notification-db:
-    image: postgres:16-alpine
+    image: postgres:18-alpine
     profiles: [notify]
     restart: unless-stopped
     environment:
@@ -415,7 +415,7 @@ services:
   # it, so these services belong to the idp, console and harness profiles. Admin API
   # scripts — deploy/keycloak/.
   keycloak-db:
-    image: postgres:16-alpine
+    image: postgres:18-alpine
     profiles: [idp, console, harness]
     restart: unless-stopped
     environment:
