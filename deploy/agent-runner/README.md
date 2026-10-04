@@ -1,8 +1,9 @@
 # deploy/agent-runner/ — the agent runner image
 
 [Dockerfile](Dockerfile) builds `taimen/agent-runner:local`: the `control-plane-agent`
-daemon with the Claude Code and Codex adapters, the skill SDK and platform-llm for local
-skills, Node with corepack, git and make. A fleet node ([deploy/node/](../node/README.md))
+daemon with the Claude Code CLI, the skill SDK and platform-llm for local skills, Node with
+corepack, git and make. The daemon also has a Codex adapter, but the Codex CLI is not in the
+image: install it in a derived image (`npm install -g @openai/codex`, see below). A fleet node ([deploy/node/](../node/README.md))
 creates agent containers from it; the daemon takes its configuration — kind, model, working
 copy, neighbours, review, skills — from the revision of its agent (`GET /agents/me`).
 

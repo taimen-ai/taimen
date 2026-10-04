@@ -1,6 +1,7 @@
 # syntax=docker/dockerfile:1.7
-# The agent runner image: the control-plane-agent daemon with the Claude Code and Codex
-# adapters, and the skill SDK for local skills. A fleet node (deploy/node/) creates agent
+# The agent runner image: the control-plane-agent daemon with the Claude Code CLI, and the
+# skill SDK for local skills. The daemon also has a Codex adapter, but the Codex CLI is not
+# in this image: install it in a derived image (npm install -g @openai/codex). A fleet node (deploy/node/) creates agent
 # containers from it; the daemon reads its configuration — kind, model, working copy,
 # neighbours, review, skills — from the revision of its agent (GET /agents/me).
 #

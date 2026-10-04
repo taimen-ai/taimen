@@ -202,15 +202,35 @@ Compose profiles:
 
 ```bash
 make up PROFILES="core notify console edge"           # with notifications and the console
-make up PROFILES="core notify console harness edge"   # + personal assistants
 make config-all                                        # validate every profile
 ```
 
-The console needs `IAM_TENANT_ID` in `.env` (printed by `make bootstrap`) and a person
-in Keycloak and in the platform: `deploy/keycloak/keycloak-users.py` creates the user,
-and the operator adds the person in the console. Assistants:
-`make bootstrap ARGS="--harness-people deploy/harness-people.json"` — see
-[deploy/README.md](deploy/README.md).
+The console signs people in through Keycloak, and IAM must know Keycloak as an identity
+provider: without it the console answers every sign-in with `identity_provider_not_found`.
+The order:
+
+1. Start the console profile (above) and create the operator's user in Keycloak with
+   `deploy/keycloak/keycloak-users.py` (see [deploy/README.md](deploy/README.md)); the
+   printed `id` is the user's `sub`.
+2. Put it into `.env` as `KEYCLOAK_OPERATOR_SUBJECT=<sub>`.
+3. `make bootstrap ARGS="--identity-provider deploy/keycloak/identity-provider.yaml"` —
+   step 2c registers Keycloak in IAM and links that `sub` to the operator before the first
+   sign-in (repeat it after a plain `make bootstrap`: it is idempotent).
+4. Add the printed `IAM_TENANT_ID=<uuid>` to `.env` and recreate the console:
+   `tools/compose --profile console up -d console`. Sign in at `/console/` as that user;
+   other people are created in Keycloak the same way and added in the console.
+
+Personal assistants come second, after their bootstrap step: the `harness` profile mounts
+`secrets/harness/cookie-secret` and `secrets/harness/people.json`, which only
+`make bootstrap ARGS="--harness-people …"` creates — without them `up` fails on a bind
+source.
+
+```bash
+make bootstrap ARGS="--identity-provider deploy/keycloak/identity-provider.yaml --harness-people deploy/harness-people.json"
+make up PROFILES="core notify console harness edge"   # then + personal assistants
+```
+
+See [deploy/README.md](deploy/README.md) for both.
 
 By default memory works offline (`MEMORY_EMBEDDING_PROVIDER=fake`,
 `MEMORY_LLM_PROVIDER=echo`). To connect any OpenAI-compatible endpoint, set

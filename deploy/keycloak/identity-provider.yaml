@@ -1,0 +1,25 @@
+# Keycloak of the idp, console and harness profiles as an IAM identity provider: without it
+# IAM answers federation:exchange of the console and the assistant launcher with
+# 404 identity_provider_not_found. Registered by bootstrap step 2c:
+#   make bootstrap ARGS="--identity-provider deploy/keycloak/identity-provider.yaml"
+# The body is POST /api/v1/tenants/{t}/identity-providers (the IAM bootstrap token).
+# ${VAR} values are taken from .env.
+identityProvider:
+  # The provider name the console (RUNTIME_CONSOLE_IDENTITY_PROVIDER) and the launcher pass
+  key: keycloak
+  # Exactly the `iss` of the realm's tokens: the public address, as the browser sees it
+  issuer: ${TAIMEN_PUBLIC_URL}/auth/realms/platform
+  # The clients runtime-console and human-harness put this audience into their tokens
+  audience: iam-service
+  # Keys by the internal name, without a hairpin through Caddy
+  jwksUri: http://keycloak:8080/auth/realms/platform/protocol/openid-connect/certs
+  subjectClaim: sub
+  groupClaim: groups
+  # managed: an identity can be linked in advance (the operator below), and people are
+  # added in the console by their Keycloak id
+  lifecycleProfile: managed
+# The operator's Keycloak user id (`sub`, printed by keycloak-users.py as `id`): bootstrap links
+# it to the operator's principal before the first sign-in, so signing in to the console as this
+# user is the operator (the people-admins group, the admin binding in the core). Empty — the
+# provider is registered without the link.
+operatorSubject: ${KEYCLOAK_OPERATOR_SUBJECT}

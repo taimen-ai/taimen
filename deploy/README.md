@@ -12,7 +12,8 @@ deploy/
 ├── packages.yaml                catalog installation file: which packages/ bootstrap installs
 ├── harness-people.json          people with a personal assistant (bootstrap step 8)
 ├── caddy/Caddyfile.local        edge for a local run: http, one host, routing by path
-├── keycloak/                    realm template (clients runtime-console and human-harness) and Admin API scripts
+├── keycloak/                    realm template (clients runtime-console and human-harness), the IAM
+│                                identity provider description and Admin API scripts
 ├── node/                        a fleet node: compose, node.yaml, .env.example
 ├── agent-runner/                the agent runner image that a node starts agents from
 └── state/<env>.json             bootstrap state: identifiers, not secrets (in .gitignore)
@@ -38,9 +39,10 @@ After the first bootstrap the core, notification-service and fleet-controller ar
 restarted once to pick up the service accounts issued for them
 (`secrets/control-plane-iam.env`, `secrets/notification-iam.env`,
 `secrets/fleet-iam.env`); the script reminds you of this. Add the printed
-`IAM_TENANT_ID=<uuid>` to `.env` and recreate the console
-(`tools/compose --profile console up -d console`): the console, the assistant launcher
-and fleet-controller need it. On Linux the files in `secrets/` read by containers
+`IAM_TENANT_ID=<uuid>` to `.env` and recreate the services that read it with their
+profiles: `tools/compose --profile console --profile harness --profile fleet up -d
+console harness-launcher fleet-controller` (leave out the ones whose profile you do not
+run). On Linux the files in `secrets/` read by containers
 (`iam-signing.pem`, `runtime-console-*-secret`, `harness/`) must be owned by uid 10001
 with mode 600.
 
@@ -106,17 +108,35 @@ Keycloak: `realm-render` substitutes the public address and the client secret fr
 (a new public address, a new secret) go through the Admin API —
 [keycloak/keycloak-runtime-console-client.py](keycloak/keycloak-runtime-console-client.py).
 
-People: create the user in Keycloak with
-[keycloak/keycloak-users.py](keycloak/keycloak-users.py) (firstName and lastName are
-required, the password must not be temporary), then add the person in the console by
-their IdP subject. The console does not create IdP users itself.
+IAM accepts Keycloak tokens in `federation:exchange` only once Keycloak is registered in
+the IAM tenant as the identity provider `keycloak`
+([keycloak/identity-provider.yaml](keycloak/identity-provider.yaml); without it every
+sign-in ends with `404 identity_provider_not_found`). The operator's Keycloak user is
+linked to the operator's principal before the first sign-in — otherwise the first sign-in
+would create a new principal without the operator's rights. The order:
 
-```bash
-docker run --rm --network taimen_default -v "$PWD/deploy/keycloak:/s:ro" \
-  -e KC_ADMIN_PASSWORD="$(sed -n 's/^KEYCLOAK_ADMIN_PASSWORD=//p' .env)" \
-  -e KC_USERS='[{"username":"alice","email":"alice@example.com","password":"…","first_name":"Alice","last_name":"Example"}]' \
-  python:3.12-alpine python /s/keycloak-users.py
-```
+1. With the console profile running, create the operator's user in Keycloak with
+   [keycloak/keycloak-users.py](keycloak/keycloak-users.py) (firstName and lastName are
+   required, the password must not be temporary); the printed `id` is the user's `sub`:
+
+   ```bash
+   docker run --rm --network taimen_default -v "$PWD/deploy/keycloak:/s:ro" \
+     -e KC_ADMIN_PASSWORD="$(sed -n 's/^KEYCLOAK_ADMIN_PASSWORD=//p' .env)" \
+     -e KC_USERS='[{"username":"operator","email":"operator@example.com","password":"…","first_name":"Platform","last_name":"Operator"}]' \
+     python:3.12-alpine python /s/keycloak-users.py
+   # {"username": "operator", "id": "<sub>"}
+   ```
+
+2. Put the `sub` into `.env`: `KEYCLOAK_OPERATOR_SUBJECT=<sub>`.
+3. `make bootstrap ARGS="--identity-provider deploy/keycloak/identity-provider.yaml"`:
+   step 2c registers the provider (once; IAM does not change a registered provider, so a
+   changed `TAIMEN_PUBLIC_URL` needs a new key) and links the `sub` to the operator.
+   `--dry-run` shows what it would do.
+4. Add `IAM_TENANT_ID` to `.env` and recreate the console (above). Sign in at
+   `/console/` as that user.
+
+Other people: create the user in Keycloak the same way, then add the person in the
+console by their Keycloak id (`sub`). The console does not create IdP users itself.
 
 ## Personal assistants (the harness profile)
 
@@ -126,11 +146,14 @@ client `human-harness` of the realm template) and talks to the assistant in the 
 proxy on the internal `harness-control` network; people's containers live on
 `harness-people` with the core, the notification service and the edge, but without the
 proxy, the databases, IAM or memory. `make bootstrap ARGS="--harness-people
-deploy/harness-people.json"` issues each person's PAT (without admin) into
+deploy/harness-people.json"` (after Keycloak is registered, see above) issues each
+person's PAT (without admin) into
 `secrets/harness/<principal>/credentials.json`, the launcher's cookie key and the
 registry `secrets/harness/people.json`. Each person puts their model subscription token
 (`claude-oauth-token`) and, if needed, a forge token (`forge-token`) into their directory
-(0600).
+(0600). Start the `harness` profile only after this step: it mounts
+`secrets/harness/cookie-secret` and `secrets/harness/people.json`, and without them `up`
+fails on a bind source.
 
 ## Agents (the fleet profile)
 

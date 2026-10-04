@@ -396,3 +396,16 @@ def test_bootstrap_issuer_is_the_issuer_compose_gives_the_services():
     source = (ROOT / "deploy" / "bootstrap.py").read_text(encoding="utf-8")
     assert 'issuer = f"{public_url}/iam"' in source and "public_url_of(env)" in source
     assert '"TAIMEN_PUBLIC_URL"].rstrip' not in source
+
+
+def test_keycloak_identity_provider_takes_the_public_address_and_the_operator_from_env():
+    path = ROOT / "deploy" / "keycloak" / "identity-provider.yaml"
+    spec = bootstrap.load_identity_provider(path, PUBLIC_URL, {"KEYCLOAK_OPERATOR_SUBJECT": "kc-user-1"})
+    provider = spec["identityProvider"]
+    assert provider["key"] == "keycloak"
+    assert provider["issuer"] == f"{PUBLIC_URL}/auth/realms/platform"
+    assert provider["audience"] == "iam-service"
+    assert provider["lifecycleProfile"] == "managed"
+    assert spec["operatorSubject"] == "kc-user-1"
+    # without the operator's sub the provider is registered without a link
+    assert bootstrap.load_identity_provider(path, PUBLIC_URL, {})["operatorSubject"] is None

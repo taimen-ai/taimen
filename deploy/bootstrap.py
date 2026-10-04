@@ -64,6 +64,7 @@ import errno
 import importlib.util
 import json
 import os
+import re
 import stat
 import sys
 import time
@@ -963,18 +964,21 @@ def ensure_privileged_groups(
         ensure_admin_group(iam, header, tenant, owner, state, save, scope, dry_run=dry_run)
 
 
-def load_identity_provider(path: Path, public_url: str) -> dict:
+def load_identity_provider(path: Path, public_url: str, env: dict[str, str] | None = None) -> dict:
     """A description of an IAM identity provider (YAML): `identityProvider` — the body of POST
     /identity-providers, `operatorSubject` — the owner's `sub` at this IdP (optional).
-    `${TAIMEN_PUBLIC_URL}` is substituted from .env."""
+    `${TAIMEN_PUBLIC_URL}` and other `${VAR}` of .env (`env`) are substituted; a variable that
+    is not set becomes empty, and an empty `operatorSubject` means no link."""
     import yaml  # noqa: PLC0415 — needed only here
 
-    document = yaml.safe_load(path.read_text(encoding="utf-8").replace("${TAIMEN_PUBLIC_URL}", public_url))
+    values = {**(env or {}), "TAIMEN_PUBLIC_URL": public_url}
+    text = re.sub(r"\$\{([A-Z0-9_]+)\}", lambda m: values.get(m.group(1), ""), path.read_text(encoding="utf-8"))
+    document = yaml.safe_load(text)
     provider = document["identityProvider"]
     for field in ("key", "issuer", "audience"):
         if not provider.get(field):
             raise SystemExit(f"{path}: identityProvider.{field} is required")
-    return {"identityProvider": provider, "operatorSubject": document.get("operatorSubject")}
+    return {"identityProvider": provider, "operatorSubject": document.get("operatorSubject") or None}
 
 
 def ensure_identity_provider(
@@ -1405,7 +1409,7 @@ def main() -> int:
     owner = state.get("iamOperatorPrincipalId")
     ensure_privileged_groups(iam, bootstrap_header, iam_tenant, owner, state, save, dry_run=args.dry_run)
     if args.identity_provider:
-        spec = load_identity_provider(ROOT / args.identity_provider, public_url)
+        spec = load_identity_provider(ROOT / args.identity_provider, public_url, env)
         ensure_identity_provider(iam, bootstrap_header, iam_tenant, spec, owner, state, save, dry_run=args.dry_run)
     if args.dry_run:
         print("dry-run: steps 2–2c shown, nothing written; steps 2a–8 did not run")
