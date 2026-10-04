@@ -61,7 +61,7 @@ with every decision leaving a trace.
 
 - **Catalog packages in git.** Task and artifact types, roles, skills, rules,
   processes, calendars, agent descriptions and notification rules are YAML objects of
-  a package. The package SDK (`package-sdk/`) checks a package without a running
+  a package. The package SDK (`sdk/package-sdk`) checks a package without a running
   installation, runs its tests, builds an installation plan and applies exactly that
   plan to a live installation; how a package is structured, with an example, is in
   [packages/](packages/README.md).
@@ -112,46 +112,69 @@ with every decision leaving a trace.
   from the message. Which events become notifications, and for whom, is defined by
   data rules, not by service code.
 
+### Console, assistants and an agent fleet
+
+- **Web console.** People work with tasks, approvals, processes, the knowledge base and
+  the event log in the browser; they sign in through an OIDC IdP (Keycloak in the
+  distribution) federated by IAM, and their authority stays in IAM and the Control Plane.
+- **Personal assistants.** Each person gets an assistant in an isolated container that
+  acts in the platform on their behalf and within their permissions; a launcher starts it
+  on demand, and people talk to it in the console or through a notification channel.
+- **Declarative agents.** Agents are described in catalog packages; fleet places them on
+  nodes — the executors' machines that connect out to the platform — keeps their
+  identities and tokens in step with the description and reports their actual state.
+
 ## Components
 
-The components are separate repositories, attached as submodules flat at the root of
-this repository.
+The components are separate repositories, attached as submodules: services in
+`services/`, libraries in `sdk/`, the web console in `apps/console`.
 
-| Component | Purpose |
-|---|---|
-| [control-plane](https://github.com/taimen-ai/control-plane) | Work graph, work rules, processes, acceptance, skills, event log; CLI, MCP plugin and runner daemon |
-| [iam-service](https://github.com/taimen-ai/iam-service) | Identity: tenants, principals, Platform Access Tokens, token exchange by audience, service accounts, federation, SCIM |
-| [memory-service](https://github.com/taimen-ai/memory-service) | Memory: knowledge graph (Apache AGE + pgvector), hybrid search, context assembly, MCP server and client |
-| [notification-service](https://github.com/taimen-ai/notification-service) | Notifications: web inbox, Telegram, email, notification rules, decisions from the channel |
-| [platform-auth-sdk](https://github.com/taimen-ai/platform-auth-sdk) | Token and permission checks in services (Policy Enforcement Point) |
-| [skill-sdk](https://github.com/taimen-ai/skill-sdk) | Skill SDK: contract from code, invocation context, `local` / `http` / `mcp` hosting |
-| [platform-llm](https://github.com/taimen-ai/platform-llm) | Client for any OpenAI-compatible endpoint with structured output |
-| [package-sdk](https://github.com/taimen-ai/package-sdk) | Package SDK: tools for catalog package authors — `check` / `test` / `plan` / `apply`, an MCP server and a plugin for Claude Code |
+| Component | Path | Purpose |
+|---|---|---|
+| [control-plane](https://github.com/taimen-ai/control-plane) | `services/control-plane` | Work graph, work rules, processes, acceptance, skills, event log, agent registry; CLI, MCP plugin and runner daemon |
+| [iam-service](https://github.com/taimen-ai/iam-service) | `services/iam-service` | Identity: tenants, principals, Platform Access Tokens, token exchange by audience, service accounts, federation, SCIM |
+| [memory-service](https://github.com/taimen-ai/memory-service) | `services/memory-service` | Memory: knowledge graph and pgvector in PostgreSQL, hybrid search, context assembly, MCP server and client |
+| [notification-service](https://github.com/taimen-ai/notification-service) | `services/notification-service` | Notifications: web inbox, Telegram, email, notification rules, decisions from the channel |
+| [fleet](https://github.com/taimen-ai/fleet) | `services/fleet` | Declarative agents: the controller that places agents on nodes, and the node that runs them |
+| human-harness | `services/human-harness` | Personal assistants of people: the launcher and the assistant container (its public repository opens with its first release) |
+| [platform-auth-sdk](https://github.com/taimen-ai/platform-auth-sdk) | `sdk/platform-auth-sdk` | Token and permission checks in services (Policy Enforcement Point) |
+| [platform-llm](https://github.com/taimen-ai/platform-llm) | `sdk/platform-llm` | Client for any OpenAI-compatible endpoint with structured output |
+| [skill-sdk](https://github.com/taimen-ai/skill-sdk) | `sdk/skill-sdk` | Skill SDK: contract from code, invocation context, `local` / `http` / `mcp` hosting |
+| [package-sdk](https://github.com/taimen-ai/package-sdk) | `sdk/package-sdk` | Package SDK: tools for catalog package authors — `check` / `test` / `plan` / `apply`, an MCP server and a plugin for Claude Code |
+| [console](https://github.com/taimen-ai/console) | `apps/console` | Web console: a BFF and a single-page application, English and Russian |
 
-The flat layout is intentional: `control-plane`, `memory-service`,
-`notification-service` and `skill-sdk` take their neighbours (`../platform-auth-sdk`,
-`../platform-llm`, the core client) as path dependencies, so images are built from the
-root of this repository. `package-sdk` takes `../control-plane` (the core and its
-client) and `../skill-sdk` the same way for its extras.
+The relative path between components is the same wherever they are built together — in
+this repository, in the images and in the components' CI: a service takes an SDK as
+`../../sdk/platform-auth-sdk`, `package-sdk` takes the core as
+`../../services/control-plane`, and neighbours inside `services/` or `sdk/` are
+`../<name>`. That is why images are built from the root of this repository.
 
-This repository itself is the assembly: `compose.yml`, `.env.example`, `Makefile`,
-[deploy/](deploy/README.md) (bootstrap and the edge), `tools/` (build and check
-scripts) and the guide `guide/`.
+This repository itself is the assembly: [deploy/local/compose.yml](deploy/local/compose.yml)
+with the `tools/compose` wrapper, `.env.example`, `Makefile`, [deploy/](deploy/README.md)
+(bootstrap, the edge, the Keycloak realm, a fleet node and the agent runner image),
+`tools/` (build and check scripts) and the guide `guide/`.
 
 ## Quick start
 
 You need Docker with Compose v2, Python 3, `openssl` and
 [uv](https://docs.astral.sh/uv/): `make bootstrap` runs through uv to get PyYAML and
-jsonschema for its catalog step, and uv installs the CLI and the MCP plugin. The default memory limits are sized for a machine with 8 GB of RAM.
+jsonschema for the package SDK, and uv installs the CLI and the MCP plugin. The default
+memory limits are sized for a machine with 8 GB of RAM.
 
 ```bash
 git clone --recurse-submodules https://github.com/taimen-ai/taimen.git && cd taimen
-make secrets      # .env (0600) with random secrets + secrets/iam-signing.pem
+make secrets      # .env (0600) with random secrets, secrets/iam-signing.pem and the console's secrets
 make up           # profiles core edge: IAM, Control Plane, memory, MinIO, Caddy, guide
-make bootstrap    # tenant, operator, PAT, workspace, catalog → deploy/state/<env>.json and secrets/
-docker compose up -d control-plane-api control-plane-worker context-adapter
+make bootstrap    # tenant, operator, PAT, workspace, catalog, services → deploy/state/<env>.json and secrets/
+tools/compose up -d control-plane-api control-plane-worker context-adapter
 make smoke        # healthz of the running services
 ```
+
+Compose runs from the root with `deploy/local/compose.yml`: use `make` targets or
+`tools/compose` (it passes `--project-directory .` and the file); a bare
+`docker compose` at the root finds no configuration on purpose. A root
+`compose.override.yml` with the settings of your installation is picked up as a second
+file when it exists.
 
 Restarting the core after the first `make bootstrap` is needed once: the core picks up
 the service account issued by bootstrap for access to memory (the script reminds you
@@ -160,9 +183,10 @@ of this itself).
 Once running, the platform is available at `http://taimen.localhost` (Chrome and
 Firefox resolve `*.localhost` themselves; for curl and Safari add
 `127.0.0.1 taimen.localhost` to `/etc/hosts`): the Control Plane at `/api/v1` with the
-schema at `/docs`, IAM at `/iam`, the guide at `/guide/`. The same services listen on
-`127.0.0.1` on the ports from `.env` (`CP_HOST_PORT`, `IAM_HOST_PORT`,
-`MEMORY_HOST_PORT`). `make down` stops the containers; data stays in the volumes.
+schema at `/docs`, IAM at `/iam`, the guide at `/guide/`, the console at `/console/`
+(with the `console` profile). The same services listen on `127.0.0.1` on the ports from
+`.env` (`CP_HOST_PORT`, `IAM_HOST_PORT`, `MEMORY_HOST_PORT`). `make down` stops the
+containers; data stays in the volumes.
 
 Compose profiles:
 
@@ -170,17 +194,29 @@ Compose profiles:
 |---|---|
 | `core` | IAM, Control Plane (api / worker / context-adapter), memory-service, their databases, MinIO for artifacts |
 | `notify` | notification-service and its database |
+| `console` | the web console at `/console/` and Keycloak, through which people sign in |
+| `harness` | personal assistants: the launcher and a Docker socket proxy on an internal network; use with `console` |
+| `fleet` | fleet-controller: places agents on nodes ([deploy/node/](deploy/node/README.md)) |
+| `idp` | Keycloak alone — an external IdP for people via IAM federation, for your own applications |
 | `edge` | Caddy — the only entry point from outside — and the guide `guide/` |
-| `idp` | optional: Keycloak as an external IdP for people via IAM federation; the core does not need it |
 
 ```bash
-make up PROFILES="core notify edge"   # with notifications
+make up PROFILES="core notify console edge"           # with notifications and the console
+make up PROFILES="core notify console harness edge"   # + personal assistants
+make config-all                                        # validate every profile
 ```
+
+The console needs `IAM_TENANT_ID` in `.env` (printed by `make bootstrap`) and a person
+in Keycloak and in the platform: `deploy/keycloak/keycloak-users.py` creates the user,
+and the operator adds the person in the console. Assistants:
+`make bootstrap ARGS="--harness-people deploy/harness-people.json"` — see
+[deploy/README.md](deploy/README.md).
 
 By default memory works offline (`MEMORY_EMBEDDING_PROVIDER=fake`,
 `MEMORY_LLM_PROVIDER=echo`). To connect any OpenAI-compatible endpoint, set
 `LLM_BASE_URL` and `LLM_API_KEY` in `.env` and switch both providers to `openai`. On
-Linux the signing key `secrets/iam-signing.pem` must be owned by uid 10001 (mode 600).
+Linux the files in `secrets/` read by containers (`iam-signing.pem`,
+`runtime-console-*-secret`) must be owned by uid 10001 (mode 600).
 
 ### First task through the MCP plugin
 
@@ -188,10 +224,10 @@ Linux the signing key `secrets/iam-signing.pem` must be owned by uid 10001 (mode
    contents of `secrets/harness-pat` into `~/.config/iam/credentials.json` (0600)
    under the key `<issuer>|<tenant>|<principal>` and add the printed
    `IAM_TENANT_ID=<uuid>` to `.env`.
-2. Install the Control Plane package (the neighbouring `platform-auth-sdk` is already
-   in place): `uv tool install ./control-plane` — this gives you `control-plane` (the
-   CLI), `control-plane-mcp` (the MCP server) and `control-plane-agent` (the runner
-   daemon).
+2. Install the Control Plane package (the neighbouring `sdk/platform-auth-sdk` is
+   already in place): `uv tool install ./services/control-plane` — this gives you
+   `control-plane` (the CLI), `control-plane-mcp` (the MCP server) and
+   `control-plane-agent` (the runner daemon).
 3. Connect the MCP server to your coding agent, for example Claude Code:
    `claude mcp add control-plane -- control-plane-mcp`. There are no secrets in the MCP
    configuration: the server finds the credential itself.
@@ -199,36 +235,37 @@ Linux the signing key `secrets/iam-signing.pem` must be owned by uid 10001 (mode
    `cp_create_task` and take it through `cp_claim_task`, `cp_start_run`,
    `cp_create_artifact` and `cp_complete_run`.
 
-Agents with their own principals and PATs are created by `make bootstrap ARGS="--agents
-agents.json"`; the registry format and how to start the runner daemon are in
-[deploy/README.md](deploy/README.md).
+Autonomous agents are described in catalog packages (kind `Agent`) and run on fleet
+nodes: start the `fleet` profile, join a node from [deploy/node/](deploy/node/README.md)
+and install the package with the agent's description; the platform creates the agent's
+identity and token itself.
 
 ### Package authoring in Claude Code
 
 Catalog packages (task types, rules, processes, agents, integrations, ontologies,
 notifications) are written with an agent in Claude Code through the `package-author`
-plugin of the [package-sdk](package-sdk/README.md) component. The `package-sdk/`
+plugin of the [package-sdk](sdk/package-sdk/README.md) component. The `sdk/package-sdk`
 submodule is both the `package-sdk` marketplace (`.claude-plugin/marketplace.json`) and
 the source of the plugin (`plugin/package-author`). From the root of this repository:
 
 ```bash
 # The plugin's MCP server is package-sdk mcp. Install it from a permanent checkout:
 # the core and skill-sdk are linked as editable references to the neighbouring directories.
-uv tool install --reinstall "./package-sdk[mcp,sandbox,skills]"
+uv tool install --reinstall "./sdk/package-sdk[mcp,sandbox,skills]"
 
 # The marketplace and the plugin (inside Claude Code, the same commands through /plugin)
-claude plugin marketplace add ./package-sdk
+claude plugin marketplace add ./sdk/package-sdk
 claude plugin install package-author@package-sdk
 ```
 
-Inside a session: `/plugin marketplace add ./package-sdk`, then
+Inside a session: `/plugin marketplace add ./sdk/package-sdk`, then
 `/plugin install package-author@package-sdk`. Instead of the local submodule you can
 point to the component's repository on GitHub: `/plugin marketplace add
 taimen-ai/package-sdk`. The installations the server may reach are listed in
 `PACKAGE_SDK_SERVERS` in the session environment; the core's `cp_*` tools come to the
 skills from the operator's MCP plugin above. Check: in a new session `/plugin` shows
 `package-author`, and `/mcp` shows the `package-sdk` server with its `pkg_*` tools.
-Details are in the [plugin README](package-sdk/plugin/package-author/README.md) and the
+Details are in the [plugin README](sdk/package-sdk/plugin/package-author/README.md) and the
 [guide article](guide/docs/packages/author-plugin.md).
 
 ## Guide

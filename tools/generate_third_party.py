@@ -6,9 +6,9 @@ dependencies are included (the data source is importlib.metadata of the
 running interpreter, not pyproject.toml). Sync a runtime-only environment first,
 otherwise development tools (pytest, ruff, ...) end up in the list:
 
-    cd control-plane && uv sync --no-dev
-    uv run --no-sync python ../tools/generate_third_party.py --component control-plane
-    uv run --no-sync python ../tools/generate_third_party.py --component control-plane --check
+    cd services/control-plane && uv sync --no-dev
+    uv run --no-sync python ../../tools/generate_third_party.py --component control-plane
+    uv run --no-sync python ../../tools/generate_third_party.py --component control-plane --check
 
 Copyleft licences (LGPL/GPL/AGPL/MPL/EUPL/CDDL) are listed in a separate section
 with a statement about dynamic linking, because that is what determines the

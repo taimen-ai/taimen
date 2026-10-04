@@ -27,7 +27,8 @@ sign once.
 
 ## Development environment
 
-The components are separate repositories attached here as submodules. Python
+The components are separate repositories attached here as submodules: services in
+`services/`, libraries in `sdk/`, the web console in `apps/console`. Python
 components use [uv](https://docs.astral.sh/uv/).
 
 ```bash
@@ -37,15 +38,15 @@ make check                  # ruff + tests of all components, as in CI
 make check-<component>      # for example make check-control-plane
 ```
 
-`control-plane`, `memory-service`, `notification-service` and `skill-sdk` depend on
-their neighbours (`../platform-auth-sdk`, `../platform-llm`) by path, and `package-sdk`
-on `../control-plane` and `../skill-sdk`, so work from a checkout of this repository or
-keep the neighbours next to the component.
+The components depend on their neighbours by path at the same relative paths as in
+this repository — a service takes `../../sdk/platform-auth-sdk`, `skill-sdk` takes
+`../platform-llm`, `package-sdk` takes `../../services/control-plane` and `../skill-sdk` —
+so work from a checkout of this repository or keep the same layout around the component.
 
 ## Where to send changes
 
 - Component code — a pull request to the component's repository.
-- The assembly (`compose.yml`, `Makefile`, `deploy/`, `tools/`, CI) — a pull request
+- The assembly (`deploy/local/compose.yml`, `Makefile`, `deploy/`, `tools/`, CI) — a pull request
   here.
 - The guide `guide/` is generated from the project's documentation sources: report
   errors and inaccuracies in it as an issue in this repository rather than by editing

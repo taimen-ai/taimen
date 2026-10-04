@@ -11,23 +11,27 @@ languages. Legal texts (`LICENSE`, `cla/`) are not translated.
 
 ## Layout
 
-- The components are submodules flat at the root: `control-plane`, `iam-service`,
-  `memory-service`, `notification-service`, `platform-auth-sdk`, `skill-sdk`,
-  `platform-llm`, `package-sdk`. The flat layout is mandatory: the components take
-  their neighbours (`../platform-auth-sdk`, `../platform-llm`, the core client;
-  `package-sdk` also `../control-plane` and `../skill-sdk`) as path dependencies.
-  Do not move submodules into subdirectories.
+- The components are submodules in three directories: `services/` (`control-plane`,
+  `iam-service`, `memory-service`, `notification-service`, `fleet`, `human-harness`),
+  `sdk/` (`platform-auth-sdk`, `platform-llm`, `skill-sdk`, `package-sdk`) and
+  `apps/console`. The layout is mandatory: the relative path between components is the
+  same here, in the images and in the components' CI (a service takes
+  `../../sdk/platform-auth-sdk`, `package-sdk` takes `../../services/control-plane`). The
+  name of a section in `.gitmodules` is the component's stable name; do not rename
+  sections or move submodules.
 - Catalog packages (`packages/`, the installation `deploy/packages.yaml`) are checked,
   tested, planned and applied with the package SDK from the `package-sdk` submodule
   (`make packages-check`, `make packages-plan`, `make packages-apply`); this repository
   has no package tools of its own. Packages are written with the Claude Code plugin
   `package-author` of the same submodule: `uv tool install --reinstall
-  "./package-sdk[mcp,sandbox,skills]"`, then `claude plugin marketplace add
-  ./package-sdk` and `claude plugin install package-author@package-sdk` (see the
+  "./sdk/package-sdk[mcp,sandbox,skills]"`, then `claude plugin marketplace add
+  ./sdk/package-sdk` and `claude plugin install package-author@package-sdk` (see the
   README, "Package authoring in Claude Code").
-- `compose.yml`, `.env.example`, `Makefile` — building and running the platform.
+- `deploy/local/compose.yml` (run through `make` or `tools/compose`, never a bare
+  `docker compose`), `.env.example`, `Makefile` — building and running the platform.
 - `deploy/` — bootstrap (`deploy/bootstrap.py`), the edge (`deploy/caddy/`), the
-  Keycloak realm template (`deploy/keycloak/`).
+  Keycloak realm template and Admin API scripts (`deploy/keycloak/`), a fleet node
+  (`deploy/node/`) and the agent runner image (`deploy/agent-runner/`).
 - `tools/` — build and check scripts, Python standard library only; tests live in
   `tools/tests/`.
 - `guide/` — the guide (MkDocs). It is generated from the project's documentation
@@ -46,7 +50,7 @@ languages. Legal texts (`LICENSE`, `cla/`) are not translated.
 
 ```bash
 make tools-check      # ruff + tests of tools/
-make config           # compose.yml after interpolation (needs .env: make secrets)
+make config-all       # deploy/local/compose.yml for every profile (needs .env: make secrets)
 make linkcheck        # relative links in the documentation
 make check            # tests of all components (heavy: starts a database for control-plane)
 ```

@@ -61,7 +61,7 @@
 
 - **Пакеты каталога в git.** Типы задач и артефактов, роли, скиллы, правила,
   процессы, календари, описания агентов и правила уведомлений — YAML-объекты
-  пакета. SDK пакетов (`package-sdk/`) проверяет пакет без стенда, прогоняет его
+  пакета. SDK пакетов (`sdk/package-sdk`) проверяет пакет без стенда, прогоняет его
   тесты, строит план установки и применяет ровно этот план к живой инсталляции; как
   устроен пакет и образец — в [packages/](packages/README.md).
 
@@ -110,46 +110,68 @@
   из сообщения. Какие события становятся уведомлениями и кому — правила данными,
   а не код сервиса.
 
+### Консоль, ассистенты и флот агентов
+
+- **Веб-консоль.** Люди работают с задачами, согласованиями, процессами, базой знаний и
+  журналом событий в браузере; вход — через OIDC IdP (в поставке Keycloak) с федерацией
+  в IAM, полномочия остаются в IAM и Control Plane.
+- **Персональные ассистенты.** У каждого человека — ассистент в изолированном
+  контейнере, который действует в платформе от его имени и в пределах его прав; launcher
+  поднимает его по требованию, говорить с ним можно в консоли или через канал уведомлений.
+- **Декларативные агенты.** Агенты описываются в пакетах каталога; fleet размещает их на
+  узлах — машинах исполнителей, которые сами ходят в платформу, — держит личность и
+  токен агента в соответствии с описанием и сообщает фактическое состояние.
+
 ## Состав
 
-Компоненты — отдельные репозитории, подключённые сабмодулями плоско в корне этого
-репозитория.
+Компоненты — отдельные репозитории, подключённые сабмодулями: сервисы в `services/`,
+библиотеки в `sdk/`, веб-консоль в `apps/console`.
 
-| Компонент | Назначение |
-|---|---|
-| [control-plane](https://github.com/taimen-ai/control-plane) | Граф работы, правила вывода, процессы, приёмка, скиллы, журнал событий; CLI, MCP-плагин и демон runner'а |
-| [iam-service](https://github.com/taimen-ai/iam-service) | Identity: tenants, principals, Platform Access Tokens, обмен токенов по audience, service accounts, федерация, SCIM |
-| [memory-service](https://github.com/taimen-ai/memory-service) | Память: граф знаний (Apache AGE + pgvector), гибридный поиск, сборка контекста, MCP-сервер и клиент |
-| [notification-service](https://github.com/taimen-ai/notification-service) | Уведомления: веб-инбокс, Telegram, email, правила уведомлений, решения из канала |
-| [platform-auth-sdk](https://github.com/taimen-ai/platform-auth-sdk) | Проверка токенов и прав в сервисах (Policy Enforcement Point) |
-| [skill-sdk](https://github.com/taimen-ai/skill-sdk) | SDK скиллов: контракт из кода, контекст вызова, хостинг `local` / `http` / `mcp` |
-| [platform-llm](https://github.com/taimen-ai/platform-llm) | Клиент любого OpenAI-совместимого endpoint со структурированным ответом |
-| [package-sdk](https://github.com/taimen-ai/package-sdk) | SDK пакетов: инструменты автора пакетов каталога — `check` / `test` / `plan` / `apply`, MCP-сервер и плагин для Claude Code |
+| Компонент | Путь | Назначение |
+|---|---|---|
+| [control-plane](https://github.com/taimen-ai/control-plane) | `services/control-plane` | Граф работы, правила вывода, процессы, приёмка, скиллы, журнал событий, реестр агентов; CLI, MCP-плагин и демон runner'а |
+| [iam-service](https://github.com/taimen-ai/iam-service) | `services/iam-service` | Identity: tenants, principals, Platform Access Tokens, обмен токенов по audience, service accounts, федерация, SCIM |
+| [memory-service](https://github.com/taimen-ai/memory-service) | `services/memory-service` | Память: граф знаний и pgvector в PostgreSQL, гибридный поиск, сборка контекста, MCP-сервер и клиент |
+| [notification-service](https://github.com/taimen-ai/notification-service) | `services/notification-service` | Уведомления: веб-инбокс, Telegram, email, правила уведомлений, решения из канала |
+| [fleet](https://github.com/taimen-ai/fleet) | `services/fleet` | Декларативные агенты: контроллер, размещающий агентов по узлам, и узел, который их запускает |
+| human-harness | `services/human-harness` | Персональные ассистенты людей: launcher и контейнер ассистента (публичный репозиторий открывается с первым релизом) |
+| [platform-auth-sdk](https://github.com/taimen-ai/platform-auth-sdk) | `sdk/platform-auth-sdk` | Проверка токенов и прав в сервисах (Policy Enforcement Point) |
+| [platform-llm](https://github.com/taimen-ai/platform-llm) | `sdk/platform-llm` | Клиент любого OpenAI-совместимого endpoint со структурированным ответом |
+| [skill-sdk](https://github.com/taimen-ai/skill-sdk) | `sdk/skill-sdk` | SDK скиллов: контракт из кода, контекст вызова, хостинг `local` / `http` / `mcp` |
+| [package-sdk](https://github.com/taimen-ai/package-sdk) | `sdk/package-sdk` | SDK пакетов: инструменты автора пакетов каталога — `check` / `test` / `plan` / `apply`, MCP-сервер и плагин для Claude Code |
+| [console](https://github.com/taimen-ai/console) | `apps/console` | Веб-консоль: BFF и одностраничное приложение, английский и русский |
 
-Раскладка плоская намеренно: `control-plane`, `memory-service`,
-`notification-service` и `skill-sdk` берут соседей (`../platform-auth-sdk`,
-`../platform-llm`, клиент ядра) path-зависимостью, поэтому образы собираются из
-корня этого репозитория. `package-sdk` так же берёт для своих экстр `../control-plane`
-(ядро и его клиент) и `../skill-sdk`.
+Относительный путь между компонентами одинаков везде, где они собираются вместе, — в
+этом репозитории, в образах и в CI компонентов: сервис берёт SDK как
+`../../sdk/platform-auth-sdk`, `package-sdk` берёт ядро как
+`../../services/control-plane`, соседи внутри `services/` или `sdk/` — `../<имя>`.
+Поэтому образы собираются из корня этого репозитория.
 
-Сам этот репозиторий — сборка: `compose.yml`, `.env.example`, `Makefile`,
-[deploy/](deploy/README.md) (bootstrap и внешний контур), `tools/` (скрипты сборки
-и проверок) и руководство `guide/`.
+Сам этот репозиторий — сборка: [deploy/local/compose.yml](deploy/local/compose.yml) с
+обёрткой `tools/compose`, `.env.example`, `Makefile`, [deploy/](deploy/README.md)
+(bootstrap, внешний контур, realm Keycloak, узел fleet и образ исполнителя агентов),
+`tools/` (скрипты сборки и проверок) и руководство `guide/`.
 
 ## Быстрый старт
 
 Нужны Docker с Compose v2, Python 3, `openssl` и [uv](https://docs.astral.sh/uv/):
-через uv `make bootstrap` получает PyYAML и jsonschema для шага каталога, им же
+через uv `make bootstrap` получает PyYAML и jsonschema для SDK пакетов, им же
 ставятся CLI и MCP-плагин. Лимиты памяти по умолчанию рассчитаны на машину с 8 ГБ RAM.
 
 ```bash
 git clone --recurse-submodules https://github.com/taimen-ai/taimen.git && cd taimen
-make secrets      # .env (0600) со случайными секретами + secrets/iam-signing.pem
+make secrets      # .env (0600) со случайными секретами, secrets/iam-signing.pem и секреты консоли
 make up           # профили core edge: IAM, Control Plane, память, MinIO, Caddy, руководство
-make bootstrap    # tenant, оператор, PAT, workspace, каталог → deploy/state/<env>.json и secrets/
-docker compose up -d control-plane-api control-plane-worker context-adapter
+make bootstrap    # tenant, оператор, PAT, workspace, каталог, сервисы → deploy/state/<env>.json и secrets/
+tools/compose up -d control-plane-api control-plane-worker context-adapter
 make smoke        # healthz поднятых сервисов
 ```
+
+Compose запускается из корня с файлом `deploy/local/compose.yml`: через цели `make` или
+`tools/compose` (обёртка передаёт `--project-directory .` и файл); голый
+`docker compose` в корне конфигурации намеренно не находит. Корневой
+`compose.override.yml` с настройками вашей установки подхватывается вторым файлом,
+если он есть.
 
 Перезапуск ядра после первого `make bootstrap` нужен один раз: ядро подхватывает
 выпущенный bootstrap'ом service account для доступа к памяти (скрипт напоминает об
@@ -158,9 +180,9 @@ make smoke        # healthz поднятых сервисов
 После запуска платформа доступна на `http://taimen.localhost` (Chrome и Firefox
 резолвят `*.localhost` сами; для curl и Safari добавьте `127.0.0.1 taimen.localhost`
 в `/etc/hosts`): Control Plane — `/api/v1` и схема `/docs`, IAM — `/iam`,
-руководство — `/guide/`. Те же сервисы слушают на `127.0.0.1` по портам из `.env`
-(`CP_HOST_PORT`, `IAM_HOST_PORT`, `MEMORY_HOST_PORT`). `make down` останавливает
-контейнеры, данные в volumes остаются.
+руководство — `/guide/`, консоль — `/console/` (с профилем `console`). Те же сервисы
+слушают на `127.0.0.1` по портам из `.env` (`CP_HOST_PORT`, `IAM_HOST_PORT`,
+`MEMORY_HOST_PORT`). `make down` останавливает контейнеры, данные в volumes остаются.
 
 Профили compose:
 
@@ -168,18 +190,29 @@ make smoke        # healthz поднятых сервисов
 |---|---|
 | `core` | IAM, Control Plane (api / worker / context-adapter), memory-service, их БД, MinIO для артефактов |
 | `notify` | notification-service и его БД |
+| `console` | веб-консоль на `/console/` и Keycloak, через который входят люди |
+| `harness` | персональные ассистенты: launcher и Docker socket proxy во внутренней сети; вместе с `console` |
+| `fleet` | fleet-controller: размещает агентов по узлам ([deploy/node/](deploy/node/README.md)) |
+| `idp` | только Keycloak — внешний IdP людей через federation IAM, для ваших приложений |
 | `edge` | Caddy — единственный вход снаружи — и руководство `guide/` |
-| `idp` | необязательный: Keycloak как внешний IdP людей через federation IAM; ядру не нужен |
 
 ```bash
-make up PROFILES="core notify edge"   # с уведомлениями
+make up PROFILES="core notify console edge"           # с уведомлениями и консолью
+make up PROFILES="core notify console harness edge"   # + персональные ассистенты
+make config-all                                        # проверить каждый профиль
 ```
+
+Консоли нужен `IAM_TENANT_ID` в `.env` (его печатает `make bootstrap`) и человек в
+Keycloak и в платформе: пользователя заводит `deploy/keycloak/keycloak-users.py`, в
+платформу человека добавляет оператор в консоли. Ассистенты:
+`make bootstrap ARGS="--harness-people deploy/harness-people.json"` — см.
+[deploy/README.md](deploy/README.md).
 
 Память по умолчанию работает офлайн (`MEMORY_EMBEDDING_PROVIDER=fake`,
 `MEMORY_LLM_PROVIDER=echo`). Чтобы подключить любой OpenAI-совместимый endpoint,
 задайте в `.env` `LLM_BASE_URL` и `LLM_API_KEY` и переключите оба провайдера на
-`openai`. На Linux ключ подписи `secrets/iam-signing.pem` должен принадлежать uid
-10001 (права 600).
+`openai`. На Linux файлы `secrets/`, которые читают контейнеры (`iam-signing.pem`,
+`runtime-console-*-secret`), должны принадлежать uid 10001 (права 600).
 
 ### Первая задача через MCP-плагин
 
@@ -187,8 +220,8 @@ make up PROFILES="core notify edge"   # с уведомлениями
    содержимое `secrets/harness-pat` в `~/.config/iam/credentials.json` (0600) под
    ключом `<issuer>|<tenant>|<principal>` и впишите напечатанный
    `IAM_TENANT_ID=<uuid>` в `.env`.
-2. Установите пакет Control Plane (соседний `platform-auth-sdk` уже на месте):
-   `uv tool install ./control-plane` — это даёт `control-plane` (CLI),
+2. Установите пакет Control Plane (соседний `sdk/platform-auth-sdk` уже на месте):
+   `uv tool install ./services/control-plane` — это даёт `control-plane` (CLI),
    `control-plane-mcp` (MCP-сервер) и `control-plane-agent` (демон runner'а).
 3. Подключите MCP-сервер к своему кодовому агенту, например Claude Code:
    `claude mcp add control-plane -- control-plane-mcp`. Секретов в конфигурации MCP
@@ -197,36 +230,37 @@ make up PROFILES="core notify edge"   # с уведомлениями
    и проведите её через `cp_claim_task`, `cp_start_run`, `cp_create_artifact` и
    `cp_complete_run`.
 
-Агентов с собственными principals и PAT заводит `make bootstrap ARGS="--agents
-agents.json"`; формат реестра и запуск демона runner'а — в
-[deploy/README.md](deploy/README.md).
+Автономные агенты описываются в пакетах каталога (вид `Agent`) и работают на узлах
+fleet: поднимите профиль `fleet`, зарегистрируйте узел из
+[deploy/node/](deploy/node/README.md) и поставьте пакет с описанием агента — личность и
+токен агента платформа заведёт сама.
 
 ### Автор пакетов в Claude Code
 
 Пакеты каталога (типы задач, правила, процессы, агенты, интеграции, онтологии,
 уведомления) пишутся с агентом в Claude Code через плагин `package-author`
-компонента [package-sdk](package-sdk/README.md). Сабмодуль `package-sdk/` —
+компонента [package-sdk](sdk/package-sdk/README.md). Сабмодуль `sdk/package-sdk` —
 одновременно marketplace `package-sdk` (`.claude-plugin/marketplace.json`) и исходники
 плагина (`plugin/package-author`). Из корня этого репозитория:
 
 ```bash
 # MCP-сервер плагина — package-sdk mcp. Ставить из постоянного checkout:
 # ядро и skill-sdk подключаются editable-ссылками на соседние каталоги.
-uv tool install --reinstall "./package-sdk[mcp,sandbox,skills]"
+uv tool install --reinstall "./sdk/package-sdk[mcp,sandbox,skills]"
 
 # marketplace и плагин (внутри Claude Code — те же команды через /plugin)
-claude plugin marketplace add ./package-sdk
+claude plugin marketplace add ./sdk/package-sdk
 claude plugin install package-author@package-sdk
 ```
 
-Внутри сессии: `/plugin marketplace add ./package-sdk`, затем
+Внутри сессии: `/plugin marketplace add ./sdk/package-sdk`, затем
 `/plugin install package-author@package-sdk`. Вместо локального сабмодуля можно
 указать репозиторий компонента на GitHub: `/plugin marketplace add
 taimen-ai/package-sdk`. Установки, на которые сервер может ходить, —
 `PACKAGE_SDK_SERVERS` в окружении сессии; инструменты ядра `cp_*` скиллам даёт
 MCP-плагин оператора из раздела выше. Проверка: в новой сессии `/plugin` показывает
 `package-author`, `/mcp` — сервер `package-sdk` с инструментами `pkg_*`. Подробно —
-[README плагина](package-sdk/plugin/package-author/README.md) и
+[README плагина](sdk/package-sdk/plugin/package-author/README.md) и
 [статья руководства](guide/docs/packages/author-plugin.ru.md).
 
 ## Руководство

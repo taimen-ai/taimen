@@ -35,7 +35,7 @@ release notes unless you prefer to remain anonymous.
 ## Scope
 
 In scope: the code of the Taimen component repositories and of this repository
-(`compose.yml`, `deploy/`, `tools/`), including the MCP plugin and the runner daemon
+(`deploy/local/compose.yml`, `deploy/`, `tools/`), including the MCP plugin and the runner daemon
 from `control-plane`.
 
 Out of scope: third-party dependencies (report to their authors; tell us if a fix
