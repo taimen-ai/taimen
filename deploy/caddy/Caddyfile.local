@@ -22,7 +22,9 @@
 	}
 }
 
-http://taimen.localhost, http://localhost {
+# host.docker.internal: a fleet node on the same machine (deploy/node/) — its containers reach
+# the installation by this name (Docker Desktop resolves it; on Linux use the host's address).
+http://taimen.localhost, http://localhost, http://host.docker.internal {
 	# Artifact contents are not compressed: the core's ETag is the sha256 of the bytes, and
 	# encode appends "-gzip" to it, so the client rejects the download as
 	# content_integrity_failed. The assistant's streams (the console's SSE and the

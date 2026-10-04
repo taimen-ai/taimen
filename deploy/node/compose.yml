@@ -1,0 +1,114 @@
+# A fleet node: a machine on which the platform runs agents. Which agents run and how is
+# decided by their descriptions in catalog packages (kind Agent) and by fleet-controller of
+# the installation (the fleet profile); this file is only the machine: the node, its way to
+# Docker through a socket proxy, the fleet-services listener of test services and the
+# images — of the agent runner and of the test service templates.
+#
+#   cp deploy/node/.env.example deploy/node/.env      # and fill it in
+#   docker compose -f deploy/node/compose.yml up -d --build
+#   docker compose -f deploy/node/compose.yml logs -f fleet-node
+#
+# The node's directory on the host is FLEET_HOME (default ~/.taimen-fleet): state/ — the
+# node credential, key pair and last desired state; secrets/ — one file per secret (0600).
+# Both are mounted at the same path the Docker daemon sees: agent credentials and secrets
+# are bind-mounted into agent containers by host path. The single-use join key goes to
+# ${FLEET_HOME}/state/join-key. Security of a node: services/fleet/SECURITY.md.
+name: ${FLEET_NODE_PROJECT:-taimen-node}
+
+services:
+  # The agent runner image (executor kinds claude-code and skills): build only — the node
+  # creates the containers.
+  agent-runner-image:
+    build:
+      context: ../..
+      dockerfile: deploy/agent-runner/Dockerfile
+    image: ${AGENT_RUNNER_IMAGE:-taimen/agent-runner:local}
+    entrypoint: ["true"]
+    restart: "no"
+    network_mode: none
+
+  # The node's only way to Docker: containers and volumes. Access to this proxy is root on
+  # the host — it shares no network with agents.
+  docker-proxy:
+    image: tecnativa/docker-socket-proxy:v0.4.1
+    restart: unless-stopped
+    environment:
+      CONTAINERS: "1"
+      VOLUMES: "1"
+      POST: "1"
+      # exec, images, networks, build, swarm… are closed: the node only creates and removes containers
+      EXEC: "0"
+      IMAGES: "0"
+      NETWORKS: "0"
+      BUILD: "0"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks: [control]
+
+  fleet-node:
+    build:
+      context: ../..
+      dockerfile: services/fleet/Dockerfile
+    image: ${FLEET_IMAGE:-taimen/fleet:local}
+    command: ["fleet-node", "--config", "/etc/fleet-node/node.yaml"]
+    restart: unless-stopped
+    user: "10001"
+    environment:
+      # Substitutions of node.yaml (${…} is taken from the node's environment; an unset one is an error)
+      FLEET_HOME: ${FLEET_HOME:-${HOME}/.taimen-fleet}
+      FLEET_NODE_NAME: ${FLEET_NODE_NAME:?FLEET_NODE_NAME — the node name, for example laptop-1}
+      FLEET_CONTROLLER_URL: ${FLEET_CONTROLLER_URL:?FLEET_CONTROLLER_URL — <public address>/fleet}
+      CONTROL_PLANE_SERVER: ${CONTROL_PLANE_SERVER:?CONTROL_PLANE_SERVER — the public address of the installation}
+      CONTROL_PLANE_IAM_URL: ${CONTROL_PLANE_IAM_URL:?CONTROL_PLANE_IAM_URL — <public address>/iam}
+      AGENT_RUNNER_IMAGE: ${AGENT_RUNNER_IMAGE:-taimen/agent-runner:local}
+    volumes:
+      - ./node.yaml:/etc/fleet-node/node.yaml:ro
+      # the same path inside as for the Docker daemon: credentials and secrets are mounted by host path
+      - ${FLEET_HOME:-${HOME}/.taimen-fleet}/state:${FLEET_HOME:-${HOME}/.taimen-fleet}/state
+      - ${FLEET_HOME:-${HOME}/.taimen-fleet}/secrets:${FLEET_HOME:-${HOME}/.taimen-fleet}/secrets:ro
+      # the test services queue, shared with the listener (services.queueDir = /data/queue)
+      - fleet-services-queue:/data
+    depends_on: [docker-proxy]
+    networks: [control]
+
+  # The listener of test services: takes requests of agents by their container token and
+  # writes them into the queue; the node creates the services. No docker-proxy, no node
+  # secrets or variables, not in the control network: its only volume is the queue. Agents
+  # reach it at services.listenerUrl of node.yaml (http://fleet-services:8050).
+  fleet-services:
+    image: ${FLEET_IMAGE:-taimen/fleet:local}
+    command: ["fleet-services"]
+    restart: unless-stopped
+    user: "10001"
+    environment:
+      FLEET_SERVICES_QUEUE_DIR: /data/queue
+    volumes:
+      - fleet-services-queue:/data
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    depends_on: [fleet-node]
+    networks: [agents]
+
+  # Images of the test service templates (services.templates of node.yaml): pull only — the
+  # proxy keeps IMAGES closed and the node does not pull images. The node creates a database
+  # per run, one instance per replica.
+  postgres-16-image:
+    image: postgres:16-alpine
+    entrypoint: ["true"]
+    restart: "no"
+    network_mode: none
+
+networks:
+  control: {}
+  # The network of agent containers (network in node.yaml): agents, the fleet-services
+  # listener, test service instances and the way out.
+  agents:
+    name: ${FLEET_AGENTS_NETWORK:-fleet-agents}
+
+volumes:
+  # The fleet-services ↔ fleet-node queue. Mounted at /data: this directory of the fleet image
+  # belongs to uid 10001, and Docker copies the owner of the image's directory to an empty
+  # named volume on the first mount — at another mount point the volume root would be root.
+  # queueDir (/data/queue) is created by the node and kept 0700 with its owner.
+  fleet-services-queue: {}

@@ -1,0 +1,61 @@
+# A fleet node. Fields — services/fleet/docs/node.md. ${…} values come from the node's
+# environment (compose.yml and .env next to it); an unset variable is an error.
+controllerUrl: ${FLEET_CONTROLLER_URL}
+name: ${FLEET_NODE_NAME}
+# Labels an agent description may require (spec.placement.labels): the agent goes to a node
+# that has all of its labels, its secrets and its executor kind.
+labels: [claude-subscription, repos]
+# What the node offers to agents; services.budgetMb is subtracted from memoryMb in every report.
+capacity: {slots: 2, cpus: 4, memoryMb: 8192}
+executors:
+  # Coding agents: working copies and mirrors live on the replica's volume (dataPath).
+  # services: true — test services on request (below) for the kind's runs.
+  claude-code:
+    image: ${AGENT_RUNNER_IMAGE}
+    dataPath: /runner
+    services: true
+  # Skill executors: the daemon runs the local skills its agent description names.
+  skills:
+    image: ${AGENT_RUNNER_IMAGE}
+    dataPath: /runner
+    env:
+      RUNNER_MODE: skills
+stateDir: ${FLEET_HOME}/state
+secretsDir: ${FLEET_HOME}/secrets
+dockerUrl: tcp://docker-proxy:2375
+network: fleet-agents
+agentEnv:                           # every agent container gets these; no secrets here
+  CONTROL_PLANE_SERVER: ${CONTROL_PLANE_SERVER}
+  CONTROL_PLANE_IAM_URL: ${CONTROL_PLANE_IAM_URL}
+  CONTROL_PLANE_IAM_SCOPES: control-plane:read control-plane:write
+joinKeyFile: ${FLEET_HOME}/state/join-key
+observeSeconds: 20
+# Test services on request: the executor asks the fleet-services listener for the templates
+# named in .agents/runner.yaml of the task's repository and gets an address and credentials
+# for this run only. Templates are taken as they are: ${…} is not substituted in them.
+services:
+  queueDir: /data/queue
+  listenerUrl: http://fleet-services:8050
+  budgetMb: 2048
+  perReplica: 3
+  idleSeconds: 1800
+  templates:
+    postgres-16:
+      image: postgres:16-alpine
+      port: 5432
+      memoryMb: 1024
+      healthcheck: ["CMD-SHELL", "pg_isready -U {user} -d {database}"]
+      credentialEnv: {user: POSTGRES_USER, password: POSTGRES_PASSWORD, database: POSTGRES_DB}
+      tmpfs: [/var/lib/postgresql/data]
+# A GitHub App installation token minted by the node itself for agents whose description
+# names forge-token (services/fleet/docs/node.md, "Issued secrets"); the App's private key is
+# the file forge-app-key of secretsDir and never reaches a container. Uncomment and set
+# FORGE_APP_ID and FORGE_APP_INSTALLATION_ID in compose.yml and .env.
+#issuedSecrets:
+#  forge-token:
+#    kind: github-app-installation
+#    appId: ${FORGE_APP_ID}
+#    installationId: ${FORGE_APP_INSTALLATION_ID}
+#    privateKey: forge-app-key
+#    permissions: {contents: write, metadata: read}
+#    refreshSeconds: 3000
