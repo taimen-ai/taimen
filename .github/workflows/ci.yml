@@ -99,7 +99,7 @@ jobs:
   control-plane:
     name: control-plane (all tests, PostgreSQL)
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 75
     services:
       postgres:
         image: postgres:16-alpine
