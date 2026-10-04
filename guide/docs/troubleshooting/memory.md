@@ -36,8 +36,8 @@ There are two independent paths:
 curl -s http://127.0.0.1:18001/healthz
 curl -s http://127.0.0.1:18000/metrics | grep -E '^context_'
 control-plane ops adapter status
-docker compose logs --since 30m context-adapter | tail -50
-docker compose logs --since 30m memory-service | grep -iE 'error|timeout|401|403'
+tools/compose logs --since 30m context-adapter | tail -50
+tools/compose logs --since 30m memory-service | grep -iE 'error|timeout|401|403'
 
 # check the static memory key (the endpoint requires authorization)
 curl -s -H "Authorization: Bearer $MEMORY_API_KEY" http://127.0.0.1:18001/api/brain/health
@@ -53,7 +53,7 @@ curl -s -H "Authorization: Bearer $MEMORY_API_KEY" http://127.0.0.1:18001/api/br
 | `parkedReason` mentions an unknown observation kind or schema | The core and memory versions are out of sync | Align the submodules at the superproject revisions, rebuild, redrive |
 | `context_adapter_lag` grows, no parking | Memory accepts slowly (embedding provider), and the adapter falls behind | Check provider latency; `CB_EMBEDDING_TIMEOUT` (60 s in compose) |
 | `context_adapter_lag_capped = 1` | The lag exceeds 1000 events | Same as above; once fixed, the adapter catches up on its own |
-| The core still uses the static key after bootstrap | `CP_CONTEXT_AUTH=auto` selects IAM only if `secrets/control-plane-iam.env` existed when the container was created | `docker compose up -d control-plane-api control-plane-worker context-adapter`; to verify, the output of `docker compose exec context-adapter env` contains `CP_IAM_CLIENT_ID` |
+| The core still uses the static key after bootstrap | `CP_CONTEXT_AUTH=auto` selects IAM only if `secrets/control-plane-iam.env` existed when the container was created | `tools/compose up -d control-plane-api control-plane-worker context-adapter`; to verify, the output of `tools/compose exec context-adapter env` contains `CP_IAM_CLIENT_ID` |
 | Memory was restored from an old backup, and the context is incomplete | The adapter cursor in the Control Plane database is ahead of the memory contents | `POST /api/v1/operations/context-adapter/<tenant-id>:rebuild`; memory deduplicates repeats |
 | Observations are accepted, but they are not in the graph | The observation projection failed (raw records are not lost) | `GET /api/memory/observations?status=failed&namespace=…`, then an idempotent redrive with `POST /api/memory/consolidate` |
 
@@ -82,7 +82,7 @@ rendering follows each one in parentheses.
 | `403 Нет прав на namespace: <ns> (…)` ("no permission on namespace: <ns> (…)") | The credential's grant does not cover the namespace | An IAM token grants access to `tenant:<tenant_id>` and its subtree; registry keys get prefix grants |
 | `403 Маршрут доступен только identity ядра (memory:service / CB_CORE_IDENTITIES)` ("route is available only to the core identity (…)") | A core route (reconcile, kind packages, namespace kinds) was called by something other than the core | Call it through Control Plane; the core service account has the `memory:service` scope |
 | `403 Нужен service scope (регистрация пакетов видов)` ("service scope required (kind package registration)") | Kind package registration without a service scope | Same: go through the core |
-| `503 БД недоступна: …` ("database unavailable: …") on `/healthz` | `memory-db` does not respond | `docker compose logs memory-db`, disk, container memory |
+| `503 БД недоступна: …` ("database unavailable: …") on `/healthz` | `memory-db` does not respond | `tools/compose logs memory-db`, disk, container memory |
 | Error `graph with oid … does not exist` | The database was restored from a logical dump into a new cluster | Fix the AGE catalog, see [Backup](../operations/backup.md) |
 | `404` on `/console` | The memory console is disabled (`MEMORY_CONSOLE_ENABLED=false`) | Enable it only together with authentication at the proxy; in the production layout, memory is not exposed externally |
 

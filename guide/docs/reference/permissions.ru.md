@@ -71,9 +71,15 @@ flowchart LR
 | `processes.operate` | Явный старт экземпляра, `:suspend`, `:resume`, `:cancel` (на workspace экземпляра). |
 | `packages.test` | Проверка и тесты пакета в песочнице ядра, replay процесса (`/packages:test`, `:replay`). |
 | `packages.plan` | План и применение пакета (`/packages:plan`, `/packages:apply`) и запись связи объектов с пакетом (`/packages:record`); применение и запись требуют ещё права видов. |
+| `packages.settings.read` | Чтение [настроек пакетов](../packages/settings.md): список пакетов с настройками, настройки пакета и их история. |
+| `packages.settings.manage` | Сохранение настроек пакета (`PUT /packages/{key}/settings`); не зависит от `packages.plan`. |
 | `calendars.write` | Публикация производственного календаря. |
 | `goals.read` | Чтение целей (Goals). |
 | `goals.write` | Создание и изменение целей. |
+| `connections.read` | Чтение типов подключений, подключений и состояния OAuth-приложения типа. См. [Подключения](../control-plane/connections.md#permissions). |
+| `connections.manage` | Публикация типов подключений, OAuth-приложение типа, заведение, изменение, подключение и отзыв подключений; публикация агента с непустым `spec.connections`. |
+| `connections.status.write` | Сообщение о потере доступа (`PUT /connections/{key}/status`) — только коннектору, чьё описание называет подключение. |
+| `agents.secrets.manage` | Задание и удаление секретов агентов (`PUT`, `DELETE /agents/{key}/secrets/{name}`); имена читаются по `agents.read`. |
 | `admin` | Все права. Только для людей и только под scope `control-plane:admin`. |
 
 !!! note "Только для людей"
@@ -125,7 +131,7 @@ Binding ищется по паре **(issuer, IAM principal id)**. Следст�
 ### Доменная авторизация через внешний PDP
 
 При `CP_AUTHZ_MODE=policy` решение по запросу с IAM-субъектом принимает
-внешний PDP по каталогу действий `control-plane/authz/catalog.yaml`
+внешний PDP по каталогу действий `services/control-plane/authz/catalog.yaml`
 (имена действий совпадают с правами). В режиме `shadow` решает локальная
 проверка, а PDP опрашивается параллельно и расхождения пишутся в журнал.
 Legacy-ключи всегда проверяются локально. Недоступность PDP даёт
@@ -158,9 +164,8 @@ scopes audience задаёт реестр IAM (`allowedScopes`), `make bootstrap
 | | `memory:tenants` | Всё поддерево `tenant:*` независимо от tenant токена. Только service account ядра. |
 | | `memory:on-behalf` | Сервис читает память от имени principal с переданной видимостью (при `CB_POLICY_ENABLED`). |
 | | `memory:service` | Service scope ядра: реестр доменных пакетов видов, reconcile, виды namespace. Только service account ядра. |
-| | `policy:check-on-behalf` | Проверки за конечного principal (resource services). |
-| | `policy:admin` | Роли и bindings tenant. |
 | `iam-scim` | `scim:write` (настраивается `IAM_SCIM_AUDIENCE`, `IAM_SCIM_SCOPE`) | SCIM-provisioning; только confidential service identity. |
+| `openbao` | `secrets:read` | Вход в [хранилище секретов](../operations/secret-store.md) методом `jwt`. Scope хранилище не проверяет — права задают его политики. |
 
 Namespaces памяти, доступные IAM-токену без `memory:tenants`:
 `tenant:<tenant_id>` и поддерево `tenant:<tenant_id>:*`, плюс namespaces из
@@ -220,11 +225,14 @@ audiences (`422 invalid_scope_ceiling`). Подробнее —
 
 | Service account | Audiences | Потолок scopes | Права в Control Plane | Где секрет |
 |---|---|---|---|---|
-| Control Plane (ядро) | `memory-service` | `memory:read`, `memory:write`, `memory:tenants`, `memory:on-behalf`, `memory:service` | — | `secrets/control-plane-iam.env` |
+| Control Plane (ядро) | `memory-service`, `openbao` | `memory:read`, `memory:write`, `memory:tenants`, `memory:on-behalf`, `memory:service`, `secrets:read` | — | `secrets/control-plane-iam.env` |
 
-При изменении потолка service account ядра bootstrap выпускает новый
-service account и отзывает прежний; после этого перезапустите
-`control-plane-api`, `control-plane-worker`, `context-adapter`.
+При изменении потолка service account ядра bootstrap меняет его на месте
+(`PATCH …/service-accounts/{clientId}`, см. [Service
+accounts](../iam/service-accounts.md#update)): principal и `clientId` прежние,
+env-файл не меняется. Новые scope ядро получит со следующим обменом client
+credentials; чтобы не ждать, перезапустите `control-plane-api`,
+`control-plane-worker`, `context-adapter`.
 
 ## Типичные вопросы
 

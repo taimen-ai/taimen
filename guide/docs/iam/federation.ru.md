@@ -140,7 +140,7 @@ flowchart LR
 
 !!! tip "IAM должен видеть IdP по адресу issuer"
     Discovery идёт по `<issuer>/.well-known/openid-configuration`, то есть по
-    публичному адресу. В `compose.yml` периметр Caddy имеет в сети сервисов
+    публичному адресу. В `deploy/local/compose.yml` периметр Caddy имеет в сети сервисов
 
     псевдоним `${TAIMEN_PUBLIC_HOST}`, поэтому контейнер IAM достигает
     IdP, опубликованного за тем же периметром, по публичному имени. Если IAM

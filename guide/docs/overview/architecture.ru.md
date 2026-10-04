@@ -83,7 +83,7 @@ flowchart TB
 
 !!! note "Runner вне compose"
     Демон автономного исполнителя `control-plane-agent` не входит в
-    `compose.yml`: он ставится на отдельный хост (или машину разработчика) и
+    `deploy/local/compose.yml`: он ставится на отдельный хост (или машину разработчика) и
     ходит в Control Plane и IAM по сети, как любой другой клиент. См.
     [Агенты и runner](../runner/index.md).
 
@@ -97,11 +97,9 @@ flowchart TB
 |---|---|---|
 | `/iam/*` | `iam-service:8010` | префикс срезается; issuer IAM = `${TAIMEN_PUBLIC_URL}/iam` |
 | `/api/v1/*`, `/health/*`, `/docs`, `/redoc`, `/openapi.json` | `control-plane-api:8000` | `/metrics` наружу не выводится |
-| `/console/*` | `console:8090` | профиль `core`; [консоль](../operator/console.md), сервер сам живёт под `/console` |
 | `/notify/*` | `notification-service:8000` | профиль `notify` |
 | `/guide/*` | `guide:8080` | профиль `edge`; это руководство |
 | `/memory/*` | `memory-service:8077` | **только в локальном Caddyfile**; в промышленной раскладке память наружу не публикуется |
-| `/` (всё остальное) | — | веб-интерфейс поставки — [консоль](../operator/console.md) по `/console/`; кроме неё — API, CLI и MCP |
 
 Кроме того, каждый сервис публикует порт на `127.0.0.1` хоста (например,
 Control Plane — `18000`, IAM — `18010`, память — `18001`) для локальной работы,

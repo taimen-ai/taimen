@@ -69,20 +69,36 @@ The rules of the game:
 - A class contract is considered proven when a second provider has implemented it
   without changes.
 
-!!! warning "Connections are planned"
-    TAI-ADR-0061 introduces the `ConnectionType` catalog kind in a provider
-    package (the `oauth2` and `token` connection methods, a schema of non-secret
-    settings), the core `Connection` resource, a secret store, and access to a
-    connection from the integration code (`ctx.connection(<key>)`). The
-    `package-sdk` v1 format schema and `skill-sdk` do not have this yet; it is
-    the connections feature.
+## Connections { #connections }
+
+An account in an external system is a [connection](../control-plane/connections.md),
+not a secret in the agent's description. The provider package brings the
+`ConnectionType` catalog kind: the connection methods (`oauth2`, `token`), the
+OAuth addresses, the account field, and the schema of non-secret settings. An
+administrator creates the connection and connects it; the access material lives
+in the secret store, and the core keeps only the information about it.
+
+- **An agent names the connection** with a key in `spec.connections`; by
+  default, the type's `defaultKey`.
+- **The integration code gets it** through skill-sdk `ctx.connection(<key>)` (the
+  skill host) or `skill_sdk.ConnectionClient` (the observer): `type`, `account`,
+  `settings`, and `await access_token()`. The store refreshes the tokens; the code
+  does not keep them.
+- **Lost access** (the external system refuses after a token refresh) is
+  reported by the observer to the core (`PUT /connections/{key}/status` →
+  `expired`), and the `connections` package creates a reconnect task.
+- **Settings** (`settings`) are non-secret JSON by the type's `settingsSchema`:
+  stage roles, fields of the external system. The code reads them from the same
+  `ctx.connection`.
 
 ## Integration secrets { #secrets }
 
-Until connections exist, an integration secret is a name in `placement.secrets` of
-its agents: the node administrator puts the value in a file, and the node mounts
-it at `/run/secrets/<name>`. Both agents of the integration read it by the same
-rule:
+A secret that is not an account in an external system is a name in
+`placement.secrets` of the integration's agents. The value is set through the
+core (`PUT /agents/{key}/secrets/{name}`, see
+[Connections](../control-plane/connections.md#agent-secrets)) and kept in the
+secret store; before the agent starts, it is placed at `/run/secrets/<name>`.
+Both agents of the integration read the secret by the same rule:
 
 - **the observer**: `ctx.secret(<name>)` of the `package_sdk.connector`
   environment, on every cycle (see [below](#observer));
@@ -426,6 +442,7 @@ revision, and the executor switches to it by itself.
 
 ## See also
 
+- [Connections](../control-plane/connections.md): the connection type, OAuth, agent access
 - [Package agents](agents.md): the observer, the skill host, the image
 - [Package skills](skills.md): integration actions
 - [Knowledge and ontology](knowledge.md): the class ontology and snapshots

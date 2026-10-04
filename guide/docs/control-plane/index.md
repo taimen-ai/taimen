@@ -76,8 +76,7 @@ Run       = execution attempt    (a specific attempt; result, artifacts)
 
 ## Processes
 
-A single `control-plane` image runs as three processes. In the superproject's root
-`compose.yml` they belong to the `core` profile.
+A single `control-plane` image runs as three processes. In the superproject's `deploy/local/compose.yml` they belong to the `core` profile.
 
 | Compose service | Command | Purpose |
 |---|---|---|

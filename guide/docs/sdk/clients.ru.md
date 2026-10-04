@@ -17,7 +17,7 @@ Plane и `platform-memory-client` для memory-service. Статья описы
 | | |
 |---|---|
 | Пакет | `control_plane_client` (дистрибутив `control-plane-client`) |
-| Где лежит | `control-plane/client` |
+| Где лежит | `services/control-plane/client` |
 | Зависимости | только `httpx` |
 | Протокол | `control-harness/2`; базовый путь `{server}/api/v1` |
 
@@ -193,7 +193,7 @@ tenant'у, workspace, проекту и репозиторию; `write_project_c
 | | |
 |---|---|
 | Пакет | `platform_memory_client` (дистрибутив `platform-memory-client`) |
-| Где лежит | `memory-service/client` |
+| Где лежит | `services/memory-service/client` |
 | Зависимости | `httpx`, `pydantic` (движок памяти не подтягивается) |
 | Классы | `MemoryClient` (синхронный), `AsyncMemoryClient` (asyncio) |
 

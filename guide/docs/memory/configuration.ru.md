@@ -10,7 +10,7 @@
 Сервис читает переменные окружения с префиксом `CB_` (и файл `.env` в рабочем
 каталоге процесса, если он есть). Полный список — `src/platform_memory/core/config.py`
 в репозитории memory-service. В составе платформы значения задаёт блок
-`memory-service` корневого `compose.yml`, часть из них — через переменные корневого
+`memory-service` `deploy/local/compose.yml`, часть из них — через переменные корневого
 `.env`:
 
 | Переменная `.env` | По умолчанию | Во что превращается |
@@ -33,7 +33,7 @@
 | `VOLUME_MEMORY_DB` | `<проект>_memory_db` | Имя тома БД |
 
 
-Жёстко заданы в `compose.yml`: `CB_PII_PROTECTION=true`, пустой
+Жёстко заданы в `deploy/local/compose.yml`: `CB_PII_PROTECTION=true`, пустой
 `CB_SERVER_API_KEYS_PII`, `CB_DEFAULT_NAMESPACE=main`, `CB_EMBEDDING_DIM=1536`,
 `CB_EMBEDDING_TIMEOUT=60`, `CB_RERANK_POOL=20`,
 `CB_IAM_JWKS_URL=http://iam-service:8010/.well-known/jwks.json`,
@@ -226,7 +226,7 @@
 ### Ресурсы и размещение
 
 - Сервис stateless, всё состояние — в `memory-db`. Порт наружу не публикуется:
-  в `compose.yml` он привязан к `127.0.0.1`, а платформа вызывает память по
+  в `deploy/local/compose.yml` он привязан к `127.0.0.1`, а платформа вызывает память по
   внутреннему адресу.
 - Схема (граф, таблицы, индексы) создаётся и доводится идемпотентно при старте
   сервиса; миграции аддитивны, отдельных шагов при обновлении не требуют.
@@ -255,15 +255,15 @@
 Вся память — в одной БД `memory-db`, поэтому бэкап — это `pg_dump`:
 
 ```bash
-docker compose exec -T memory-db \
+tools/compose exec -T memory-db \
   pg_dump -U memory -d company_brain -Fc > memory-$(date +%Y%m%d-%H%M).dump
 ```
 
 Восстановление — на свежий том, где init-скрипт уже создал расширения:
 
 ```bash
-docker compose stop memory-service
-docker compose exec -T memory-db \
+tools/compose stop memory-service
+tools/compose exec -T memory-db \
   pg_restore -U memory -d company_brain --clean --if-exists < memory-XXXX.dump
 ```
 
@@ -306,7 +306,7 @@ COMMIT;
 Затем запустите сервис и проверьте:
 
 ```bash
-docker compose start memory-service
+tools/compose start memory-service
 curl -fsS http://127.0.0.1:18001/healthz        # nodes и chunks > 0
 curl -fsS -X POST http://127.0.0.1:18001/api/brain/recall \
   -H "Authorization: Bearer $MEMORY_API_KEY" -H "Content-Type: application/json" \
@@ -348,8 +348,8 @@ curl -fsS -X POST http://127.0.0.1:18001/api/brain/recall \
 ### Обновление
 
 ```bash
-docker compose build memory-service
-docker compose up -d memory-service
+tools/compose build memory-service
+tools/compose up -d memory-service
 curl -fsS http://127.0.0.1:18001/healthz
 ```
 
@@ -365,7 +365,7 @@ curl -fsS http://127.0.0.1:18001/healthz
 | Проекция наблюдений | `GET /api/memory/observations?namespace=…&status=failed`; повтор — `POST /api/memory/consolidate` |
 | Почему собран такой контекст | `GET /api/memory/context/trace/{trace_id}` |
 | След операции (запись, удаление, доступ к ПДн) | `GET /api/brain/trace/{trace_id}?namespace=…` |
-| Логи | `docker compose logs -f memory-service` |
+| Логи | `tools/compose logs -f memory-service` |
 
 ## Типичные проблемы
 

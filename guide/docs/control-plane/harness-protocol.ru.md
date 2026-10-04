@@ -31,7 +31,7 @@ Bearer-credential бывает двух видов:
   обменом Platform Access Token (PAT). Права берутся из привязки identity к
   локальному principal. Это основной режим поставки;
 - **legacy API-ключ** `cp_<prefix>_<secret>`. Принимается, только пока
-  `CP_LEGACY_API_KEYS_ENABLED=true`. В `compose.yml` поставки по умолчанию
+  `CP_LEGACY_API_KEYS_ENABLED=true`. В `deploy/local/compose.yml` поставки по умолчанию
   стоит `false`.
 
 ## Жизненный цикл харнесса

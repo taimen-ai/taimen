@@ -106,7 +106,7 @@ data clearance:
 | `CB_SERVER_API_KEYS_PII` | Full clearance; every release of personal data is logged as `pii_access` |
 | `CB_SERVER_API_KEY` | Masked results (`[ПДн:phone]` and so on) |
 
-In the platform's root `compose.yml`, `CB_SERVER_API_KEY` equals
+In the platform's `deploy/local/compose.yml`, `CB_SERVER_API_KEY` equals
 `MEMORY_API_KEY`, `CB_SERVER_API_KEYS_PII` is empty, and
 `CB_PII_PROTECTION=true`, so the platform's static key gets masked results.
 
@@ -207,7 +207,7 @@ client's scope ceiling (the SDK checks this). A valid token without
 
 !!! tip "JWKS at the internal address"
     Point `CB_IAM_JWKS_URL` at the internal IAM address in the deployment's
-    network (`http://iam-service:8010/.well-known/jwks.json` in `compose.yml`),
+    network (`http://iam-service:8010/.well-known/jwks.json` in `deploy/local/compose.yml`),
     not at the external proxy: signature verification must not depend on
     external TLS. Keys are cached with rotation in mind.
 

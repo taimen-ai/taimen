@@ -30,15 +30,15 @@ the case closes; a reopened request makes a rule file a new review task.
 Checks and tests without a deployment are executed by **the core code**: the
 `sandbox` extra installs the `control-plane` package next to the tool.
 Platform components are not installed from the public package index: they are
-connected as sources, in neighboring directories, as in the delivery's root
-repository.
+connected as sources, in the layout of the delivery's root repository
+(`services/`, `sdk/`).
 
 ```bash
 mkdir taimen-src && cd taimen-src
-git clone --branch <tag> https://github.com/taimen-ai/package-sdk.git
-git clone --branch <core tag> https://github.com/taimen-ai/control-plane.git
-git clone --branch <tag> https://github.com/taimen-ai/platform-auth-sdk.git
-uv tool install "./package-sdk[sandbox]"
+git clone --branch <tag> https://github.com/taimen-ai/package-sdk.git sdk/package-sdk
+git clone --branch <core tag> https://github.com/taimen-ai/control-plane.git services/control-plane
+git clone --branch <tag> https://github.com/taimen-ai/platform-auth-sdk.git sdk/platform-auth-sdk
+uv tool install "./sdk/package-sdk[sandbox]"
 package-sdk --version
 ```
 
@@ -53,15 +53,15 @@ package-sdk --version
   clone of the root repository with its submodules is already laid out the way
   `uv tool install` needs.
 - The `skills`, `mcp`, and `all` extras need one more neighbor, `skill-sdk`
-  (`git clone --branch <tag> https://github.com/taimen-ai/skill-sdk.git` next to
-  the others): without it, installing with these extras fails. Which neighbors
+  (`git clone --branch <tag> https://github.com/taimen-ai/skill-sdk.git sdk/skill-sdk`
+  next to the other SDKs): without it, installing with these extras fails. Which neighbors
   each extra needs is in [Package tests](testing.md#install).
 - The extra installs the neighboring directories in editable mode: the clones
   must stay in place while the tool is installed.
 - The `package-sdk` command without arguments prints the list of commands.
 
 !!! tip "Without the core code"
-    `uv tool install ./package-sdk` without `[sandbox]` installs only the tool.
+    `uv tool install ./sdk/package-sdk` without `[sandbox]` installs only the tool.
     Then `check` validates the schema and references and exits with the error
     `доменные валидаторы ядра не импортируются` ("core domain validators cannot
     be imported"): it will not silently limit itself to the schema. The
@@ -445,7 +445,7 @@ More about installation, variables, and sources is in
 
 | Symptom | Cause | What to do |
 |---|---|---|
-| `check`: `доменные валидаторы ядра не импортируются — проверена только схема формата` ("core domain validators cannot be imported; only the format schema was checked") | the tool was installed without `[sandbox]` | reinstall with `uv tool install --reinstall "./package-sdk[sandbox]"` |
+| `check`: `доменные валидаторы ядра не импортируются — проверена только схема формата` ("core domain validators cannot be imported; only the format schema was checked") | the tool was installed without `[sandbox]` | reinstall with `uv tool install --reinstall "./sdk/package-sdk[sandbox]"` |
 | `test`: `sandbox_database_required`, the run is `FAIL` | no database for rule and task type scenarios | set `PACKAGE_SDK_SANDBOX_DATABASE_URL` or `--database-url` |
 | `engines_mismatch` among the warnings | the package declares a different core version than the core code next to the tool | install a core clone of the right tag or fix `engines` |
 | `init`: `уже есть — заготовка не перезаписывает файлы` ("already exists; the scaffold does not overwrite files") | the directory already contains package files | use an empty directory; the scaffold leaves `.gitignore` as it is and appends the generated section to an existing `README.md` |

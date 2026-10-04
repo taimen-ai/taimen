@@ -50,7 +50,7 @@ credentials itself.
 
 | Variable | Meaning |
 |---|---|
-| `CP_IAM_ENABLED` | enables IAM token verification (`false` by default, `true` in `compose.yml`) |
+| `CP_IAM_ENABLED` | enables IAM token verification (`false` by default, `true` in `deploy/local/compose.yml`) |
 | `CP_IAM_ISSUER` | the expected `iss` of the token |
 | `CP_IAM_JWKS_URL` | where to get the signing keys |
 | `CP_IAM_AUDIENCE` | the expected `aud`, `control-plane` by default |
@@ -61,7 +61,7 @@ than either of the two finished states.
 
 !!! tip "JWKS by internal address"
     Signature verification must not depend on the external proxy or on its own
-    TLS. In `compose.yml`, `CP_IAM_JWKS_URL` points to
+    TLS. In `deploy/local/compose.yml`, `CP_IAM_JWKS_URL` points to
     `http://iam-service:8010/.well-known/jwks.json`, and `CP_IAM_ISSUER` to the
     public `${TAIMEN_PUBLIC_URL}/iam`.
 
@@ -71,7 +71,7 @@ A key of the form `cp_<prefix>_<secret>` is issued through
 `POST /principals/{id}/api-keys` (the full key is shown once) and revoked
 through `POST /api-keys/{id}:revoke`. The key is accepted only while
 `CP_LEGACY_API_KEYS_ENABLED=true`. The default in the settings is `true`; in
-the delivery's `compose.yml` it is `false`: the "IAM only" mode.
+the delivery's `deploy/local/compose.yml` it is `false`: the "IAM only" mode.
 
 Which kind of credential the server is looking at is determined **by the form**
 of the value, without trying methods one by one: trying them would reveal
@@ -325,7 +325,7 @@ Mode specifics:
   [Task context and memory](context.md).
 
 The Control Plane actions and resource types for the PDP are described in the
-file `control-plane/authz/catalog.yaml`; you register it in the external PDP.
+file `services/control-plane/authz/catalog.yaml`; you register it in the external PDP.
 Action names match the permissions except for three: `admin` maps to the
 tenant-admin role, `delegations.manage` to the PDP admin API, and
 `observations.write` to the memory-service catalog. Examples of derived rules:

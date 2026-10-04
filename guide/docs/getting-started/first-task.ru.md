@@ -209,7 +209,7 @@ CLI входит в пакет `control-plane` и ставится как uv-и�
 (рядом должен лежать `platform-auth-sdk` — path-зависимость):
 
 ```bash
-uv tool install ./control-plane
+uv tool install ./services/control-plane
 control-plane --version
 ```
 
@@ -283,7 +283,7 @@ control-plane events tail --replay 10            # Ctrl+C для выхода
 
 ## Способ 3. MCP-сервер в Claude Code
 
-MCP-сервер `control-plane-mcp` ставится тем же `uv tool install ./control-plane`
+MCP-сервер `control-plane-mcp` ставится тем же `uv tool install ./services/control-plane`
 и работает по stdio. Он держит сессию и heartbeat claim сам, а права — те же,
 что у PAT оператора.
 

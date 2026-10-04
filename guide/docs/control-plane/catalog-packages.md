@@ -76,7 +76,7 @@ release](../packages/install-and-release.md#plan)) is applied in sections:
 A file in the `agents/` folder describes an agent in full: identity and
 permissions, which work it takes, the executor kind with parameters and
 instructions, the working copy, skills, and placement (TAI-ADR-0052). The
-schema is `$defs.agentSpec` in `package-sdk/schema/v1/object.schema.json`; for
+schema is `$defs.agentSpec` in `sdk/package-sdk/schema/v1/object.schema.json`; for
 the author, see [Package agents](../packages/agents.md).
 
 - `check` validates the description against the format schema and the core's

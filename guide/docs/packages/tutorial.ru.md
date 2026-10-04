@@ -79,7 +79,7 @@ spec:
   displayName: Customer claims
   license: Apache-2.0
   engines:
-    control-plane: ">=0.9,<0.10"
+    control-plane: ">=0.10,<0.11"
   knowledge: ["default@1", "claims@1"]
   variables:
     CLAIMS_WORKSPACE_ID:

@@ -63,7 +63,6 @@ flowchart TB
 
 ## См. также
 
-- [Консоль](console.md)
 - [Ключевые понятия](../overview/concepts.md)
 - [Модель работы](../control-plane/work-model.md)
 - [Approvals](../control-plane/approvals.md)

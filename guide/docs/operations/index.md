@@ -16,7 +16,7 @@ if needed, **a separate runner host** for autonomous executors.
 ```mermaid
 flowchart LR
     user([People and harness]) ==>|HTTPS 443| caddy
-    subgraph host["Platform host (root compose.yml)"]
+    subgraph host["Platform host (deploy/local/compose.yml)"]
         caddy[Caddy<br/>the only edge]
         caddy ==> iam[iam-service]
         caddy ==> cp[control-plane-api]
@@ -33,7 +33,7 @@ flowchart LR
 Key principles:
 
 
-- **One description file**: the superproject's root `compose.yml` with
+- **One description file**: the superproject's `deploy/local/compose.yml` with
   profiles (`core`, `edge`, `notify`). A local installation and a production
   one differ only in the `.env` file and the Caddyfile.
 - **One edge**: only the `caddy` container publishes ports (80/443).
@@ -57,12 +57,12 @@ Key principles:
 | [Secrets and rotation](secrets.md) | Secret inventory, file permissions, rotating PATs, the signing key, passwords |
 | [Backup](backup.md) | What to back up, `pg_dump` of each database, Apache AGE specifics, restore |
 | [Monitoring and health](monitoring.md) | Health endpoints, `/metrics`, `make smoke`, logs, what to alert on |
-| [Resources and scaling](capacity.md) | Memory limits from `compose.yml`, minimum and recommended configurations |
+| [Resources and scaling](capacity.md) | Memory limits from `deploy/local/compose.yml`, minimum and recommended configurations |
 | [Emergency procedures](emergency.md) | IAM outage, release rollback, loss of the runner host, credential compromise |
 
 ## On-call checklist
 
-- [ ] `make smoke` is green, `docker compose --profile "*" ps` shows no `unhealthy`.
+- [ ] `make smoke` is green, `tools/compose --profile "*" ps` shows no `unhealthy`.
 - [ ] Control Plane `GET /health/ready` returns `200`, not `503`.
 - [ ] `context_adapter_parked_tenants` equals `0`.
 - [ ] At least 20% of the disk is free (the Control Plane log and memory grow).
@@ -72,7 +72,7 @@ Key principles:
 
 !!! tip "Where to run commands"
     All `docker compose` commands in this section run from the root of the
-    superproject clone, where `compose.yml` and `.env` live. The `make`
+    superproject clone, where `deploy/local/compose.yml` and `.env` live. The `make`
     targets are described in the [Make targets](../reference/make.md)
     reference.
 

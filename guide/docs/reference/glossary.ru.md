@@ -111,7 +111,6 @@ Plane (tenant, администратор, binding) и bootstrap-эндпоин�
 **Edge** — профиль compose с единственным внешним контейнером `caddy`. →
 [Периметр и TLS](../operations/edge-and-tls.md)
 
-
 **Entitlement** — лицензирование продуктов и features, квоты и места.
 Проверку выполняет внешний сервис лицензий, если он подключён (стадия
 entitlement PEP). → [platform-auth-sdk](../sdk/platform-auth-sdk.md#entitlement-stage)
@@ -264,7 +263,7 @@ Enforcement Point (resource service, применяет решение). Реж�
 `human`, `agent`, `service_account`, `workload` в IAM. → [Tenants и principals](../iam/principals.md)
 
 
-**Profile (профиль compose)** — группа сервисов `compose.yml`, включаемая
+**Profile (профиль compose)** — группа сервисов `deploy/local/compose.yml`, включаемая
 флагом `--profile` (`core`, `edge`, `notify` …). →
 [Сервисы и порты](services-and-ports.md)
 
@@ -391,7 +390,7 @@ PAT и binding без human-only прав.
 [Процессы](../processes/index.md)
 
 **Суперпроект** — репозиторий верхнего уровня: компоненты подключены
-git-сабмодулями плоско в корне, плюс `compose.yml`, `.env.example`,
+git-сабмодулями плоско в корне, плюс `deploy/local/compose.yml`, `.env.example`,
 `Makefile`, `deploy/`, `packages/`, `tools/`.
 
 ## См. также

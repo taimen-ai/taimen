@@ -2,7 +2,7 @@
 
 Статья разбирает единый файл окружения платформы — `.env` в корне
 суперпроекта — по группам: что означает каждая переменная, в какие переменные
-сервисов она раскладывается в `compose.yml`, какое значение нормально для
+сервисов она раскладывается в `deploy/local/compose.yml`, какое значение нормально для
 локального стенда и что менять для своего. Полный алфавитный перечень всех
 переменных всех компонентов — в [Переменных окружения](../reference/environment.md).
 
@@ -11,7 +11,7 @@
 ```mermaid
 flowchart LR
     EX[.env.example<br/>в git] -->|make secrets| ENV[.env<br/>0600, вне git]
-    ENV -->|интерполяция| C[compose.yml]
+    ENV -->|интерполяция| C[deploy/local/compose.yml]
     C -->|CP_*| CP[control-plane-*]
     C -->|IAM_*| IAM[iam-service]
     C -->|CB_*| MEM[memory-service]
@@ -25,7 +25,7 @@ flowchart LR
 Принципы:
 
 - **Одно понятие — одно имя.** В `.env` задаётся, например, один
-  `MEMORY_API_KEY`, а `compose.yml` сам раскладывает его в `CB_SERVER_API_KEY`
+  `MEMORY_API_KEY`, а `deploy/local/compose.yml` сам раскладывает его в `CB_SERVER_API_KEY`
   памяти и `CP_CONTEXT_API_KEY` ядра. Код сервисов для смены окружения менять
   не нужно.
 - **Локальный и промышленный стенд различаются только `.env` и Caddyfile.**
@@ -34,7 +34,7 @@ flowchart LR
 - `.env` читают три потребителя: Docker Compose (автоматически из корня),
   `deploy/bootstrap.py` (`--env .env`) и `tools/smoke.py` (порты).
 - Переменные, которых нет в `.env.example`, имеют значения по умолчанию прямо в
-  `compose.yml` (`${VAR:-default}`) — их можно добавить в `.env`, чтобы
+  `deploy/local/compose.yml` (`${VAR:-default}`) — их можно добавить в `.env`, чтобы
   переопределить.
 
 !!! warning "Интерполяция всего файла"
@@ -123,7 +123,7 @@ MEMORY_RERANK_ENABLED=true
 ```
 
 ```bash
-docker compose up -d memory-service
+tools/compose up -d memory-service
 ```
 
 !!! warning "Переиндексация после `fake`"
@@ -152,11 +152,10 @@ docker compose up -d memory-service
 |---|---|---|
 | `CP_LEGACY_API_KEYS_ENABLED` | `false` | Принимать ли статические ключи `cp_…`. В поставке — только IAM; `true` — аварийный режим |
 | `CP_CONTEXT_AUTH` | `auto` | Чем ядро авторизуется в памяти: `auto` — service account из `secrets/control-plane-iam.env`, пока файла нет — `MEMORY_API_KEY`; `api_key` или `iam` — принудительно |
-| `CP_ENTITLEMENT_ENABLED` | `false` | Проверять лицензии во внешнем сервисе лицензирования, если он подключён. Выключенная проверка видна в аудите как источник решения `disabled` |
 | `CP_AUTHZ_MODE` | `local` | Источник доменной авторизации: `local`; `shadow` и `policy` — режимы с внешним PDP (experimental) |
 | `CP_CORS_ORIGINS` | `[]` | JSON-список origin'ов для CORS API Control Plane (нужен, только если браузерный клиент ходит в API напрямую, а не через шлюз) |
 
-Жёстко заданы в `compose.yml` и из `.env` не меняются: `CP_IAM_ENABLED=true`,
+Жёстко заданы в `deploy/local/compose.yml` и из `.env` не меняются: `CP_IAM_ENABLED=true`,
 `CP_IAM_AUDIENCE=control-plane`, `CP_IAM_ISSUER=${TAIMEN_PUBLIC_URL}/iam`,
 `CP_IAM_JWKS_URL` (внутренний адрес IAM), `CP_CONTEXT_PROVIDER=http`,
 `CP_CONTEXT_BASE_URL`. Остальные настройки Control Plane (TTL claims и сессий,
@@ -174,7 +173,7 @@ docker compose up -d memory-service
 | `NOTIFY_HOST_PORT` | `18045` | notification-service |
 
 Bootstrap и `make smoke` ходят в сервисы именно по этим портам — при смене
-значения меняйте его в `.env`, а не в `compose.yml`.
+значения меняйте его в `.env`, а не в `deploy/local/compose.yml`.
 
 ## Лимиты памяти контейнеров
 
@@ -200,7 +199,7 @@ Bootstrap и `make smoke` ходят в сервисы именно по эти�
 `VOLUME_CADDY_DATA`, `VOLUME_CADDY_CONFIG`, `VOLUME_NOTIFY_DB`,
 `VOLUME_PLATFORM_MINIO` (том MinIO с содержимым артефактов) позволяют указать
 уже существующие volumes — например, при переводе стенда, поднятого раньше
-другими compose-файлами, на корневой `compose.yml` без потери данных.
+другими compose-файлами, на `deploy/local/compose.yml` без потери данных.
 
 ## Сборка образов
 
@@ -226,7 +225,7 @@ Bootstrap и `make smoke` ходят в сервисы именно по эти�
 | `secrets/notification-iam.env` | `notification-service` | `NS_SERVICE_CLIENT_ID`, `NS_SERVICE_CLIENT_SECRET` — service account сервиса уведомлений |
 
 После появления или замены такого файла перезапустите потребителя
-(`docker compose up -d <сервис>`) — `env_file` читается при создании
+(`tools/compose up -d <сервис>`) — `env_file` читается при создании
 контейнера.
 
 ## Промышленный стенд: что поменять

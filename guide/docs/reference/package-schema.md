@@ -2,8 +2,8 @@
 # Package schema
 
 Field reference for all package files: the object wrapper, each catalog kind,
-package tests, source pinning in `packages.lock`, and the installation plan. The tables
-are built from the JSON Schema `package-sdk/schema/v1` and follow it field for field.
+package tests, source pinning in `packages.lock`, the installation plan, and screens. The tables
+are built from the JSON Schema `sdk/package-sdk/schema/v1` and follow it field for field.
 This page is for package authors; [Package
 anatomy](../packages/anatomy.md), [Processes](../processes/index.md),
 [Expressions](../processes/expressions.md), and [Package tests](../packages/testing.md) explain how to use it.
@@ -31,7 +31,7 @@ Every object file of a package — `package.yaml`, the catalog kind files, and t
 <!-- generated:schema-object -->
 _This section is generated from code; do not edit it by hand._
 
-Source: `package-sdk/schema/v1/object.schema.json`.
+Source: `sdk/package-sdk/schema/v1/object.schema.json`.
 
 ### `object` { #schema-object }
 
@@ -40,7 +40,7 @@ One wrapper for the manifest and all catalog kinds: apiVersion + kind + key + sp
 | Field | Type | Required | Description |
 |---|---|---|---|
 | `apiVersion` | = `taimen.ai/v1` | yes |  |
-| `kind` | `Package` \| `Installation` \| `ArtifactType` \| `TaskType` \| `ProjectTemplate` \| `WorkspaceType` \| `Role` \| `Capability` \| `Skill` \| `WorkRule` \| `Agent` \| `NotificationRule` \| `Process` \| `Calendar` \| `KnowledgePack` | yes |  |
+| `kind` | `Package` \| `Installation` \| `ArtifactType` \| `TaskType` \| `ProjectTemplate` \| `WorkspaceType` \| `Role` \| `Capability` \| `ConnectionType` \| `Skill` \| `WorkRule` \| `Agent` \| `NotificationRule` \| `Process` \| `Calendar` \| `KnowledgePack` | yes |  |
 | `key` | `string` | yes |  |
 | `spec` | `object` | yes |  |
 
@@ -56,6 +56,7 @@ Conditions:
 | `kind` = `WorkspaceType` | `key`: [`typeKey`](#schema-typekey); `spec`: [`workspaceTypeSpec`](#schema-workspacetypespec) |
 | `kind` = `Role` | `key`: [`slug`](#schema-slug); `spec`: [`roleSpec`](#schema-rolespec) |
 | `kind` = `Capability` | `spec`: [`capabilitySpec`](#schema-capabilityspec) |
+| `kind` = `ConnectionType` | `key`: [`connectionKey`](#schema-connectionkey); `spec`: [`connectionTypeSpec`](#schema-connectiontypespec) |
 | `kind` = `Skill` | `spec`: [`skillSpec`](#schema-skillspec) |
 | `kind` = `WorkRule` | `key`: [`ruleKey`](#schema-rulekey); `spec`: [`workRuleSpec`](#schema-workrulespec) |
 | `kind` = `Agent` | `key`: [`slug`](#schema-slug); `spec`: [`agentSpec`](#schema-agentspec) |
@@ -70,7 +71,7 @@ Conditions:
 <!-- generated:schema-package -->
 _This section is generated from code; do not edit it by hand._
 
-Source: `package-sdk/schema/v1/object.schema.json`.
+Source: `sdk/package-sdk/schema/v1/object.schema.json`.
 
 ### `packageSpec` { #schema-packagespec }
 
@@ -87,6 +88,7 @@ Source: `package-sdk/schema/v1/object.schema.json`.
 | `authors` | array of `string` |  |  |
 | `homepage` | `string` |  |  |
 | `renames` | array of [object](#schema-packagespec-renames-item) |  | Explicit object renames (like moved in Terraform): the plan moves the object instead of deleting and creating it |
+| `settings` | [`packageSettings`](#schema-packagesettings) |  |  |
 
 ### `packageSpec.requires[] (2)` { #schema-packagespec-requires-item-2 }
 
@@ -118,6 +120,171 @@ Value: `string`.
 | `required` | `boolean` |  | Default: `true`. |
 | `default` | `string` |  | Value used if the installation does not set its own |
 | `example` | `string` |  |  |
+
+### `packageSettings` { #schema-packagesettings }
+
+Package settings: values an organization administrator changes in the live system without a new package version or an installation plan. Values live in the core; processes, work rules and views read them as settings.&lt;field&gt;
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `schema` | [`settingsSchema`](#schema-settingsschema) | yes |  |
+| `uischema` | [`settingsUiElement`](#schema-settingsuielement) |  | Form layout: the closed subset of JSON Forms the console renders — VerticalLayout, HorizontalLayout, Group, Control and Label with SHOW/HIDE/ENABLE/DISABLE rules; anything else is rejected. Labels are keys of the package dictionaries, not texts: label of a Group and of a Control, text of a Label. Unlike the uischema of process step forms, which is open and whose label is a text. Without it the console lays the fields out in schema order |
+
+### `settingsSchema` { #schema-settingsschema }
+
+Schema of the settings: a subset of JSON Schema, as for process data. The root is an object; objects nest at most 3 levels deep; at most 100 properties per object. Field labels are not in the schema: they are keys &lt;package&gt;.settings.&lt;path&gt; of the package dictionaries
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `type` | = `object` | yes |  |
+| `properties` | map → [`settingsField1`](#schema-settingsfield1) | yes |  |
+| `required` | [`settingsRequired`](#schema-settingsrequired) |  |  |
+
+### `settingsFieldName` { #schema-settingsfieldname }
+
+Field name: camelCase, as referenced in expressions (settings.&lt;field&gt;)
+
+Value: `string`.
+
+### `settingsField1` { #schema-settingsfield1 }
+
+Includes [`settingsKeywords`](#schema-settingskeywords).
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `properties` | any |  |  |
+| `items` | [`settingsField2`](#schema-settingsfield2) |  |  |
+
+### `settingsKeywords` { #schema-settingskeywords }
+
+One settings field: only the keywords listed here; secret markers (writeOnly, format: password) and keywords outside the subset are rejected
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `type` | `string` \| `integer` \| `number` \| `boolean` \| `array` \| `object` | yes |  |
+| `properties` | `object` |  |  |
+| `required` | [`settingsRequired`](#schema-settingsrequired) |  |  |
+| `enum` | array of [`settingsScalar`](#schema-settingsscalar) |  |  |
+| `minimum` | `number` |  |  |
+| `maximum` | `number` |  |  |
+| `minLength` | `integer` |  |  |
+| `maxLength` | `integer` |  |  |
+| `pattern` | `string` |  | ECMA-262 regular expression |
+| `format` | `date` \| `uri` \| `email` \| `uuid` |  |  |
+| `items` | `object` |  |  |
+| `default` | any |  | Value in effect until an administrator saves another; every optional field must have one (package-sdk check) |
+| `x-ref` | `role` \| `principal` \| `workspace` \| `calendar` \| `taskType` |  | The string references a platform object of this kind in the organization: the id of a role, principal or workspace, the key of a task type or calendar; the core rejects a value that references a missing object |
+
+Conditions:
+
+| Condition | Consequence |
+|---|---|
+| `type` = `object` | required `properties` |
+| otherwise | `properties`: not allowed; `required`: not allowed |
+| `type` = `array` | required `items` |
+| otherwise | `items`: not allowed |
+| otherwise | `minLength`: not allowed; `maxLength`: not allowed; `pattern`: not allowed; `format`: not allowed; `x-ref`: not allowed |
+| otherwise | `minimum`: not allowed; `maximum`: not allowed |
+
+### `settingsRequired` { #schema-settingsrequired }
+
+Fields that must always have a value
+
+Value: array of [`settingsFieldName`](#schema-settingsfieldname).
+
+### `settingsScalar` { #schema-settingsscalar }
+
+Value: `string` \| `integer` \| `number` \| `boolean`.
+
+### `settingsField2` { #schema-settingsfield2 }
+
+Includes [`settingsKeywords`](#schema-settingskeywords).
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `properties` | any |  |  |
+| `items` | [`settingsField3`](#schema-settingsfield3) |  |  |
+
+### `settingsField3` { #schema-settingsfield3 }
+
+The deepest level: a scalar field or an array of scalars, no nested objects
+
+Includes [`settingsKeywords`](#schema-settingskeywords).
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `type` | `string` \| `integer` \| `number` \| `boolean` \| `array` |  |  |
+| `items` | [`settingsKeywords`](#schema-settingskeywords) |  |  |
+
+### `settingsUiElement` { #schema-settingsuielement }
+
+Element of the settings form: VerticalLayout, HorizontalLayout, Group, Control or Label. Other JSON Forms elements (Categorization, ListWithDetail, custom renderers) are not rendered by the console and are rejected
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `type` | `VerticalLayout` \| `HorizontalLayout` \| `Group` \| `Control` \| `Label` | yes |  |
+
+Conditions:
+
+| Condition | Consequence |
+|---|---|
+| `type` ∈ `VerticalLayout`, `HorizontalLayout` | required `elements`; `elements`: [`settingsUiElements`](#schema-settingsuielements); `rule`: [`settingsUiRule`](#schema-settingsuirule) |
+| `type` = `Group` | required `label`, `elements`; `label`: [`settingsLabelKey`](#schema-settingslabelkey); `elements`: [`settingsUiElements`](#schema-settingsuielements); `rule`: [`settingsUiRule`](#schema-settingsuirule) |
+| `type` = `Control` | required `scope`; `scope`: [`settingsScope`](#schema-settingsscope); `label`: [`settingsLabelKey`](#schema-settingslabelkey); `options`: [object](#schema-settingsuielement-options); `rule`: [`settingsUiRule`](#schema-settingsuirule) |
+| `type` = `Label` | required `text`; `text`: [`settingsLabelKey`](#schema-settingslabelkey); `rule`: [`settingsUiRule`](#schema-settingsuirule) |
+
+### `settingsUiElement.options` { #schema-settingsuielement-options }
+
+Only the options the console renders
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `multi` | `boolean` |  | Multi-line text input |
+| `format` | = `radio` |  | Radio buttons for an enum |
+
+### `settingsUiElements` { #schema-settingsuielements }
+
+Value: array of [`settingsUiElement`](#schema-settingsuielement).
+
+### `settingsUiRule` { #schema-settingsuirule }
+
+JSON Forms rule: the effect applies while the value at condition.scope matches condition.schema
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `effect` | `SHOW` \| `HIDE` \| `ENABLE` \| `DISABLE` | yes |  |
+| `condition` | [object](#schema-settingsuirule-condition) | yes |  |
+
+### `settingsUiRule.condition` { #schema-settingsuirule-condition }
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `scope` | [`settingsScope`](#schema-settingsscope) | yes |  |
+| `schema` | [object](#schema-settingsuirule-condition-schema) | yes | Condition on the value: const, enum or a numeric range |
+| `failWhenUndefined` | `boolean` |  |  |
+
+### `settingsUiRule.condition.schema` { #schema-settingsuirule-condition-schema }
+
+Condition on the value: const, enum or a numeric range
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `const` | [`settingsScalar`](#schema-settingsscalar) |  |  |
+| `enum` | array of [`settingsScalar`](#schema-settingsscalar) |  |  |
+| `minimum` | `number` |  |  |
+| `maximum` | `number` |  |  |
+
+### `settingsScope` { #schema-settingsscope }
+
+JSON Pointer to a property of the settings schema: #/properties/&lt;field&gt;[/properties/&lt;field&gt;…]
+
+Value: `string`.
+
+### `settingsLabelKey` { #schema-settingslabelkey }
+
+Key of the package dictionaries (&lt;package&gt;.settings.&lt;name&gt;), not the text: the console shows its string in the user's language
+
+Value: `string`.
 <!-- /generated:schema-package -->
 
 ## Installation (`kind: Installation`) { #installation }
@@ -125,7 +292,7 @@ Value: `string`.
 <!-- generated:schema-installation -->
 _This section is generated from code; do not edit it by hand._
 
-Source: `package-sdk/schema/v1/object.schema.json`.
+Source: `sdk/package-sdk/schema/v1/object.schema.json`.
 
 ### `installationSpec` { #schema-installationspec }
 
@@ -157,6 +324,7 @@ Keys the environment retires (all active versions → deprecated)
 | `WorkRule` | array of [`ruleKey`](#schema-rulekey) |  | The work rule is archived; the work it created runs to completion |
 | `Process` | array of [`typeKey`](#schema-typekey) |  | The process is retired through the core :retire route: new instances do not start, running ones run to completion |
 | `Calendar` | array of [`typeKey`](#schema-typekey) |  | A calendar is retired only if no active process references it (calendar_in_use) |
+| `ConnectionType` | array of [`connectionKey`](#schema-connectionkey) |  | Every active version of the connection type becomes deprecated: no new connections of the type, existing ones keep working |
 
 ### `packageSource` { #schema-packagesource }
 
@@ -184,7 +352,7 @@ Value: [`typeKey`](#schema-typekey) or [object `{key, path}`](#schema-packagesou
 <!-- generated:schema-artifact-type -->
 _This section is generated from code; do not edit it by hand._
 
-Source: `package-sdk/schema/v1/object.schema.json`.
+Source: `sdk/package-sdk/schema/v1/object.schema.json`.
 
 ### `artifactTypeSpec` { #schema-artifacttypespec }
 
@@ -204,7 +372,7 @@ Artifact type: a versioned immutable catalog object, like TaskType.
 <!-- generated:schema-task-type -->
 _This section is generated from code; do not edit it by hand._
 
-Source: `package-sdk/schema/v1/object.schema.json`.
+Source: `sdk/package-sdk/schema/v1/object.schema.json`.
 
 ### `taskTypeSpec` { #schema-tasktypespec }
 
@@ -316,7 +484,7 @@ Gate approval on the newly created task
 
 | Field | Type | Required | Description |
 |---|---|---|---|
-| `assignee` | `string` | yes |  |
+| `assignee` | `string` | yes | Principal id or role:&lt;slug&gt; — a role declared by the package (its holder decides); an expression or a template |
 | `comment` | `string` |  |  |
 
 ### `outcomeAction.completeTask` { #schema-outcomeaction-completetask }
@@ -410,7 +578,7 @@ Acceptance criterion: the core checks the spec grammar per kind
 <!-- generated:schema-project-template -->
 _This section is generated from code; do not edit it by hand._
 
-Source: `package-sdk/schema/v1/object.schema.json`.
+Source: `sdk/package-sdk/schema/v1/object.schema.json`.
 
 ### `projectTemplateSpec` { #schema-projecttemplatespec }
 
@@ -473,7 +641,7 @@ Value: `planned` \| `active` \| `paused` \| `terminal_success` \| `terminal_canc
 <!-- generated:schema-workspace-type -->
 _This section is generated from code; do not edit it by hand._
 
-Source: `package-sdk/schema/v1/object.schema.json`.
+Source: `sdk/package-sdk/schema/v1/object.schema.json`.
 
 ### `workspaceTypeSpec` { #schema-workspacetypespec }
 
@@ -490,7 +658,7 @@ Source: `package-sdk/schema/v1/object.schema.json`.
 <!-- generated:schema-role -->
 _This section is generated from code; do not edit it by hand._
 
-Source: `package-sdk/schema/v1/object.schema.json`.
+Source: `sdk/package-sdk/schema/v1/object.schema.json`.
 
 ### `roleSpec` { #schema-rolespec }
 
@@ -505,7 +673,7 @@ Source: `package-sdk/schema/v1/object.schema.json`.
 <!-- generated:schema-capability -->
 _This section is generated from code; do not edit it by hand._
 
-Source: `package-sdk/schema/v1/object.schema.json`.
+Source: `sdk/package-sdk/schema/v1/object.schema.json`.
 
 ### `capabilitySpec` { #schema-capabilityspec }
 
@@ -514,12 +682,73 @@ Source: `package-sdk/schema/v1/object.schema.json`.
 | `description` | `string` |  |  |
 <!-- /generated:schema-capability -->
 
+## Connection type (`kind: ConnectionType`) { #connection-type }
+
+<!-- generated:schema-connection-type -->
+_This section is generated from code; do not edit it by hand._
+
+Source: `sdk/package-sdk/schema/v1/object.schema.json`.
+
+### `connectionTypeSpec` { #schema-connectiontypespec }
+
+Connection type: what it takes to connect a system of this kind. Versions work as for Skill: the package sets the version, and a published (key, version) pair is immutable. A type carries no secret values: an administrator enters them in the console.
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `version` | `integer` | yes | The package sets the version of the type; a published version is immutable |
+| `displayName` | [`displayName`](#schema-displayname) | yes |  |
+| `description` | `string` |  |  |
+| `auth` | array of `oauth2` \| `token` | yes | Ways to connect: oauth2 — a person consents at the provider, token — a long-lived key an administrator pastes |
+| `oauth2` | [object](#schema-connectiontypespec-oauth2) |  |  |
+| `accountField` | [object](#schema-connectiontypespec-accountfield) |  | Account field: its label in the key form and the account check; required with token or with {account} in tokenUrlTemplate |
+| `settingsSchema` | [object](#schema-connectiontypespec-settingsschema) | yes | JSON Schema (draft 2020-12) of the connection's non-secret settings, root type: object. Properties named like secrets (password, token, clientSecret…) are refused |
+| `defaultKey` | [`connectionKey`](#schema-connectionkey) | yes | Key of the default connection — the agents of the package name it in Agent.spec.connections |
+
+Conditions:
+
+| Condition | Consequence |
+|---|---|
+| always | required `oauth2` |
+| always | required `accountField` |
+| always | required `accountField`; `oauth2`:  |
+
+### `connectionTypeSpec.oauth2` { #schema-connectiontypespec-oauth2 }
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `authorizeUrl` | `string` (uri) | yes | Where a person is sent to consent |
+| `tokenUrlTemplate` | `string` | yes | Address of the code exchange and refresh; the only placeholder is {account}, the host is an external DNS name |
+| `accountParam` | `string` |  | Callback parameter that names the account; required when tokenUrlTemplate has {account} |
+| `authStyle` | `in_params` \| `in_header` | yes | How the client id and secret go to the exchange address: in the request body or as Authorization: Basic |
+| `scopes` | array of `string` | yes | Requested permissions |
+
+### `connectionTypeSpec.accountField` { #schema-connectiontypespec-accountfield }
+
+Account field: its label in the key form and the account check; required with token or with {account} in tokenUrlTemplate
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `title` | `string` | yes |  |
+| `description` | `string` |  |  |
+| `pattern` | `string` | yes | Regular expression the whole account matches |
+
+### `connectionTypeSpec.settingsSchema` { #schema-connectiontypespec-settingsschema }
+
+JSON Schema (draft 2020-12) of the connection's non-secret settings, root type: object. Properties named like secrets (password, token, clientSecret…) are refused
+
+Includes [`jsonSchema`](#schema-jsonschema).
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `type` | = `object` | yes |  |
+<!-- /generated:schema-connection-type -->
+
 ## Skill (`kind: Skill`) { #skill }
 
 <!-- generated:schema-skill -->
 _This section is generated from code; do not edit it by hand._
 
-Source: `package-sdk/schema/v1/object.schema.json`.
+Source: `sdk/package-sdk/schema/v1/object.schema.json`.
 
 ### `skillSpec` { #schema-skillspec }
 
@@ -581,7 +810,7 @@ Skill v1 contract. Immutable within a version.
 <!-- generated:schema-work-rule -->
 _This section is generated from code; do not edit it by hand._
 
-Source: `package-sdk/schema/v1/object.schema.json`.
+Source: `sdk/package-sdk/schema/v1/object.schema.json`.
 
 ### `workRuleSpec` { #schema-workrulespec }
 
@@ -603,6 +832,7 @@ Work rule: exactly the POST /rules body without key. The core checks the grammar
 | Field | Type | Required | Description |
 |---|---|---|---|
 | `kind` | `observation` \| `event` \| `schedule` | yes |  |
+| `agent` | `string` |  | Only with observation: the observation matches when its author is the principal of this agent. An agent key or an installation ${VARIABLE} — a neutral package does not know the provider's agent |
 
 ### `workRuleSpec.interpretation` { #schema-workrulespec-interpretation }
 
@@ -617,7 +847,8 @@ Work rule: exactly the POST /rules body without key. The core checks the grammar
 |---|---|---|---|
 | `kind` | `ensure_work` \| `update_work` \| `cancel_work` \| `complete_work` \| `request_decision` | yes |  |
 | `taskType` | `string` |  | Type key or a {{item.…}} template — a template only with a non-empty taskTypes |
-| `taskTypes` | array of [`typeKey`](#schema-typekey) |  | Allowed types for a templated taskType |
+| `taskTypes` | array of [`typeKey`](#schema-typekey) |  | Allowed types for a templated taskType; with complete_work and cancel_work with target: task — the types the rule may close |
+| `target` | `dedup` \| `task` |  | Only with complete_work and cancel_work: dedup — the work under the rule's key (the default), task — the task the triggering observation is bound to; needs taskTypes and an author filter trigger.agent or trigger.actorId |
 | `fields` | [object](#schema-workrulespec-action-fields) |  |  |
 
 ### `workRuleSpec.action.fields` { #schema-workrulespec-action-fields }
@@ -650,7 +881,7 @@ On whose behalf the rule acts: an agent description of kind service or agent; wi
 <!-- generated:schema-agent -->
 _This section is generated from code; do not edit it by hand._
 
-Source: `package-sdk/schema/v1/object.schema.json`.
+Source: `sdk/package-sdk/schema/v1/object.schema.json`.
 
 ### `agentSpec` { #schema-agentspec }
 
@@ -667,6 +898,7 @@ Agent: who it is, what work it takes, with what and how it executes that work, w
 | `skills` | [object](#schema-agentspec-skills) |  | Which skills the agent executes itself and where they may connect |
 | `placement` | = `none` or [object `{requires, secrets, resources, replicas, drainSeconds}`](#schema-agentspec-placement-2) |  | Where and how many: none means identity only, without a process (a service account) |
 | `state` | `running` \| `stopped` |  | Default: `running`. |
+| `connections` | array of [`connectionKey`](#schema-connectionkey) |  | Keys of the tenant's connections whose access material the agent may read. Whether such a connection exists is not checked on publish; a non-empty list needs connections.manage of whoever applies it |
 
 Conditions:
 
@@ -695,7 +927,7 @@ IAM part of the account: audiences and the scope ceiling. Data for whoever issue
 | Field | Type | Required | Description |
 |---|---|---|---|
 | `audiences` | array of `string` | yes |  |
-| `scopeCeiling` | array of `string` | yes | Scope of the form &lt;audience&gt;:&lt;action&gt; |
+| `scopeCeiling` | array of `string` | yes | Scope &lt;audience&gt;:&lt;action&gt;, segments may be dotted (control-plane:read, iam:identities.link) |
 
 ### `agentSpec.work` { #schema-agentspec-work }
 
@@ -804,9 +1036,11 @@ Narrowing of the agent's tools; the ban on authoritative Control Plane commands 
 
 ### `agentExecutors/skills` { #schema-agentexecutors-skills }
 
-A skills-only executor: it has no parameters; what to execute is defined by the agent's skills section
+A skills-only executor: what to execute is defined by the agent's skills section; the parameters are non-secret skill settings
 
-Value: `object`.
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `env` | map → `string` |  | Non-secret skill settings (portal address, limits): environment variables of every local skill call on the skill host. No secrets here: names like *TOKEN, *SECRET, *PASSWORD, *API_KEY are forbidden, secrets go in the node's secret files (placement.secrets); host names (CONTROL_PLANE_*, IAM_*, PATH…) too |
 
 ### `agentExecutors/git-connector` { #schema-agentexecutors-git-connector }
 
@@ -880,6 +1114,7 @@ Repository catalog — the only source of clone, neighbour, and publication addr
 | `repositoryField` | `string` | yes | Name of the task customFields field that holds the repository key (for coding-task, repositoryKey) |
 | `superproject` | any |  | Catalog key whose submodules pin the revisions of the neighbours |
 | `publish` | `boolean` |  | Publish the task branch to the forge; a catalog entry can override this. Default: `true`. |
+| `checks` | `boolean` |  | Run the checks of .agents/runner.yaml of the base revision before hand-in; the report goes to metadata.checks of the commit artifact. Default: `false`. |
 | `repositories` | map → [`agentWorkingCopies/catalogEntry`](#schema-agentworkingcopies-catalogentry) | yes |  |
 
 ### `repositoryKey` { #schema-repositorykey }
@@ -894,9 +1129,15 @@ Value: `string`.
 |---|---|---|---|
 | `url` | `string` | yes | Clone address: an installation ${VARIABLE} or https without credentials, query, and fragment (environment topology is not written into the package). The host is DNS labels, the port is 1–65535; path segments are ASCII without dot segments and without a leading dot: the mirror name is taken from the last segment. package-sdk check looks for matching addresses of two entries after normalization (without a trailing /, without .git, case-insensitive) |
 | `baseRef` | `string` |  | Base branch of the task — a git ref name: no leading - / ., no spaces or control characters, no .., @{, //, ~^:?*[\ and no trailing / . .lock |
-| `directory` | `string` |  | Directory name in the working copy (flat layout); does not repeat the directory or key of another entry — package-sdk check verifies this |
+| `directory` | any |  | Directory in the working copy: a name (flat layout) or a path of several segments (services/control-plane). It does not repeat the directory or the key of another entry, and is neither inside the directory of another entry nor contains it — checked by package-sdk check |
 | `publish` | `boolean` |  | false — a neighbour the agent does not write to; by default the catalog's publish |
 | `aliases` | array of [`repositoryAlias`](#schema-repositoryalias) |  | Previous names accepted instead of the key; matching is case-insensitive (casefold), so aliases do not repeat their own or other entries' keys and aliases, even in a different case |
+
+### `workingCopyPath` { #schema-workingcopypath }
+
+A directory in the working copy relative to its root: one name (flat layout, control-plane) or a path of several segments joined by / (services/control-plane, sdk/platform-auth-sdk). A segment starts with a lowercase Latin letter or a digit, so . and .. do not pass; an absolute path, an empty segment (//, a trailing /) and a backslash are rejected
+
+Value: `string`.
 
 ### `repositoryAlias` { #schema-repositoryalias }
 
@@ -911,11 +1152,12 @@ Previous shape: one repository, with neighbours and the superproject given by ad
 | Field | Type | Required | Description |
 |---|---|---|---|
 | `repository` | `string` | yes |  |
-| `directory` | `string` |  | Name of the repository directory in the working copy (flat layout) |
+| `directory` | any |  | Directory of the repository in the working copy: a name (flat layout) or a path of several segments |
 | `baseRef` | `string` |  |  |
-| `neighbours` | map → `string` |  | Neighbouring repositories at revisions pinned by the superproject |
+| `neighbours` | map → `string` |  | Neighbour repositories at revisions pinned by the superproject. The key is the neighbour's directory in the working copy: a name or a path of several segments |
 | `superproject` | `string` |  |  |
 | `publish` | `boolean` |  | Publish the task branch to the forge. Default: `true`. |
+| `checks` | `boolean` |  | Run the checks of .agents/runner.yaml of the base revision before hand-in; the report goes to metadata.checks of the commit artifact. Default: `false`. |
 | `review` | [object](#schema-agentworkingcopies-single-review) |  | Deprecated: the task type declares review through acceptance criteria; the section is removed together with the daemon's auto-review |
 
 ### `agentWorkingCopies/single.review` { #schema-agentworkingcopies-single-review }
@@ -936,7 +1178,7 @@ Deprecated: the task type declares review through acceptance criteria; the secti
 <!-- generated:schema-notification-rule -->
 _This section is generated from code; do not edit it by hand._
 
-Source: `package-sdk/schema/v1/object.schema.json`.
+Source: `sdk/package-sdk/schema/v1/object.schema.json`.
 
 ### `notificationRuleSpec` { #schema-notificationrulespec }
 
@@ -1000,7 +1242,7 @@ Close the buttons of the notification with the same deduplication key when the e
 <!-- generated:schema-process -->
 _This section is generated from code; do not edit it by hand._
 
-Source: `package-sdk/schema/v1/object.schema.json`.
+Source: `sdk/package-sdk/schema/v1/object.schema.json`.
 
 ### `processSpec` { #schema-processspec }
 
@@ -1115,8 +1357,8 @@ Value: [`durationOrCel`](#schema-durationorcel) or [object `{duration, workdays,
 | Field | Type | Required | Description |
 |---|---|---|---|
 | `duration` | [`duration`](#schema-duration) |  |  |
-| `workdays` | [`workdayCount`](#schema-workdaycount) |  |  |
-| `workhours` | [`workhourCount`](#schema-workhourcount) |  |  |
+| `workdays` | [`workdayAmount`](#schema-workdayamount) |  |  |
+| `workhours` | [`workhourAmount`](#schema-workhouramount) |  |  |
 | `calendar` | [`typeKey`](#schema-typekey) |  | Calendar of the working units; by default the process's spec.calendar |
 | `warnBefore` | [`workingSpan`](#schema-workingspan) |  | Warning threshold before the deadline; without it there is no warning |
 
@@ -1134,11 +1376,27 @@ Value: [`duration`](#schema-duration) or [object `{at}`](#schema-durationorcel-2
 |---|---|---|---|
 | `at` | [`cel`](#schema-cel) | yes |  |
 
+### `workdayAmount` { #schema-workdayamount }
+
+Value: [`workdayCount`](#schema-workdaycount) or [`workingAmountExpr`](#schema-workingamountexpr).
+
 ### `workdayCount` { #schema-workdaycount }
 
 Working days by the calendar: the same time of day n working days later (cal.addWorkdays)
 
 Value: `integer`.
+
+### `workingAmountExpr` { #schema-workingamountexpr }
+
+A number of working units as a CEL expression: a non-negative integer, evaluated once on entering the step (settings.* are the package settings); after that the due date is computed as from a number
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `expr` | [`cel`](#schema-cel) | yes |  |
+
+### `workhourAmount` { #schema-workhouramount }
+
+Value: [`workhourCount`](#schema-workhourcount) or [`workingAmountExpr`](#schema-workingamountexpr).
 
 ### `workhourCount` { #schema-workhourcount }
 
@@ -1156,13 +1414,13 @@ Value: [`duration`](#schema-duration) or [object `{workdays}`](#schema-workingsp
 
 | Field | Type | Required | Description |
 |---|---|---|---|
-| `workdays` | [`workdayCount`](#schema-workdaycount) | yes |  |
+| `workdays` | [`workdayAmount`](#schema-workdayamount) | yes |  |
 
 ### `workingSpan (3)` { #schema-workingspan-3 }
 
 | Field | Type | Required | Description |
 |---|---|---|---|
-| `workhours` | [`workhourCount`](#schema-workhourcount) | yes |  |
+| `workhours` | [`workhourAmount`](#schema-workhouramount) | yes |  |
 
 ### `processTrigger` { #schema-processtrigger }
 
@@ -1249,6 +1507,7 @@ Writes the step result (step.result) into instance data
 |---|---|---|---|
 | `taskType` | [`typeKey`](#schema-typekey) | yes |  |
 | `title` | [`cel`](#schema-cel) |  |  |
+| `customFields` | map → [`cel`](#schema-cel) |  | Prefilling the fields of the created task with case data: a field of the type's fieldSchema → CEL; checked against fieldSchema on publication and on task creation, null leaves the field to a person |
 | `form` | [`processForm`](#schema-processform) |  |  |
 | `assign` | [`assignChain`](#schema-assignchain) | yes |  |
 | `due` | [`processDue`](#schema-processdue) |  |  |
@@ -1657,7 +1916,7 @@ Projection of the case into the memory graph: delivered by events; only declared
 <!-- generated:schema-calendar -->
 _This section is generated from code; do not edit it by hand._
 
-Source: `package-sdk/schema/v1/object.schema.json`.
+Source: `sdk/package-sdk/schema/v1/object.schema.json`.
 
 ### `calendarSpec` { #schema-calendarspec }
 
@@ -1713,7 +1972,7 @@ The ontology body is described by a separate schema file, `knowledge-pack.schema
 <!-- generated:schema-knowledge-pack -->
 _This section is generated from code; do not edit it by hand._
 
-Source: `package-sdk/schema/v1/object.schema.json`, `package-sdk/schema/v1/knowledge-pack.schema.json`.
+Source: `sdk/package-sdk/schema/v1/object.schema.json`, `sdk/package-sdk/schema/v1/knowledge-pack.schema.json`.
 
 ### `KnowledgePack.spec` { #schema-knowledgepack-spec }
 
@@ -1836,7 +2095,13 @@ Definitions referenced by several kinds.
 <!-- generated:schema-common -->
 _This section is generated from code; do not edit it by hand._
 
-Source: `package-sdk/schema/v1/object.schema.json`.
+Source: `sdk/package-sdk/schema/v1/object.schema.json`.
+
+### `connectionKey` { #schema-connectionkey }
+
+Key of a connection type or of a connection
+
+Value: `string`.
 
 ### `displayName` { #schema-displayname }
 
@@ -1915,7 +2180,7 @@ Value: `string`.
 <!-- generated:schema-test -->
 _This section is generated from code; do not edit it by hand._
 
-Source: `package-sdk/schema/v1/test.schema.json`.
+Source: `sdk/package-sdk/schema/v1/test.schema.json`.
 
 ### `test` { #schema-test }
 
@@ -1987,19 +2252,27 @@ Exactly one of: `output`, `error`, `timeout`.
 | `stage` | `string` |  | Start with an open stage |
 | `fromInstance` | `string` |  | Only a trial run on a deployment: state is copied from a live instance |
 | `calendar` | `string` |  | Calendar key instead of the process calendar |
+| `settings` | [`settings`](#schema-settings) |  |  |
 | `principals` | map → array of `string` |  | Role → fictitious test principals (for assignments and separation of duties) |
+
+### `settings` { #schema-settings }
+
+Saved package settings values, as an administrator saves them: they replace the previously saved values, fields not given take their default from spec.settings of the manifest. The core checks them against the settings schema of the package
+
+Value: `object`.
 
 ### `testStep` { #schema-teststep }
 
 | Field | Type | Required | Description |
 |---|---|---|---|
+| `settings` | [`settings`](#schema-settings) |  | Save new settings values in the middle of the scenario: computations after this step read them, decisions already taken keep the values they read |
 | `emit` | [object](#schema-teststep-emit) |  |  |
 | `advance` | `string` |  | Advance virtual time (ISO 8601, P3D) or up to a moment: until:&lt;timer id&gt; |
 | `complete` | [object](#schema-teststep-complete) |  |  |
 | `approve` | [object](#schema-teststep-approve) |  |  |
 | `expect` | [object](#schema-teststep-expect) |  |  |
 
-Exactly one of: `emit`, `advance`, `complete`, `approve`, `expect`.
+Exactly one of: `emit`, `advance`, `complete`, `approve`, `expect`, `settings`.
 
 ### `testStep.emit` { #schema-teststep-emit }
 
@@ -2008,6 +2281,8 @@ Exactly one of: `emit`, `advance`, `complete`, `approve`, `expect`.
 | `event` | `string` |  |  |
 | `observation` | `string` |  |  |
 | `source` | `string` |  |  |
+| `task` | `string` |  | Only with observation: id of the process step whose latest task the observation is bound to (the task field of the core's observation) |
+| `by` | `string` |  | Author of the event (actorId): a test principal or agent:&lt;key&gt; |
 | `payload` | `object` |  |  |
 
 Exactly one of: `event`, `observation`.
@@ -2041,6 +2316,7 @@ Exactly one of: `event`, `observation`.
 | `data` | `object` |  | Path in data → expected value |
 | `sla` | map → `ok` \| `warning` \| `breached` \| `paused` |  | Deadline state: step id → state of its open attempt; the process key is the deadline of the process (spec.due) |
 | `events` | array of `string` |  | Types of process.* events since the last expect |
+| `rules` | array of [object](#schema-teststep-expect-rules-item) |  | Decisions of the package's rules with target: task since the last expect |
 | `memory` | [object](#schema-teststep-expect-memory) |  |  |
 | `outcome` | `string` |  |  |
 | `status` | `running` \| `suspended` \| `completed` \| `failed` \| `cancelled` |  |  |
@@ -2055,6 +2331,7 @@ Exactly one of: `event`, `observation`.
 | `status` | `string` |  |  |
 | `assignee` | `string` |  |  |
 | `due` | `string` |  |  |
+| `customFields` | `object` |  | A subset of the task's fields: the ones given are compared (prefilling of the human step) |
 
 ### `testStep.expect.timers[]` { #schema-teststep-expect-timers-item }
 
@@ -2063,6 +2340,16 @@ Exactly one of: `event`, `observation`.
 | `id` | `string` |  |  |
 | `at` | `string` |  |  |
 | `provisional` | `boolean` |  |  |
+
+### `testStep.expect.rules[]` { #schema-teststep-expect-rules-item }
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `rule` | `string` |  |  |
+| `action` | `string` |  |  |
+| `step` | `string` |  |  |
+| `result` | `matched` \| `not_matched` \| `skipped` \| `failed` |  |  |
+| `reason` | `string` |  |  |
 
 ### `testStep.expect.memory` { #schema-teststep-expect-memory }
 
@@ -2077,6 +2364,7 @@ Exactly one of: `event`, `observation`.
 |---|---|---|---|
 | `clock` | `string` (date-time) |  |  |
 | `variables` | [`variables`](#schema-variables) |  |  |
+| `settings` | [`settings`](#schema-settings) |  |  |
 | `task` | [object](#schema-rulegiven-task) |  | A task created before the input: an event without taskId in the payload is about it |
 | `schedule` | [object](#schema-rulegiven-schedule) |  | The input is a firing of the rule's schedule (trigger.kind: schedule) |
 | `observation` | [object](#schema-rulegiven-observation) |  |  |
@@ -2209,6 +2497,7 @@ Exactly one of: `approve`, `verify`, `complete`, `expect`.
 | `decision` | `approved` \| `rejected` | yes |  |
 | `by` | `string` |  |  |
 | `comment` | `string` |  |  |
+| `expectRefused` | `string` |  | The core's refusal code to the decider, for example not_eligible: the decider does not hold the gate's role |
 
 ### `taskTypeStep.verify` { #schema-tasktypestep-verify }
 
@@ -2251,7 +2540,7 @@ The file is written by `package-sdk lock`; it is not edited by hand.
 <!-- generated:schema-lock -->
 _This section is generated from code; do not edit it by hand._
 
-Source: `package-sdk/schema/v1/lock.schema.json`.
+Source: `sdk/package-sdk/schema/v1/lock.schema.json`.
 
 ### `lock` { #schema-lock }
 
@@ -2295,7 +2584,7 @@ The document is written by `package-sdk plan --out`; `package-sdk apply --plan` 
 <!-- generated:schema-plan -->
 _This section is generated from code; do not edit it by hand._
 
-Source: `package-sdk/schema/v1/plan.schema.json`.
+Source: `sdk/package-sdk/schema/v1/plan.schema.json`.
 
 ### `plan` { #schema-plan }
 
@@ -2388,7 +2677,7 @@ Value: [object `{kind, changes}`](#schema-plan-section-1) or [object `{kind, pac
 <!-- generated:schema-knowledge-template -->
 _This section is generated from code; do not edit it by hand._
 
-Source: `package-sdk/schema/v1/knowledge-template.schema.json`.
+Source: `sdk/package-sdk/schema/v1/knowledge-template.schema.json`.
 
 ### `knowledge-template` { #schema-knowledge-template }
 
@@ -2414,6 +2703,261 @@ Optional package data templates/&lt;kind&gt;.yaml. The template is built by the 
 | `example` | `string` \| `number` \| `boolean` |  |  |
 | `separator` | `string` |  | List separator within a cell (codes, relation keys); ";" by default |
 <!-- /generated:schema-knowledge-template -->
+
+## Package screens (`kind: View`, `kind: Component`) { #view }
+
+Package screens live in `views/*.yaml` and `components/*.yaml`. Their wrapper is
+the same as for other objects; the `spec` of the `View` kind is described by
+`viewSpec`, and that of the `Component` kind by `componentSpec`; screen labels are keys of the
+`i18n/<locale>.yaml` dictionaries. The schema is a copy of the core's screen schema;
+`package-sdk check` and `plan` validate it.
+
+<!-- generated:schema-view -->
+_This section is generated from code; do not edit it by hand._
+
+Source: `sdk/package-sdk/schema/v1/view.schema.json`.
+
+### `view` { #schema-view }
+
+Screens of a package: spec of the kinds View and Component
+
+The root has no shape of its own, only definitions; top-level ones: [`view/viewSpec`](#schema-view-viewspec), [`view/componentSpec`](#schema-view-componentspec).
+
+### `view/viewSpec` { #schema-view-viewspec }
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `blocks` | = `1` |  | Version of the set of blocks the layout is written in |
+| `title` | [`view/messageKey`](#schema-view-messagekey) | yes |  |
+| `description` | [`view/messageKey`](#schema-view-messagekey) |  |  |
+| `nav` | [object](#schema-view-viewspec-nav) |  |  |
+| `audience` | [object](#schema-view-viewspec-audience) |  |  |
+| `source` | [`view/source`](#schema-view-source) | yes |  |
+| `params` | [`view/params`](#schema-view-params) |  |  |
+| `layout` | [`view/layout`](#schema-view-layout) | yes |  |
+
+### `view/viewSpec.nav` { #schema-view-viewspec-nav }
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `group` | `work` \| `knowledge` \| `packages` |  | A group of the console menu (a closed list, not a key of the dictionaries); none: packages |
+| `icon` | `string` |  |  |
+| `order` | `integer` |  |  |
+
+### `view/viewSpec.audience` { #schema-view-viewspec-audience }
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `roles` | array of [`view/slug`](#schema-view-slug) | yes | Roles of the organization (slugs): a holder of one of them sees the view |
+
+### `view/messageKey` { #schema-view-messagekey }
+
+A key of the package dictionaries
+
+Value: `string`.
+
+### `view/slug` { #schema-view-slug }
+
+Value: `string`.
+
+### `view/source` { #schema-view-source }
+
+Exactly one of {process, filter?}, {process, instance: param.&lt;name&gt;}, {tasks: {type}}, {knowledge: {kinds}}
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `process` | [`view/key`](#schema-view-key) |  |  |
+| `filter` | [`view/expression`](#schema-view-expression) |  |  |
+| `instance` | `string` |  |  |
+| `tasks` | [object](#schema-view-source-tasks) |  |  |
+| `knowledge` | [object](#schema-view-source-knowledge) |  |  |
+
+### `view/source.tasks` { #schema-view-source-tasks }
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `type` | [`view/key`](#schema-view-key) | yes |  |
+
+### `view/source.knowledge` { #schema-view-source-knowledge }
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `kinds` | array of [`view/kind`](#schema-view-kind) | yes |  |
+
+### `view/key` { #schema-view-key }
+
+Value: `string`.
+
+### `view/expression` { #schema-view-expression }
+
+Value: `string`.
+
+### `view/kind` { #schema-view-kind }
+
+Value: `string`.
+
+### `view/params` { #schema-view-params }
+
+Value: map → [`view/param`](#schema-view-param).
+
+### `view/name` { #schema-view-name }
+
+Value: `string`.
+
+### `view/param` { #schema-view-param }
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `type` | `string` \| `integer` \| `number` \| `boolean` \| `date` \| `datetime` \| `uuid` | yes |  |
+| `required` | `boolean` |  |  |
+
+### `view/layout` { #schema-view-layout }
+
+Value: array of [`view/block`](#schema-view-block).
+
+### `view/block` { #schema-view-block }
+
+A block of the closed set of version 1, named by the key block
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `block` | `table` \| `board` \| `list` \| `header` \| `fields` \| `timeline` \| `artifacts` \| `related` \| `metrics` \| `chart` \| `steps` \| `invoke` \| `component` | yes |  |
+
+Conditions:
+
+| Condition | Consequence |
+|---|---|
+| `block` ∈ `table`, `list` | required `columns`; `title`: [`view/messageKey`](#schema-view-messagekey); `columns`: [`view/columns`](#schema-view-columns); `open`: [`view/open`](#schema-view-open); `filters`: [`view/paths`](#schema-view-paths); `sort`: [`view/sort`](#schema-view-sort); `pageSize`: `integer` |
+| `block` = `board` | required `columns`, `card`; `title`: [`view/messageKey`](#schema-view-messagekey); `columns`: = `stages`; `card`: [`view/card`](#schema-view-card); `open`: [`view/open`](#schema-view-open); `filters`: [`view/paths`](#schema-view-paths) |
+| `block` = `header` | required `title`; `title`: [`view/path`](#schema-view-path); `status`: [`view/path`](#schema-view-path); `actions`: `steps` |
+| `block` = `fields` | required `items`; `title`: [`view/messageKey`](#schema-view-messagekey); `section`: [`view/messageKey`](#schema-view-messagekey); `items`: [`view/columns`](#schema-view-columns) |
+| `block` ∈ `timeline`, `steps` | `title`: [`view/messageKey`](#schema-view-messagekey) |
+| `block` = `artifacts` | `title`: [`view/messageKey`](#schema-view-messagekey); `types`: array of [`view/key`](#schema-view-key) |
+| `block` = `related` | required `knowledge`; `title`: [`view/messageKey`](#schema-view-messagekey); `knowledge`: [object](#schema-view-block-knowledge); `include`: [`view/include`](#schema-view-include) |
+| `block` = `metrics` | required `items`; `title`: [`view/messageKey`](#schema-view-messagekey); `items`: array of [object](#schema-view-block-items-item) |
+| `block` = `chart` | required `chart`, `groupBy`, `value`; `title`: [`view/messageKey`](#schema-view-messagekey); `chart`: `bar` \| `line` \| `donut`; `groupBy`: [`view/path`](#schema-view-path); `value`: [`view/expression`](#schema-view-expression); `label`: [`view/messageKey`](#schema-view-messagekey); `format`: [`view/format`](#schema-view-format) |
+| `block` = `invoke` | required `label`, `skill`; `title`: [`view/messageKey`](#schema-view-messagekey); `label`: [`view/messageKey`](#schema-view-messagekey); `skill`: `string`; `input`: [`view/arguments`](#schema-view-arguments) |
+| `block` = `component` | required `component`; `component`: [`view/key`](#schema-view-key); `with`: [`view/arguments`](#schema-view-arguments) |
+
+### `view/block.knowledge` { #schema-view-block-knowledge }
+
+The record of knowledge the block starts from: its kind and a CEL expression of its key
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `kind` | [`view/kind`](#schema-view-kind) | yes |  |
+| `key` | [`view/expression`](#schema-view-expression) | yes |  |
+
+### `view/block.items[]` { #schema-view-block-items-item }
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `key` | [`view/columnKey`](#schema-view-columnkey) |  |  |
+| `title` | [`view/messageKey`](#schema-view-messagekey) | yes |  |
+| `value` | [`view/expression`](#schema-view-expression) | yes |  |
+| `format` | [`view/format`](#schema-view-format) |  |  |
+
+### `view/columns` { #schema-view-columns }
+
+Value: array of [`view/column`](#schema-view-column).
+
+### `view/column` { #schema-view-column }
+
+What a cell shows: a path of the source (field) or a CEL expression (value), exactly one; label: none — the key &lt;package&gt;.fields.&lt;path&gt; of the dictionaries; key: none — the path
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `key` | [`view/columnKey`](#schema-view-columnkey) |  |  |
+| `label` | [`view/messageKey`](#schema-view-messagekey) |  |  |
+| `field` | [`view/path`](#schema-view-path) |  |  |
+| `value` | [`view/expression`](#schema-view-expression) |  |  |
+| `format` | [`view/format`](#schema-view-format) |  |  |
+
+### `view/columnKey` { #schema-view-columnkey }
+
+The key the values of a column come by in the data of a view
+
+Value: `string`.
+
+### `view/path` { #schema-view-path }
+
+Value: `string`.
+
+### `view/format` { #schema-view-format }
+
+Value: `text` \| `number` \| `money` \| `percent` \| `date` \| `datetime` \| `due` \| `duration` \| `principal` \| `status` \| `link`.
+
+### `view/open` { #schema-view-open }
+
+A view of the same package or of a package it requires: id — CEL of the id of the record it opens, params — CEL of its params
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `view` | [`view/key`](#schema-view-key) | yes |  |
+| `id` | [`view/expression`](#schema-view-expression) |  |  |
+| `params` | [`view/arguments`](#schema-view-arguments) |  |  |
+
+### `view/arguments` { #schema-view-arguments }
+
+Value: map → [`view/expression`](#schema-view-expression).
+
+### `view/paths` { #schema-view-paths }
+
+Value: array of [`view/path`](#schema-view-path).
+
+### `view/sort` { #schema-view-sort }
+
+Value: array of [object](#schema-view-sort-item).
+
+### `view/sort[]` { #schema-view-sort-item }
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `field` | [`view/path`](#schema-view-path) | yes |  |
+| `dir` | `asc` \| `desc` |  |  |
+
+### `view/card` { #schema-view-card }
+
+A card of a board: paths of the source for its title, subtitle and badge, and its fields
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `title` | [`view/path`](#schema-view-path) | yes |  |
+| `subtitle` | [`view/path`](#schema-view-path) |  |  |
+| `fields` | [`view/columns`](#schema-view-columns) |  |  |
+| `badge` | [`view/path`](#schema-view-path) |  |  |
+
+### `view/include` { #schema-view-include }
+
+The links of the record shown: the include of POST /knowledge/entities:query
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `relations` | = `*` or array of `string` | yes | Names of the relations shown, or * for every relation the packages of the namespace declare |
+| `direction` | `out` \| `in` \| `both` |  |  |
+| `limit` | `integer` |  |  |
+
+### `view/componentSpec` { #schema-view-componentspec }
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `description` | [`view/messageKey`](#schema-view-messagekey) |  |  |
+| `params` | [`view/componentParams`](#schema-view-componentparams) |  |  |
+| `layout` | [`view/layout`](#schema-view-layout) | yes |  |
+
+### `view/componentParams` { #schema-view-componentparams }
+
+Value: map → [`view/schemaParam`](#schema-view-schemaparam) or [`view/param`](#schema-view-param) — by condition.
+
+### `view/schemaParam` { #schema-view-schemaparam }
+
+A param typed by a JSON Schema
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `schema` | `object` | yes | JSON Schema of the param: inline or {$ref: &lt;file&gt;#&lt;pointer&gt;} of a schema of the package; CEL reads param.&lt;name&gt; by it |
+| `required` | `boolean` |  |  |
+<!-- /generated:schema-view -->
 
 ## See also
 

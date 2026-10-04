@@ -30,7 +30,7 @@ Code как оператор — в статье [MCP-плагин для Claude
 
 ```bash
 # из клона суперпроекта: пакет ставится вместе с соседним platform-auth-sdk
-cd control-plane
+cd services/control-plane
 uv tool install --reinstall .
 control-plane --version
 ```

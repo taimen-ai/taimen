@@ -2,7 +2,7 @@
 # Configuration
 
 Reference for Control Plane settings: all server `CP_*` variables with the
-defaults from `control_plane/config.py`, variables at the `compose.yml` level,
+defaults from `control_plane/config.py`, variables at the `deploy/local/compose.yml` level,
 and the `CONTROL_PLANE_*` variables of the client tools (CLI, MCP server, SDK).
 It is for those who deploy and maintain the Control Plane.
 
@@ -18,7 +18,7 @@ It is for those who deploy and maintain the Control Plane.
   string will not parse.
 - The same settings are read by three processes from one image:
 
-| Process | Command | Service in `compose.yml` |
+| Process | Command | Service in `deploy/local/compose.yml` |
 |---|---|---|
 | API | `alembic upgrade head && uvicorn control_plane.main:app --host 0.0.0.0 --port 8000` | `control-plane-api` |
 | Worker | `python -m control_plane.worker` | `control-plane-worker` |
@@ -199,9 +199,9 @@ entitlement, and for the PDP. Bootstrap creates it and writes
     `shadow` and `policy` require an external PDP that is not part of the
     delivery.
 
-## `compose.yml`-level variables
+## `deploy/local/compose.yml`-level variables
 
-The Control Plane itself does not read these variables. `compose.yml`
+The Control Plane itself does not read these variables. `deploy/local/compose.yml`
 substitutes them from the superproject's `.env`.
 
 | `.env` variable | Default | Where it goes |
@@ -214,7 +214,6 @@ substitutes them from the superproject's `.env`.
 | `CP_CONTEXT_AUTH` | `auto` | as is |
 | `CP_AUTHZ_MODE` | `local` | as is |
 | `CP_LEGACY_API_KEYS_ENABLED` | `false` | as is |
-| `CP_ENTITLEMENT_ENABLED` | `false` | as is |
 | `CP_CORS_ORIGINS` | `[]` | as is |
 | `CP_S3_ACCESS_KEY_ID`, `CP_S3_SECRET_ACCESS_KEY` | required | keys of the core's user in the storage; for the deployment's MinIO, `minio-bootstrap` creates them too |
 | `CP_S3_BUCKET` | `artifacts` | as is; `minio-bootstrap` creates the bucket |
@@ -225,7 +224,7 @@ substitutes them from the superproject's `.env`.
 | `CP_WORKER_MEM_LIMIT` | `256m` | memory limit of the worker and context-adapter |
 | `CP_BUILD_CONTEXT` | `.` | image build context (the superproject root: the SDK is included as a neighboring directory) |
 
-Values that `compose.yml` fixes for the Control Plane processes:
+Values that `deploy/local/compose.yml` fixes for the Control Plane processes:
 
 ```yaml
 CP_CONTEXT_PROVIDER: http

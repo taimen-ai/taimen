@@ -3,7 +3,7 @@
 
 This page walks through the platform's single environment file, `.env` in the
 superproject root, group by group: what each variable means, which service
-variables it maps to in `compose.yml`, which value is normal for a local
+variables it maps to in `deploy/local/compose.yml`, which value is normal for a local
 deployment, and what to change for your own. For a complete alphabetical list
 of all variables of all components, see
 [Environment variables](../reference/environment.md).
@@ -13,7 +13,7 @@ of all variables of all components, see
 ```mermaid
 flowchart LR
     EX[.env.example<br/>in git] -->|make secrets| ENV[.env<br/>0600, outside git]
-    ENV -->|interpolation| C[compose.yml]
+    ENV -->|interpolation| C[deploy/local/compose.yml]
     C -->|CP_*| CP[control-plane-*]
     C -->|IAM_*| IAM[iam-service]
     C -->|CB_*| MEM[memory-service]
@@ -27,7 +27,7 @@ flowchart LR
 Principles:
 
 - **One concept, one name.** For example, `.env` sets a single
-  `MEMORY_API_KEY`, and `compose.yml` maps it to memory's `CB_SERVER_API_KEY`
+  `MEMORY_API_KEY`, and `deploy/local/compose.yml` maps it to memory's `CB_SERVER_API_KEY`
   and the core's `CP_CONTEXT_API_KEY`. You do not change service code to
   change the environment.
 - **Local and production deployments differ only in `.env` and the Caddyfile.**
@@ -36,7 +36,7 @@ Principles:
 - `.env` has three consumers: Docker Compose (automatically, from the root),
   `deploy/bootstrap.py` (`--env .env`), and `tools/smoke.py` (ports).
 - Variables that are not in `.env.example` have defaults directly in
-  `compose.yml` (`${VAR:-default}`); add them to `.env` to override them.
+  `deploy/local/compose.yml` (`${VAR:-default}`); add them to `.env` to override them.
 
 !!! warning "Whole-file interpolation"
     Compose substitutes variables into all services, including services of
@@ -125,7 +125,7 @@ MEMORY_RERANK_ENABLED=true
 ```
 
 ```bash
-docker compose up -d memory-service
+tools/compose up -d memory-service
 ```
 
 !!! warning "Reindexing after `fake`"
@@ -154,11 +154,10 @@ IAM issuer and JWKS, and the `memory-service` audience.
 |---|---|---|
 | `CP_LEGACY_API_KEYS_ENABLED` | `false` | Whether to accept static `cp_…` keys. The delivery uses IAM only; `true` is an emergency mode |
 | `CP_CONTEXT_AUTH` | `auto` | How the core authenticates to memory: `auto` uses the service account from `secrets/control-plane-iam.env`, and `MEMORY_API_KEY` until that file exists; `api_key` or `iam` forces one method |
-| `CP_ENTITLEMENT_ENABLED` | `false` | Check licenses in an external licensing service, if one is connected. A disabled check shows up in the audit as decision source `disabled` |
 | `CP_AUTHZ_MODE` | `local` | Source of domain authorization: `local`; `shadow` and `policy` are modes with an external PDP (experimental) |
 | `CP_CORS_ORIGINS` | `[]` | JSON list of origins for CORS on the Control Plane API (needed only if a browser client calls the API directly rather than through a gateway) |
 
-Hard-coded in `compose.yml` and not configurable from `.env`:
+Hard-coded in `deploy/local/compose.yml` and not configurable from `.env`:
 `CP_IAM_ENABLED=true`, `CP_IAM_AUDIENCE=control-plane`,
 `CP_IAM_ISSUER=${TAIMEN_PUBLIC_URL}/iam`, `CP_IAM_JWKS_URL` (internal IAM
 address), `CP_CONTEXT_PROVIDER=http`, `CP_CONTEXT_BASE_URL`. Other Control
@@ -177,7 +176,7 @@ defaults in code and are described in
 | `NOTIFY_HOST_PORT` | `18045` | notification-service |
 
 Bootstrap and `make smoke` reach the services on exactly these ports. To change
-a value, change it in `.env`, not in `compose.yml`.
+a value, change it in `.env`, not in `deploy/local/compose.yml`.
 
 ## Container memory limits
 
@@ -202,7 +201,7 @@ By default, a volume is named `${COMPOSE_PROJECT_NAME}_<name>`. The variables
 `VOLUME_CADDY_DATA`, `VOLUME_CADDY_CONFIG`, `VOLUME_NOTIFY_DB`, and
 `VOLUME_PLATFORM_MINIO` (the MinIO volume with artifact content) let you point
 to existing volumes, for example when moving a deployment that was brought up
-earlier with other compose files to the root `compose.yml` without losing data.
+earlier with other compose files to the `deploy/local/compose.yml` without losing data.
 
 ## Image builds
 
@@ -228,7 +227,7 @@ These files are attached to containers through `env_file` with
 | `secrets/notification-iam.env` | `notification-service` | `NS_SERVICE_CLIENT_ID`, `NS_SERVICE_CLIENT_SECRET`: the notification service's service account |
 
 After such a file appears or is replaced, restart its consumer
-(`docker compose up -d <service>`): `env_file` is read when the container is
+(`tools/compose up -d <service>`): `env_file` is read when the container is
 created.
 
 ## Production deployment: what to change

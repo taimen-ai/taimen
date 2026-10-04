@@ -53,7 +53,7 @@ PYTHONPATH=integration/src "$SKILL_SDK" export --package . --check claims_integr
 - **Где взять команду.** `skill-sdk` ставится дополнением `skills` в окружение
   инструмента `package-sdk`, но на `PATH` не выставляется — отсюда путь через
   `uv tool dir`. Отдельно на `PATH` её ставит `uv tool install --editable
-  ./skill-sdk`; тогда сторонние зависимости кода интеграции нужно добавить и
+  ./sdk/skill-sdk`; тогда сторонние зависимости кода интеграции нужно добавить и
   туда (`--with`).
 - **`PYTHONPATH`.** Код интеграции лежит в `integration/src`, и без него на
   `sys.path` модуль не импортируется (`ModuleNotFoundError`). Ступень контрактов

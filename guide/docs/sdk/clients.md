@@ -17,7 +17,7 @@ typical scenarios. For developers of executors, connectors, demos, and vertical 
 | | |
 |---|---|
 | Package | `control_plane_client` (distribution `control-plane-client`) |
-| Location | `control-plane/client` |
+| Location | `services/control-plane/client` |
 | Dependencies | `httpx` only |
 | Protocol | `control-harness/2`; base path `{server}/api/v1` |
 
@@ -190,7 +190,7 @@ The full contract is the Control Plane OpenAPI (`/openapi.json`, see
 | | |
 |---|---|
 | Package | `platform_memory_client` (distribution `platform-memory-client`) |
-| Location | `memory-service/client` |
+| Location | `services/memory-service/client` |
 | Dependencies | `httpx`, `pydantic` (the memory engine is not pulled in) |
 | Classes | `MemoryClient` (synchronous), `AsyncMemoryClient` (asyncio) |
 

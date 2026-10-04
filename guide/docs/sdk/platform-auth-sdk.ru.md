@@ -1,6 +1,5 @@
 # platform-auth-sdk
 
-
 `platform-auth-sdk` (пакет `platform_auth`) — единая точка применения
 политики (Policy Enforcement Point) для resource services платформы. Им
 пользуются Control Plane, memory-service,
@@ -10,7 +9,6 @@ policy, контракт отказа и подключение к FastAPI. Дл
 сервисов.
 
 ## Что делает и чего не делает
-
 
 | Делает | Не делает |
 |---|---|
@@ -188,7 +186,6 @@ revocation = CachingRevocationDirectory(source, ttl_seconds=30, stale_after_seco
 ## Стадия entitlement {#entitlement-stage}
 
 Включается передачей `feature` в `enforce`. Клиент — `EntitlementClient`:
-
 
 ```python
 from platform_auth import EntitlementClient, EntitlementPolicy, ServiceCredentials, ServiceTokenProvider

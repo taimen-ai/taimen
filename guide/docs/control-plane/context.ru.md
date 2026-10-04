@@ -221,7 +221,7 @@ curl -s -X POST https://platform.example.com/api/v1/observations \
 ## Context-adapter: журнал → память
 
 Context-adapter — отдельный фоновый процесс
-`python -m control_plane.worker.context_adapter`, в `compose.yml` это сервис
+`python -m control_plane.worker.context_adapter`, в `deploy/local/compose.yml` это сервис
 `context-adapter`. Он переигрывает журнал событий в memory-service.
 
 Контракт доставки: **at-least-once, без потерь, по каждому tenant'у отдельно**.
@@ -389,7 +389,7 @@ curl -s -X POST https://platform.example.com/api/v1/knowledge/snapshots \
 [Конфигурация](configuration.md).
 
 !!! note "Как настроено в поставке"
-    В `compose.yml` для всех трёх процессов Control Plane заданы
+    В `deploy/local/compose.yml` для всех трёх процессов Control Plane заданы
     `CP_CONTEXT_PROVIDER=http`, `CP_CONTEXT_BASE_URL=http://memory-service:8077`,
     `CP_CONTEXT_AUTH=auto` и `CP_CONTEXT_API_KEY=${MEMORY_API_KEY}`. Service
     account ядра (`CP_IAM_CLIENT_ID`/`CP_IAM_CLIENT_SECRET`) приходит из

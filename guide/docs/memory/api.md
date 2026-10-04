@@ -486,7 +486,7 @@ local use, or streamable HTTP with a key check. Tools:
 
 ## Client library
 
-`platform-memory-client` (directory `memory-service/client`) is the canonical
+`platform-memory-client` (directory `services/memory-service/client`) is the canonical
 HTTP client: `MemoryClient` (sync) and `AsyncMemoryClient` (asyncio) over
 `/api/brain/*` and `/api/memory/*`. Its only dependencies are `httpx` and
 `pydantic`. The token is passed as a string, a callable, or (in the async

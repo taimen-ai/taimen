@@ -225,7 +225,7 @@ curl -s -X POST https://platform.example.com/api/v1/observations \
 ## Context-adapter: event log → memory
 
 Context-adapter is a separate background process
-`python -m control_plane.worker.context_adapter`; in `compose.yml` it is the
+`python -m control_plane.worker.context_adapter`; in `deploy/local/compose.yml` it is the
 `context-adapter` service. It replays the event log into memory-service.
 
 The delivery contract: **at-least-once, lossless, per tenant**.
@@ -398,7 +398,7 @@ The full list of variables, including the adapter parameters
 backoff), is in [Configuration](configuration.md).
 
 !!! note "How the delivery is configured"
-    In `compose.yml`, all three Control Plane processes have
+    In `deploy/local/compose.yml`, all three Control Plane processes have
     `CP_CONTEXT_PROVIDER=http`, `CP_CONTEXT_BASE_URL=http://memory-service:8077`,
     `CP_CONTEXT_AUTH=auto`, and `CP_CONTEXT_API_KEY=${MEMORY_API_KEY}`. The
     core's service account (`CP_IAM_CLIENT_ID`/`CP_IAM_CLIENT_SECRET`) comes

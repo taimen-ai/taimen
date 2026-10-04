@@ -108,10 +108,8 @@ accounts is a path the platform does not recommend (TAI-ADR-0062, "Rejected").
 A package needs no interface of its own. The package's tasks, approvals, and
 cases are regular core objects, and humans see them wherever they see any
 work:
-in the [console](../operator/console.md) (its screens are built from core
-objects, not from the subject domain), in the [assistant](../operator/assistant.md)
-("Waiting for you" on the console pulse), the [operator MCP
-plugin](../operator/mcp-plugin.md), the CLI, and [notifications](notifications.md).
+in the [operator MCP plugin](../operator/mcp-plugin.md), the CLI, and
+[notifications](notifications.md).
 An approval is decided in the core, so decisions need no separate interface
 either: the task type sets the decision form, and the package's notification
 rule sets the buttons in a notification. Package objects (task types,
@@ -140,7 +138,9 @@ edit there after installation (see [Console edits](install-and-release.md#overwr
 
 Besides objects, a package holds tests (`tests/*.test.yaml`), process data
 schemas (`schemas/`), and, for an integration, the observer and skill code
-(`integration/`).
+(`integration/`). Values an administrator changes without a new package
+version are declared by the manifest as [settings](settings.md)
+(`spec.settings`).
 
 ## The author's path { #author-path }
 
@@ -197,6 +197,7 @@ plugin.
 - [Work: task types and roles](work.md)
 - [Rules in a package](rules.md)
 - [Processes in a package](processes.md)
+- [Package settings](settings.md)
 - [Package tests](testing.md)
 - [Installation and release](install-and-release.md)
 - [Example: customer claims](tutorial.md)

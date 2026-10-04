@@ -6,8 +6,13 @@
 
 ## Принципы
 
-- Секреты живут **только** в `.env` и каталоге `secrets/` клона суперпроекта
-  (оба в `.gitignore`) и в credential-файлах рабочих мест и runner-хоста.
+- Место секрета задаёт его класс. **Инфраструктурные секреты** платформы —
+  пароли баз, ключи подписи, bootstrap-токены, учётные данные service accounts
+  компонентов — живут только в `.env` и каталоге `secrets/` клона суперпроекта
+  (оба в `.gitignore`) и в credential-файлах рабочих мест и runner-хоста. Это
+  описывает эта статья. **Секреты подключений и агентов** — токены и ключи
+  внешних систем, секреты агентов реестра — живут в [хранилище
+  секретов](secret-store.md).
 - Права — `0600` на файл, `0700` на каталог. Клиент `control-plane`
   отказывается читать `~/.config/iam/credentials.json`, если файл доступен
   кому-то кроме владельца (`iam_credentials_file_permissions`).
@@ -36,7 +41,7 @@
 `make secrets` заполняет случайными значениями все перечисленные пароли,
 bootstrap-токены, `MEMORY_API_KEY` и ключи MinIO, если они пусты.
 
-Секретов со значением по умолчанию в `compose.yml` нет: пароли БД и
+Секретов со значением по умолчанию в `deploy/local/compose.yml` нет: пароли БД и
 bootstrap-токены всех профилей, включая экспериментальные, объявлены
 обязательными (`${VAR:?…}`) и генерируются `make secrets`. Если ключа нет в
 `.env` (файл создан по старому `.env.example` или строка закомментирована),
@@ -49,8 +54,6 @@ bootstrap-токены всех профилей, включая экспери�
 | `iam-signing.pem` | Приватный ключ подписи access token (RSA 3072) | `make secrets` | `iam-service` (uid 10001, docker secret) |
 | `harness-pat` | PAT оператора (read/write/admin) | bootstrap, шаг 4 | Переносится на рабочее место оператора |
 | `control-plane-iam.env` | `CP_IAM_CLIENT_ID`, `CP_IAM_CLIENT_SECRET` — service account ядра | bootstrap, шаг 2a | `docker compose` (`env_file` трёх процессов ядра) |
-| `runtime-console-oidc-secret` | Секрет OIDC-клиента консоли `runtime-console` (тот же, что в IdP); `0600`, владелец uid 10001 | `make secrets` или скрипт заведения OIDC-клиента | `console` (uid 10001, docker secret) |
-| `runtime-console-cookie-secret` | Ключ cookie консоли, не короче 32 байт; `0600`, владелец uid 10001 | `make secrets` | `console` (uid 10001, docker secret) |
 
 Права: всё — `0600`. Файлы, которые монтируются в контейнер (ключи подписи),
 на Linux должны принадлежать uid `10001`:
@@ -86,7 +89,7 @@ Env-файлы (`*.env`) читает `docker compose` на хосте, их в�
 | Свежесть входа человека для выпуска PAT | 300 с | `IAM_PAT_MAX_AUTHENTICATION_AGE_SECONDS` |
 | Service account (client credentials) | Без срока | Отзыв — `…/service-accounts/{client_id}:revoke` |
 
-Параметры IAM в `compose.yml` не пробрасываются: чтобы изменить значения по
+Параметры IAM в `deploy/local/compose.yml` не пробрасываются: чтобы изменить значения по
 умолчанию, добавьте их в `environment` сервиса `iam-service` через
 `compose.override.yml`.
 
@@ -201,14 +204,16 @@ curl -s -X POST "$IAM/api/v1/tenants/$T/principals/<human-principal-id>/platform
 ### Ротация секрета service account
 
 
-Service accounts ядра и сервисов платформы (например,
-`notification-iam.env`) перевыпускает bootstrap: если env-файла нет, он
-выпускает новый service account, пишет файл и **отзывает прежний**.
+Секрет service account ядра и сервисов платформы (`control-plane-iam.env`,
+`notification-iam.env`) меняет bootstrap: если env-файла нет, он просит у IAM
+новый секрет **той же** учётки (`PATCH {"rotateSecret": true}`, см. [Service
+accounts](../iam/service-accounts.md#update)) и сразу пишет его в файл; прежний
+секрет гаснет. Principal и `clientId` не меняются.
 
 ```bash
 mv secrets/control-plane-iam.env secrets/control-plane-iam.env.old
 python3 deploy/bootstrap.py --env .env --name <env>
-docker compose up -d control-plane-api control-plane-worker context-adapter
+tools/compose up -d control-plane-api control-plane-worker context-adapter
 shred -u secrets/control-plane-iam.env.old
 ```
 
@@ -228,7 +233,7 @@ IAM публикует в `/.well-known/jwks.json` **один** ключ — т�
 
 2. В `.env`: `IAM_SIGNING_KEY_FILE=./secrets/iam-signing.new.pem`,
    `IAM_SIGNING_KEY_ID=<новый kid>`.
-3. `docker compose up -d iam-service`.
+3. `tools/compose up -d iam-service`.
 4. Проверьте `curl -s $IAM/.well-known/jwks.json` — новый `kid`.
 
 Что происходит: PAT и секреты service accounts от ключа подписи не зависят и
@@ -251,11 +256,11 @@ IAM публикует в `/.well-known/jwks.json` **один** ключ — т�
 
 ```bash
 # 1. Сменить пароль роли в базе
-docker compose exec control-plane-db psql -U control_plane -d control_plane \
+tools/compose exec control-plane-db psql -U control_plane -d control_plane \
   -c "ALTER ROLE control_plane PASSWORD '<новый пароль>'"
 # 2. Записать тот же пароль в .env (CP_POSTGRES_PASSWORD)
 # 3. Пересоздать потребителей
-docker compose up -d control-plane-api control-plane-worker context-adapter
+tools/compose up -d control-plane-api control-plane-worker context-adapter
 ```
 
 
@@ -273,6 +278,8 @@ docker compose up -d control-plane-api control-plane-worker context-adapter
 
 | Периодичность | Действие |
 |---|---|
+| Раз в 5–15 минут | Страж политик хранилища секретов (`openbao-bootstrap check-agents`), оповещение по ненулевому коду — см. [Хранилище секретов](secret-store.md#policy-guard) |
+| Ежедневно | Снимок raft хранилища секретов токеном `backup` — см. [Хранилище секретов](secret-store.md#backup) |
 | Еженедельно | Список PAT с `expiresAt` ближе 30 дней |
 | За 2 недели до истечения | Перевыпуск PAT исполнителей и операторов |
 | Раз в квартал | Ротация `MEMORY_API_KEY`, ключа LLM-провайдера, секретов service accounts |
@@ -281,6 +288,7 @@ docker compose up -d control-plane-api control-plane-worker context-adapter
 
 ## См. также
 
+- [Хранилище секретов](secret-store.md)
 - [Credentials и PAT](../iam/credentials.md)
 - [Токены, audiences, scopes](../iam/tokens.md)
 - [Service accounts](../iam/service-accounts.md)

@@ -82,7 +82,7 @@ flowchart LR
 | HTTP service | FastAPI: `/api/brain/*`, `/api/memory/*`, `/healthz` | `platform-memory-serve` |
 | MCP server | Graph tools for agents (stdio or streamable HTTP) | `platform-memory-mcp` |
 | CLI | Schema initialization, vault loading, queries, traces | `cb` |
-| Client | `platform-memory-client`: `MemoryClient` / `AsyncMemoryClient` | directory `memory-service/client` |
+| Client | `platform-memory-client`: `MemoryClient` / `AsyncMemoryClient` | directory `services/memory-service/client` |
 | Database | PostgreSQL 16 + Apache AGE + pgvector + pg_trgm | image `memory-db` |
 
 Additional surfaces, the administrative console `/console` and the public demo
@@ -103,11 +103,11 @@ showcase `/demo`, are off by default and are not part of the consumer contract
 
 ## Deployment as part of the platform
 
-In the root `compose.yml`, memory belongs to the `core` profile as two services:
+In the `deploy/local/compose.yml`, memory belongs to the `core` profile as two services:
 
 | Service | Image | Port | Purpose |
 |---|---|---|---|
-| `memory-db` | `memory-db` (built from `memory-service/infra/memory-db`) | compose network only | PostgreSQL 16 + AGE + pgvector, database `company_brain` |
+| `memory-db` | `memory-db` (built from `services/memory-service/infra/memory-db`) | compose network only | PostgreSQL 16 + AGE + pgvector, database `company_brain` |
 | `memory-service` | `memory-service` (build context is the superproject root) | `127.0.0.1:${MEMORY_HOST_PORT:-18001}` → `8077` | HTTP API |
 
 The image build context is the superproject root because the service pulls in

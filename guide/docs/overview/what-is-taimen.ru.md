@@ -109,7 +109,7 @@ flowchart LR
 ## Из чего собирается продукт
 
 Taimen — имя сборки. Компоненты — отдельные product-neutral репозитории,
-подключённые к суперпроекту git-сабмодулями, и запускаются одним `compose.yml`
+подключённые к суперпроекту git-сабмодулями, и запускаются одним `deploy/local/compose.yml`
 с профилями:
 
 - ядро (`core`): IAM Service, Control Plane (API, worker, context adapter),

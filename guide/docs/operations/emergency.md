@@ -24,9 +24,9 @@ What stops working when a component fails:
 **Assessment.**
 
 ```bash
-docker compose ps iam-service iam-db
+tools/compose ps iam-service iam-db
 curl -s http://127.0.0.1:18010/healthz
-docker compose logs --since 15m iam-service | tail -50
+tools/compose logs --since 15m iam-service | tail -50
 ```
 
 
@@ -40,7 +40,7 @@ refusals and accumulates lag.
 
 **Steps.**
 
-1. If the database is down: `docker compose up -d iam-db`, check the disk
+1. If the database is down: `tools/compose up -d iam-db`, check the disk
    and the PostgreSQL logs.
 2. If the service fails at startup, look at the first error in the logs:
     - an Alembic migration error → roll back the release (below);
@@ -49,7 +49,7 @@ refusals and accumulates lag.
       mode `600`);
     - a database connection error → the `IAM_POSTGRES_PASSWORD` password in
       `.env` does not match the role in the database.
-3. `docker compose up -d iam-service`, wait for `healthy`.
+3. `tools/compose up -d iam-service`, wait for `healthy`.
 4. Check `context_adapter_parked_tenants`; if it is `> 0`, run
    `control-plane ops adapter redrive <tenant-id>`.
 
@@ -65,7 +65,7 @@ boundary.
 ```bash
 # the operator principal is cpOperatorPrincipalId in deploy/state/<env>.json
 PRINCIPAL=$(python3 -c 'import json;print(json.load(open("deploy/state/taimen.json"))["cpOperatorPrincipalId"])')
-docker compose exec -e BREAK_GLASS_OPERATOR="$(whoami)" control-plane-api \
+tools/compose exec -e BREAK_GLASS_OPERATOR="$(whoami)" control-plane-api \
   python -m control_plane.break_glass issue --principal "$PRINCIPAL" --ttl 3600 \
   --reason "IAM unavailable, <incident number>"
 ```
@@ -86,7 +86,7 @@ accepted in that case.
 As soon as IAM is back up, revoke all break-glass keys:
 
 ```bash
-docker compose exec control-plane-api python -m control_plane.break_glass revoke
+tools/compose exec control-plane-api python -m control_plane.break_glass revoke
 ```
 
 ## Control Plane is not ready
@@ -95,9 +95,9 @@ docker compose exec control-plane-api python -m control_plane.break_glass revoke
 
 | Response | Cause | Action |
 |---|---|---|
-| `503 database_unreachable` | The database is unavailable | `docker compose ps control-plane-db`, logs, disk; `docker compose up -d control-plane-db` |
+| `503 database_unreachable` | The database is unavailable | `tools/compose ps control-plane-db`, logs, disk; `tools/compose up -d control-plane-db` |
 | `503 migrations_pending` | The database revision does not equal the image's head | If the API does not start because of a migration error: `control-plane-api` logs, roll back the release; if the database revision is **newer** than the image, an old image is running on top of a new schema: bring back the new image or run a downgrade |
-| No response | The container is in a restart loop | `docker compose logs --tail 100 control-plane-api` |
+| No response | The container is in a restart loop | `tools/compose logs --tail 100 control-plane-api` |
 
 While the API is not ready, `control-plane-worker` and `context-adapter` do
 not start (the `service_healthy` dependency); this is a safeguard, not a
@@ -110,12 +110,12 @@ The short version; the full one is in [Upgrades and migrations](upgrades.md).
 ```bash
 cd /opt/taimen/src
 # 1. If the new release applied migrations, downgrade with the NEW image
-docker compose stop control-plane-worker context-adapter control-plane-api
-docker compose run --rm --no-deps control-plane-api alembic downgrade <previous release revision>
+tools/compose stop control-plane-worker context-adapter control-plane-api
+tools/compose run --rm --no-deps control-plane-api alembic downgrade <previous release revision>
 # 2. Code and images of the previous release
 git checkout <previous release commit> && git submodule update --init --recursive
-docker compose --profile core --profile edge build     # or the previous IMAGE_TAG without a build
-docker compose --profile core --profile edge up -d
+tools/compose --profile core --profile edge build     # or the previous IMAGE_TAG without a build
+tools/compose --profile core --profile edge up -d
 make smoke
 ```
 
@@ -194,7 +194,7 @@ incident of the highest severity.
 
 
 1. Change the value in `.env` to a new random one (`openssl rand -hex 24`),
-   then `docker compose up -d iam-service`.
+   then `tools/compose up -d iam-service`.
 2. Export the PAT list (`GET …/platform-access-tokens?includeRevoked=true`)
    and the IAM audit; revoke everything that was issued by someone other
    than you after the likely moment of the leak.
@@ -212,7 +212,7 @@ immediately and restart the services that verify tokens; see
 ```bash
 # core: bootstrap reissues it and revokes the previous one
 mv secrets/control-plane-iam.env /tmp/ && python3 deploy/bootstrap.py --env .env --name <env>
-docker compose up -d control-plane-api control-plane-worker context-adapter
+tools/compose up -d control-plane-api control-plane-worker context-adapter
 ```
 
 For other service accounts: revoke in IAM and reissue; see
@@ -275,7 +275,7 @@ binding by the pair `(issuer, iam_principal_id)`.
    certificate.
 3. Change `TAIMEN_PUBLIC_URL` and `TAIMEN_PUBLIC_HOST` in `.env`.
 4. Recreate the services so they pick up the new address:
-   `docker compose … up -d`.
+   `tools/compose … up -d`.
 5. Update `CONTROL_PLANE_SERVER` and `CONTROL_PLANE_IAM_URL` for executors
    and operators. The record key in `credentials.json` includes the IAM
    address, so move the records under the new address.

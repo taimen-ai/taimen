@@ -20,26 +20,27 @@ package in 10 minutes](../packages/quickstart.md).
 <!-- generated:cli-package-sdk -->
 _This section is generated from code; do not edit it by hand._
 
-Commands: 16. Source: `package-sdk/src/package_sdk` (argparse parsers).
+Commands: 17. Source: `sdk/package-sdk/src/package_sdk` (argparse parsers).
 
 | Command | Purpose |
 |---|---|
 | [`init`](#cli-init) | package scaffold: manifest, process with a test, CI, README |
 | [`add`](#cli-add) | scaffold of an object of any catalog kind |
-| [`check`](#cli-check) | validate packages: schema and references; with --server, also by the core |
-| [`test`](#cli-test) | the package test pyramid in one command: check, skills, integration, scenarios |
-| [`lock`](#cli-lock) | pin the installation sources: commit and content hash (packages.lock) |
-| [`cache`](#cli-cache) | cache of git sources (package-sdk cache prune) |
-| [`plan`](#cli-plan) | build a single installation plan (all kinds) and save it with a hash |
-| [`apply`](#cli-apply) | apply exactly the saved plan (after a human confirms it) |
+| [`workflow`](#cli-workflow) | regenerate the CI workflow of a package by the layout of this installation |
+| [`check`](#cli-check) | check packages: schema and references; with --server also by the core |
+| [`test`](#cli-test) | package test pyramid in one command: check, skills, integration, scenarios |
+| [`lock`](#cli-lock) | pin installation sources: commit and content hash (packages.lock) |
+| [`cache`](#cli-cache) | git source cache (package-sdk cache prune) |
+| [`plan`](#cli-plan) | build the one installation plan (all kinds) and save it with its hash |
+| [`apply`](#cli-apply) | apply exactly the saved plan (after a human confirms) |
 | [`export`](#cli-export) | export objects from Control Plane into a package |
-| [`describe`](#cli-describe) | installation prerequisites of a package: variables, agent nodes, ontologies, dependencies |
-| [`docs`](#cli-docs) | generated sections of the package README |
-| [`migrate-expr`](#cli-migrate-expr) | convert the package's legacy expressions to CEL (diff; --write) |
-| [`edit`](#cli-edit) | edits of package files that preserve the file's style |
-| [`sandbox`](#cli-sandbox) | package tests with the core's code in-process, without a deployment |
-| [`image`](#cli-image) | Dockerfile of a package's integration image: observer or skills host |
-| [`mcp`](#cli-mcp) | MCP server of the package author over stdio; deployments — PACKAGE_SDK_SERVERS, session root — PACKAGE_SDK_ROOT, the client's roots or the current directory |
+| [`describe`](#cli-describe) | package installation prerequisites: variables, settings, agent nodes, ontologies, dependencies |
+| [`docs`](#cli-docs) | generated README sections of a package |
+| [`migrate-expr`](#cli-migrate-expr) | migrate legacy package expressions to CEL (diff; --write) |
+| [`edit`](#cli-edit) | edit package files preserving the file style |
+| [`sandbox`](#cli-sandbox) | package tests by the core's code in-process, without a stand |
+| [`image`](#cli-image) | Dockerfile of a package integration image: observer or skill host |
+| [`mcp`](#cli-mcp) | package author MCP server over stdio; stands — PACKAGE_SDK_SERVERS, session root — PACKAGE_SDK_ROOT, the client roots or the current directory |
 
 ### `package-sdk init` { #cli-init }
 
@@ -54,12 +55,12 @@ usage: package-sdk init [-h] [--key KEY] [--display-name DISPLAY_NAME] [--licens
 | Argument | Required | Default | Description |
 |---|---|---|---|
 | `dir` | yes |  | package directory (new or empty) |
-| `--key KEY` |  |  | package key; defaults to the directory name |
+| `--key KEY` |  |  | package key; default: the directory name |
 | `--display-name DISPLAY_NAME` |  |  | human-readable package name |
 | `--license LICENSE` |  |  | package license (SPDX identifier) |
-| `--integration` |  |  | integration code: an observer and an agent description |
+| `--integration` |  |  | integration code: observer and agent description |
 | `--image` |  |  | Dockerfile of the integration image |
-| `--database` |  |  | PostgreSQL service in CI for rule and task type scenarios (by default, if the directory already has them) |
+| `--database` |  |  | PostgreSQL service in CI for work rule and task type scenarios (default: if they already exist in the directory) |
 
 ### `package-sdk add` { #cli-add }
 
@@ -73,11 +74,24 @@ usage: package-sdk add [-h] [--package PACKAGE] kind key
 |---|---|---|---|
 | `kind` | yes |  | kind: TaskType, task-type, rule, process, … |
 | `key` | yes |  | object key |
-| `--package PACKAGE` |  | `.` | package directory (the current one by default) |
+| `--package PACKAGE` |  | `.` | package directory (default: the current one) |
+
+### `package-sdk workflow` { #cli-workflow }
+
+regenerate the CI workflow of a package by the layout of this installation
+
+```text
+usage: package-sdk workflow [-h] [--check] [dir]
+```
+
+| Argument | Required | Default | Description |
+|---|---|---|---|
+| `dir` |  | `.` | package directory (default: .) |
+| `--check` |  |  | exit 1 if the workflow differs; write nothing |
 
 ### `package-sdk check` { #cli-check }
 
-validate packages: schema and references; with --server, also by the core
+check packages: schema and references; with --server also by the core
 
 ```text
 usage: package-sdk check [-h] [--install INSTALL] [--package PACKAGE] [--server SERVER]
@@ -87,16 +101,16 @@ usage: package-sdk check [-h] [--install INSTALL] [--package PACKAGE] [--server 
 | Argument | Required | Default | Description |
 |---|---|---|---|
 | `--install INSTALL` |  |  | installation file; without it, all packages in packages/ |
-| `--package PACKAGE` |  |  | package (directory or key); repeatable |
-| `--server SERVER` |  |  | Control Plane: process validation by the core (checkOnly), if it supports it |
-| `--env ENV` |  |  | where to take the package's ${VARIABLES} from (the environment by default) |
-| `--workspace WORKSPACE` |  |  | workspace whose roles and calendars the check by the core reads |
+| `--package PACKAGE` |  |  | package (directory or key); may be repeated; repeatable |
+| `--server SERVER` |  |  | Control Plane: check processes by the core (checkOnly) if it supports it |
+| `--env ENV` |  |  | where to take package ${VARIABLES} from (default: the environment) |
+| `--workspace WORKSPACE` |  |  | workspace whose roles and calendars the core check reads |
 | `--json` |  |  | errors as JSON {code, severity, path, file, line, message, hint} |
 | `--schema-only` |  |  | without the core's code: schema and references only (otherwise a missing core is an error) |
 
 ### `package-sdk test` { #cli-test }
 
-the package test pyramid in one command: check, skills, integration, scenarios
+package test pyramid in one command: check, skills, integration, scenarios
 
 ```text
 usage: package-sdk test [-h] [--package PACKAGE] [--install INSTALL] [--test TEST]
@@ -107,19 +121,19 @@ usage: package-sdk test [-h] [--package PACKAGE] [--install INSTALL] [--test TES
 
 | Argument | Required | Default | Description |
 |---|---|---|---|
-| `paths`… |  |  | packages: directories with package.yaml, or keys |
-| `--package PACKAGE` |  |  | package (directory or key); repeatable |
+| `paths`… |  |  | packages: directories with package.yaml or keys |
+| `--package PACKAGE` |  |  | package (directory or key); may be repeated; repeatable |
 | `--install INSTALL` |  |  | installation file: all of its packages |
 | `--test TEST` |  |  | only the scenario with this name or file |
-| `--server SERVER` |  |  | Control Plane: the server executes the scenarios; without it, the sandbox |
+| `--server SERVER` |  |  | Control Plane: the server runs the scenarios; without it — the sandbox |
 | `--env ENV` |  | `.env` | installation variables |
-| `--workspace WORKSPACE` |  |  | with --server: workspace whose roles, calendars, and instances the run reads |
+| `--workspace WORKSPACE` |  |  | with --server: the workspace whose roles, calendars and instances the run reads |
 | `--database-url DATABASE_URL` |  |  | sandbox: an empty PostgreSQL database for rule and task type scenarios (or PACKAGE_SDK_SANDBOX_DATABASE_URL) |
-| `--json` |  |  | the pyramid report as a JSON document |
+| `--json` |  |  | pyramid report as a JSON document |
 
 ### `package-sdk lock` { #cli-lock }
 
-pin the installation sources: commit and content hash (packages.lock)
+pin installation sources: commit and content hash (packages.lock)
 
 ```text
 usage: package-sdk lock [-h] --install INSTALL
@@ -131,7 +145,7 @@ usage: package-sdk lock [-h] --install INSTALL
 
 ### `package-sdk cache` { #cli-cache }
 
-cache of git sources (package-sdk cache prune)
+git source cache (package-sdk cache prune)
 
 ```text
 usage: package-sdk cache [-h] {prune} ...
@@ -141,7 +155,7 @@ Subcommands: [`prune`](#cli-cache-prune).
 
 #### `package-sdk cache prune` { #cli-cache-prune }
 
-delete checkouts that no packages.lock in the current directory references
+remove checkouts not referenced by any packages.lock of the current directory
 
 ```text
 usage: package-sdk cache prune [-h] [--all] [--lock LOCK]
@@ -149,12 +163,12 @@ usage: package-sdk cache prune [-h] [--all] [--lock LOCK]
 
 | Argument | Required | Default | Description |
 |---|---|---|---|
-| `--all` |  |  | delete the whole cache: checkouts and source mirrors |
-| `--lock LOCK` |  |  | take this lock file into account (repeatable); by default, all packages.lock files under the current directory |
+| `--all` |  |  | remove the whole cache: checkouts and source mirrors |
+| `--lock LOCK` |  |  | take this lock file into account (may be repeated); by default all packages.lock under the current directory; repeatable |
 
 ### `package-sdk plan` { #cli-plan }
 
-build a single installation plan (all kinds) and save it with a hash
+build the one installation plan (all kinds) and save it with its hash
 
 ```text
 usage: package-sdk plan [-h] --install INSTALL --server SERVER --out OUT [--env ENV]
@@ -167,15 +181,15 @@ usage: package-sdk plan [-h] --install INSTALL --server SERVER --out OUT [--env 
 | `--install INSTALL` | yes |  | installation file |
 | `--server SERVER` | yes |  | — |
 | `--out OUT` | yes |  | plan file (package-sdk.plan/v1) for apply --plan |
-| `--env ENV` |  | `.env` | where to take the package's ${VARIABLES} from |
-| `--workspace WORKSPACE` |  |  | workspace of the package's processes (the core's workspaceId) |
+| `--env ENV` |  | `.env` | where to take package ${VARIABLES} from |
+| `--workspace WORKSPACE` |  |  | workspace of the package processes (the core's workspaceId) |
 | `--replay-limit REPLAY_LIMIT` |  | `50` | instances per process for replay (0–200) |
-| `--overwrite-console` |  |  | overwrite the fields that a human edited in the console after the previous application (by default they are kept); the flag is stored in the plan under its hash |
+| `--overwrite-console` |  |  | overwrite fields a human edited in the console since the last apply (by default they are kept); the flag is stored in the plan under its hash |
 | `--json` |  |  | the plan as a JSON document |
 
 ### `package-sdk apply` { #cli-apply }
 
-apply exactly the saved plan (after a human confirms it)
+apply exactly the saved plan (after a human confirms)
 
 ```text
 usage: package-sdk apply [-h] --plan PLAN --server SERVER [--env ENV]
@@ -184,8 +198,8 @@ usage: package-sdk apply [-h] --plan PLAN --server SERVER [--env ENV]
 | Argument | Required | Default | Description |
 |---|---|---|---|
 | `--plan PLAN` | yes |  | plan file from plan --out |
-| `--server SERVER` | yes |  | deployment; must match the one the plan was built for |
-| `--env ENV` |  | `.env` | where to take the package's ${VARIABLES} from |
+| `--server SERVER` | yes |  | stand; must match the one the plan was built for |
+| `--env ENV` |  | `.env` | where to take package ${VARIABLES} from |
 
 ### `package-sdk export` { #cli-export }
 
@@ -193,23 +207,23 @@ export objects from Control Plane into a package
 
 ```text
 usage: package-sdk export [-h] [--server SERVER] [--env ENV] [--workspace WORKSPACE] --kind
-                          {KnowledgePack,WorkspaceType,Capability,Role,Skill,ArtifactType,TaskType,Agent,ProjectTemplate,Calendar,Process,WorkRule,NotificationRule}
+                          {KnowledgePack,WorkspaceType,Capability,ConnectionType,Role,Skill,ArtifactType,TaskType,Agent,ProjectTemplate,Calendar,Process,WorkRule,NotificationRule}
                           --key KEY [--version VERSION] --package PACKAGE
 ```
 
 | Argument | Required | Default | Description |
 |---|---|---|---|
 | `--server SERVER` |  |  | Control Plane; not needed for NotificationRule |
-| `--env ENV` |  | `.env` | installation variables file: NOTIFICATION_SERVICE_URL for NotificationRule, ${…} values so that the export of Process and Calendar returns them as variable references |
+| `--env ENV` |  | `.env` | installation variables file: NOTIFICATION_SERVICE_URL for NotificationRule, values ${…} — so that exporting Process and Calendar returns them as variable references |
 | `--workspace WORKSPACE` |  |  | workspace of the core plan for console fields (Process and Calendar) |
-| `--kind KIND` | yes |  | values: `KnowledgePack`, `WorkspaceType`, `Capability`, `Role`, `Skill`, `ArtifactType`, `TaskType`, `Agent`, `ProjectTemplate`, `Calendar`, `Process`, `WorkRule`, `NotificationRule` |
+| `--kind KIND` | yes |  | values: `KnowledgePack`, `WorkspaceType`, `Capability`, `ConnectionType`, `Role`, `Skill`, `ArtifactType`, `TaskType`, `Agent`, `ProjectTemplate`, `Calendar`, `Process`, `WorkRule`, `NotificationRule` |
 | `--key KEY` | yes |  | repeatable |
-| `--version VERSION` |  |  | version (the newest active one by default) |
-| `--package PACKAGE` | yes |  | package directory, for example packages/&lt;package&gt; |
+| `--version VERSION` |  |  | version (default: the newest active) |
+| `--package PACKAGE` | yes |  | package directory, e.g. packages/&lt;package&gt; |
 
 ### `package-sdk describe` { #cli-describe }
 
-installation prerequisites of a package: variables, agent nodes, ontologies, dependencies
+package installation prerequisites: variables, settings, agent nodes, ontologies, dependencies
 
 ```text
 usage: package-sdk describe [-h] [--env-example] [--json] path
@@ -218,12 +232,12 @@ usage: package-sdk describe [-h] [--env-example] [--json] path
 | Argument | Required | Default | Description |
 |---|---|---|---|
 | `path` | yes |  | package directory |
-| `--env-example` |  |  | scaffold of the installation variables file |
+| `--env-example` |  |  | template of the installation variables file |
 | `--json` |  |  | the same as JSON |
 
 ### `package-sdk docs` { #cli-docs }
 
-generated sections of the package README
+generated README sections of a package
 
 ```text
 usage: package-sdk docs [-h] [--write | --check] path
@@ -233,11 +247,11 @@ usage: package-sdk docs [-h] [--write | --check] path
 |---|---|---|---|
 | `path` | yes |  | package directory |
 | `--write` |  |  | update the section in README.md; not together with `--check` |
-| `--check` |  |  | 1 if the README section is out of date; not together with `--write` |
+| `--check` |  |  | exit 1 if the README section is outdated; not together with `--write` |
 
 ### `package-sdk migrate-expr` { #cli-migrate-expr }
 
-convert the package's legacy expressions to CEL (diff; --write)
+migrate legacy package expressions to CEL (diff; --write)
 
 ```text
 usage: package-sdk migrate-expr [-h] --package PACKAGE [--write]
@@ -246,11 +260,11 @@ usage: package-sdk migrate-expr [-h] --package PACKAGE [--write]
 | Argument | Required | Default | Description |
 |---|---|---|---|
 | `--package PACKAGE` | yes |  | package (directory or key) |
-| `--write` |  |  | write, preserving the file |
+| `--write` |  |  | write, preserving the file style |
 
 ### `package-sdk edit` { #cli-edit }
 
-edits of package files that preserve the file's style
+edit package files preserving the file style
 
 ```text
 usage: package-sdk edit [-h] [--json] [--dry-run]
@@ -267,7 +281,7 @@ Subcommands: [`add-step`](#cli-edit-add-step), [`add-stage`](#cli-edit-add-stage
 
 #### `package-sdk edit add-step` { #cli-edit-add-step }
 
-add a step to a stage or to a step's block
+add a step to a stage or a step block
 
 ```text
 usage: package-sdk edit add-step [-h] --file FILE [--json] [--dry-run] --in TARGET [--block BLOCK]
@@ -279,7 +293,7 @@ usage: package-sdk edit add-step [-h] --file FILE [--json] [--dry-run] --in TARG
 | `--file FILE` | yes |  | process file (processes/&lt;key&gt;.yaml) |
 | `--json` |  |  | — |
 | `--dry-run` |  |  | — |
-| `--in TARGET` | yes |  | id of a stage, of a step with do, of a fork branch, or of a timer |
+| `--in TARGET` | yes |  | id of a stage, a step with do, a fork branch or a timer |
 | `--block BLOCK` |  |  | block name: steps\|discretionary for a stage, do\|onCompensate for a step |
 | `--step STEP` | yes |  | YAML (flow or block); @file reads it from a file |
 | `--after AFTER` |  |  | — |
@@ -319,11 +333,11 @@ usage: package-sdk edit add-decision-row [-h] --file FILE [--json] [--dry-run] -
 | `--dry-run` |  |  | — |
 | `--table TABLE` | yes |  | — |
 | `--row ROW` | yes |  | YAML (flow or block); @file reads it from a file |
-| `--index INDEX` |  |  | row position (at the end by default) |
+| `--index INDEX` |  |  | row position (default: at the end) |
 
 #### `package-sdk edit add-rule` { #cli-edit-add-rule }
 
-add a rule: a table row (--table) or a reaction to an event (--on-event)
+add a rule: a table row (--table) or an event reaction (--on-event)
 
 ```text
 usage: package-sdk edit add-rule [-h] --file FILE [--json] [--dry-run] [--table TABLE] [--row ROW]
@@ -358,7 +372,7 @@ usage: package-sdk edit add-form-field [-h] --file FILE [--json] [--dry-run] --s
 | `--name NAME` | yes |  | — |
 | `--schema SCHEMA` | yes |  | YAML (flow or block); @file reads it from a file |
 | `--required` |  |  | — |
-| `--label LABEL` |  |  | label in the uischema, if the form has uischema.elements |
+| `--label LABEL` |  |  | label in uischema, if the form has uischema.elements |
 
 #### `package-sdk edit rename` { #cli-edit-rename }
 
@@ -374,8 +388,8 @@ usage: package-sdk edit rename [-h] [--file FILE] [--json] [--dry-run] [--packag
 | `--file FILE` |  |  | process file (processes/&lt;key&gt;.yaml) |
 | `--json` |  |  | — |
 | `--dry-run` |  |  | — |
-| `--package PACKAGE` |  |  | package directory: rename an object (renames in package.yaml) |
-| `--kind KIND` |  |  | object kind for --package (Process by default) |
+| `--package PACKAGE` |  |  | package directory — rename an object (renames in package.yaml) |
+| `--kind KIND` |  |  | object kind for --package (default: Process) |
 | `--from OLD` | yes |  | — |
 | `--to NEW` | yes |  | — |
 | `--no-migration` |  |  | do not append migrations (the process is not published yet) |
@@ -400,7 +414,7 @@ usage: package-sdk edit set [-h] --file FILE [--json] [--dry-run] --path PATH --
 
 ### `package-sdk sandbox` { #cli-sandbox }
 
-package tests with the core's code in-process, without a deployment
+package tests by the core's code in-process, without a stand
 
 ```text
 usage: package-sdk sandbox [-h] [--test TEST] [--json] [--env ENV] [--database-url DATABASE_URL]
@@ -409,15 +423,15 @@ usage: package-sdk sandbox [-h] [--test TEST] [--json] [--env ENV] [--database-u
 
 | Argument | Required | Default | Description |
 |---|---|---|---|
-| `packages`… |  |  | package keys or directories with package.yaml; by default, all packages with tests |
+| `packages`… |  |  | package keys or directories with package.yaml; by default all packages with tests |
 | `--test TEST` |  |  | path of a test file in the package (tests/&lt;name&gt;.test.yaml); repeatable |
 | `--json` |  |  | PackageTestOut responses as JSON |
 | `--env ENV` |  | `.env` | installation variables file |
-| `--database-url DATABASE_URL` |  |  | an empty PostgreSQL database for rule and task type tests (or PACKAGE_SDK_SANDBOX_DATABASE_URL) |
+| `--database-url DATABASE_URL` |  |  | an empty PostgreSQL database for work rule and task type tests (or PACKAGE_SDK_SANDBOX_DATABASE_URL) |
 
 ### `package-sdk image` { #cli-image }
 
-Dockerfile of a package's integration image: observer or skills host
+Dockerfile of a package integration image: observer or skill host
 
 ```text
 usage: package-sdk image [-h] {observer,skills} ...
@@ -437,10 +451,10 @@ usage: package-sdk image observer [-h] [--package PACKAGE] [--source SOURCE] [--
 | Argument | Required | Default | Description |
 |---|---|---|---|
 | `--package PACKAGE` |  | `.` | package directory |
-| `--source SOURCE` |  |  | Python project of the integration in the package (integration/ by default) |
-| `--base BASE` |  |  | base image of the delivery (otherwise --build-arg at build time); of the observer |
-| `--out OUT` |  |  | where to write; a .dockerignore is written next to it, in the package directory |
-| `--entrypoint ENTRYPOINT` |  |  | observer module:function, checked at build time |
+| `--source SOURCE` |  |  | python project of the integration in the package (default integration/) |
+| `--base BASE` |  |  | base image of the delivery (otherwise --build-arg at build time); observer |
+| `--out OUT` |  |  | where to write; .dockerignore is written alongside, in the package directory |
+| `--entrypoint ENTRYPOINT` |  |  | observer module:function — checked at build time |
 
 #### `package-sdk image skills` { #cli-image-skills }
 
@@ -454,14 +468,14 @@ usage: package-sdk image skills [-h] [--package PACKAGE] [--source SOURCE] [--ba
 | Argument | Required | Default | Description |
 |---|---|---|---|
 | `--package PACKAGE` |  | `.` | package directory |
-| `--source SOURCE` |  |  | Python project of the integration in the package (integration/ by default) |
-| `--base BASE` |  |  | base image of the delivery (otherwise --build-arg at build time); of the runner |
-| `--out OUT` |  |  | where to write; a .dockerignore is written next to it, in the package directory |
-| `--modules MODULES` | yes |  | comma-separated skill modules or entrypoints |
+| `--source SOURCE` |  |  | python project of the integration in the package (default integration/) |
+| `--base BASE` |  |  | base image of the delivery (otherwise --build-arg at build time); runner |
+| `--out OUT` |  |  | where to write; .dockerignore is written alongside, in the package directory |
+| `--modules MODULES` | yes |  | comma-separated modules or skill entrypoints |
 
 ### `package-sdk mcp` { #cli-mcp }
 
-MCP server of the package author over stdio; deployments — PACKAGE_SDK_SERVERS, session root — PACKAGE_SDK_ROOT, the client's roots or the current directory
+package author MCP server over stdio; stands — PACKAGE_SDK_SERVERS, session root — PACKAGE_SDK_ROOT, the client roots or the current directory
 
 ```text
 usage: package-sdk mcp [-h]

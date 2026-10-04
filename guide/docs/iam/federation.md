@@ -147,7 +147,7 @@ flowchart LR
 
 !!! tip "IAM must reach the IdP at the issuer address"
     Discovery goes to `<issuer>/.well-known/openid-configuration`, that is, to
-    the public address. In `compose.yml`, the Caddy edge has, in the services
+    the public address. In `deploy/local/compose.yml`, the Caddy edge has, in the services
     network,
 
     the alias `${TAIMEN_PUBLIC_HOST}`, so the IAM container reaches an IdP

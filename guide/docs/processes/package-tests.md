@@ -25,7 +25,7 @@ Two stages:
 
 1. **Form and references, locally**, without a deployment:
    `package-sdk check --package <package>` checks the files against the
-   `package-sdk/schema/v1` schema and the references between the package's
+   `sdk/package-sdk/schema/v1` schema and the references between the package's
    objects, and runs the core's domain validators (task types, rules, skills,
    agents).
 2. **The language, by core code**: before the scenarios of `package-sdk test`
@@ -68,7 +68,7 @@ An error blocks tests and applying; warnings do not.
 ## Test format
 
 A test is a package file `tests/<name>.test.yaml` following the schema
-`package-sdk/schema/v1/test.schema.json`. One file is one scenario for one
+`sdk/package-sdk/schema/v1/test.schema.json`. One file is one scenario for one
 object of the package. The `subject` field sets what is tested:
 
 | `subject` | Object | How it runs | Format |
@@ -98,6 +98,7 @@ mocks:
 steps:
   - emit:
       observation: invoice.received
+      by: 1a000000-0000-4000-8000-000000000001   # the author of the event, event.actorId
       payload:
         data: {invoice: "INV-1", supplier: "Supplier LLC", supplierInn: "7701234567",
                amount: 45000, currency: RUB, uploadedBy: 1a000000-0000-4000-8000-000000000001}
@@ -125,6 +126,7 @@ coverage: {minimum: 60}
 | `stage` | start from this open stage |
 | `principals` | role → fictitious test principals: who receives the role's tasks and who holds the role when voting |
 | `calendar` | a calendar key instead of the process calendar |
+| `settings` | the saved values of the [package settings](../packages/settings.md) at the start of the scenario; without it, the schema `default` values are in effect (see [Settings in scenarios](../packages/testing.md#settings)) |
 | `fromInstance` | a dry run: the state is copied from a live instance (see [below](#dry-run)) |
 
 ### `mocks`: stubs { #mocks }
@@ -165,11 +167,12 @@ one.
 
 | Step | What it does |
 |---|---|
-| `emit: {event or observation, source?, payload}` | feeds an event the same way as the live loop: a start or correlation of open instances |
+| `emit: {event or observation, source?, by?, payload}` | feeds an event the same way as the live loop: a start or correlation of open instances; `by` is the author of the event (`event.actorId`), without it there is no author |
 | `advance: P3D` | moves virtual time forward; pending timers fire in order, each at its own moment |
 | `advance: until:<id>` | moves time until the timer with this id (or the timer of this element) fires |
 | `complete: {step, by, output, cancel?}` | completes the step's task on behalf of the executor or a role holder; `by` becomes the task's assignee, which is `task.assigneeId` in the step's `output.as`; `output` is validated against the step form and the task type's `fieldSchema`; `cancel: true` cancels it. The task is closed directly, past its type's gate: the `approvalSchema` outcomes are checked by a task type scenario |
 | `approve: {step, by, decision, expectRefused?}` | a vote in an approval; `expectRefused` is the expected core refusal code: `separation_of_duties_violation`, `not_eligible` |
+| `settings: {…}` | an administrator saves new values of the package settings as a whole: subsequent computations read them, decisions already made keep the values they read |
 | `expect: {…}` | expectations (below) |
 
 `expect` checks the state after the previous steps:

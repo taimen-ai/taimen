@@ -64,7 +64,7 @@ spec:
 | `profiles[]` | атрибуты вида этой или другой онтологии; с `when: {attr, equals}` — только у сущностей, где атрибут равен значению |
 | `expiry[]` | кому (`role`) и за сколько дней (`leadDays`, 1–365) ставить задачу об истечении `validUntil` вида |
 
-Полная форма — `package-sdk/schema/v1/knowledge-pack.schema.json`.
+Полная форма — `sdk/package-sdk/schema/v1/knowledge-pack.schema.json`.
 
 - **Сроки действия** — по соглашению атрибуты `validFrom` и `validUntil`
   (`format: date`).
@@ -165,7 +165,7 @@ spec:
   которых вид стоит в `fromKinds`.
 
 Форма уточнения подачи шаблона (заголовки, порядок, подсказки, примеры,
-дополнительные запрещённые колонки) — `package-sdk/schema/v1/knowledge-template.schema.json`;
+дополнительные запрещённые колонки) — `sdk/package-sdk/schema/v1/knowledge-template.schema.json`;
 колонок, которых нет в схеме вида, уточнение не добавляет.
 
 

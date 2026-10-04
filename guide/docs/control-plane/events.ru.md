@@ -293,6 +293,24 @@ workspace процесса. Данных экземпляра события н�
 События шагов и их исходы — в разделе [События шагов](../processes/index.md#step-events),
 сроки и адресаты `owner`, `assignee` — в [Сроках и SLA](../processes/index.md#sla).
 
+### Подключения и секреты агентов
+
+Ни одно из этих событий не несёт значений секретов, учётки и текста провайдера
+(см. [Подключения](connections.md)).
+
+| Тип | Поток | Ключевые поля payload |
+|---|---|---|
+| `connection_type.published` | connection_type | `key`, `version`, `auth`; повтор той же `spec` событий не пишет |
+| `connection_type.oauth_app_set` | connection_type | `type`, `created` — без client id и секрета |
+| `connection.created` | connection | `key`, `type`, `typeVersion`, `status` |
+| `connection.updated` | connection | `key`, `version`, `changes` — имена изменённых полей (`displayName`, `settings`, `typeVersion`) |
+| `connection.authorized` | connection | `key`, `type`, `auth`, `previousStatus`, `connectedBy` |
+| `connection.authorization_failed` | connection | `key`, `type`, `reason` (код, например `consent_denied`), `initiatedBy` |
+| `connection.status_changed` | connection | `key`, `type`, `from`, `to`, `reason` (код), `connectedBy` |
+| `connection.revoked` | connection | `key`, `type`, `previousStatus`; повторный отзыв событий не пишет |
+| `agent.secret_set` | agent | `agentKey`, `name`, `created` (первое значение, а не замена) |
+| `agent.secret_deleted` | agent | `agentKey`, `name` |
+
 ### Организация и конфигурация
 
 | Группа | Типы |
@@ -302,6 +320,7 @@ workspace процесса. Данных экземпляра события н�
 | Роли и каталог | `role.created`, `.updated`, `.assigned`, `.revoked`; `capability.created`, `.assigned`, `.revoked`; `skill.registered`, `.updated`, `.assigned`, `.revoked` |
 | Проекты | `project_template.created`, `.deprecated`; `project.created`, `.updated`, `.archived`, `.status_changed`, `.config_revision_created`, `.config_revision_activated`, `.external_reference_added`, `.external_reference_updated` |
 | Операции | `context_adapter.redriven`, `context_adapter.rebuilt`, `event_journal.archived`, `event_journal.pruned` |
+| Пакеты | `package.settings_changed` — сохранены настройки пакета: `package`, `version`, `previousVersion`, `schemaRevision`, `changedPaths`, `actorId`, без значений (см. [Настройки пакета](../packages/settings.md#event)) |
 
 !!! tip "Статус: ключ или категория"
     События задач несут и пользовательский ключ `status`, и

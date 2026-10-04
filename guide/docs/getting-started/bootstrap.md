@@ -52,7 +52,7 @@ Python must have them. The script checks for both before its first step and
 stops right away if either is missing, so a bootstrap is never left half done
 for this reason.
 `package-sdk` takes the Control Plane domain validators from the
-`control-plane/src` submodule; if they cannot be imported, it prints a warning
+`services/control-plane/src` submodule; if they cannot be imported, it prints a warning
 and validates only the format schema.
 
 ## Idempotency and state
@@ -185,7 +185,7 @@ service account's ceiling cannot be changed.
 
 !!! note "Restarting the core"
     After the file is issued or reissued, run
-    `docker compose up -d control-plane-api control-plane-worker context-adapter`:
+    `tools/compose up -d control-plane-api control-plane-worker context-adapter`:
     `env_file` is read when the container is created.
 
 ### 3. Control Plane: tenant, administrator, binding
@@ -303,7 +303,7 @@ domain validators, closure of references, `engines`, installation variables),
 then compares them with the deployment section by section: the catalog, the
 core plan for packages with processes or calendars, ontologies and enabling
 them, notification rules, and retirement. The catalog is brought in line in the
-order `WorkspaceType`, `Capability`, `Role`, `Skill`, `ArtifactType`,
+order `WorkspaceType`, `Capability`, `ConnectionType`, `Role`, `Skill`, `ArtifactType`,
 `TaskType`, `Agent`, `ProjectTemplate`, `WorkRule`; for a package with
 processes or calendars, the core installs task types, agents, calendars,
 processes, and rules with its own plan (details in [Catalog
@@ -356,7 +356,7 @@ is not up (it touches only IAM and Control Plane):
    of the current revision of the description.
 
 After issuing the file, the script reminds you to recreate the service
-(`docker compose --profile notify up -d notification-service`).
+(`tools/compose --profile notify up -d notification-service`).
 
 The script then revokes the legacy administrator API key from step 3
 (`POST /api/v1/api-keys/{id}:revoke`): the deployment works only through IAM.
@@ -398,7 +398,7 @@ How to use it is described in [First task](first-task.md).
 | Message | Cause | Fix |
 |---|---|---|
 | `timed out waiting for http://127.0.0.1:18000/health/ready` | the core did not start, or the port is different | `make ps`, `make logs svc=control-plane-api`; check `CP_HOST_PORT` |
-| `POST /api/v1/tenants: HTTP 401` | `IAM_BOOTSTRAP_TOKEN` in `.env` does not match the one `iam-service` was started with | after editing `.env`, recreate the container: `docker compose up -d iam-service` |
+| `POST /api/v1/tenants: HTTP 401` | `IAM_BOOTSTRAP_TOKEN` in `.env` does not match the one `iam-service` was started with | after editing `.env`, recreate the container: `tools/compose up -d iam-service` |
 | `POST /api/v1/bootstrap: HTTP 409 … already_bootstrapped` | Control Plane is already initialized, and the state file is missing | restore `deploy/state/<name>.json` |
 | `POST /api/v1/bootstrap: HTTP 403 … bootstrap_disabled` | `CP_BOOTSTRAP_TOKEN` is empty | set a value and recreate `control-plane-api` |
 | `PyYAML and jsonschema required by step 5b (catalog from packages)` (or only one of them) | uv is not installed, and the system Python lacks the dependencies; the script stops before its first step | install uv or `pip install pyyaml jsonschema`; when calling the script directly, use `uv run --no-project --with pyyaml --with jsonschema python3 deploy/bootstrap.py …` |

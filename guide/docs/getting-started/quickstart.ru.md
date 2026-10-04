@@ -83,8 +83,8 @@ sudo chown 10001:10001 secrets/*.pem
 ## Шаг 4. Поднять ядро
 
 ```bash
-make config       # проверить compose.yml после интерполяции
-make up           # docker compose --profile core --profile edge up -d --build
+make config       # проверить deploy/local/compose.yml после интерполяции
+make up           # tools/compose --profile core --profile edge up -d --build
 ```
 
 Первая сборка занимает несколько минут. Порядок старта задан `depends_on` с
@@ -136,7 +136,7 @@ make bootstrap ARGS='--operator "Alice Operator"'
    !! впишите в .env: IAM_TENANT_ID=<tenant-id>
 2a. service account Control Plane в IAM
    выпущен → secrets/control-plane-iam.env client <client-id>
-   !! перезапустите ядро, чтобы оно взяло env-файл: docker compose up -d control-plane-api control-plane-worker context-adapter
+   !! перезапустите ядро, чтобы оно взяло env-файл: tools/compose up -d control-plane-api control-plane-worker context-adapter
 3. Control Plane bootstrap с binding оператора
    tenant <tenant-id> оператор <cp-principal-id> binding <binding-id>
 4. PAT оператора
@@ -148,7 +148,7 @@ make bootstrap ARGS='--operator "Alice Operator"'
    …
 5c. notification-service: service account IAM по описанию, личность в ядре, env-файл
    выпущен → secrets/notification-iam.env client <client-id>
-   !! перезапустите сервис: docker compose --profile notify up -d notification-service
+   !! перезапустите сервис: tools/compose --profile notify up -d notification-service
    ревизия 1 principal <principal-id>
    legacy admin api-key отозван
 готово: deploy/state/taimen.json
@@ -171,7 +171,7 @@ credential для MCP-плагина/CLI: ~/.config/iam/credentials.json, клю
    токеном IAM, а не статическим ключом:
 
     ```bash
-    docker compose up -d control-plane-api control-plane-worker context-adapter
+    tools/compose up -d control-plane-api control-plane-worker context-adapter
     ```
 
 Имя файла состояния — `deploy/state/<COMPOSE_PROJECT_NAME>.json` (по умолчанию
@@ -226,7 +226,7 @@ curl -s http://127.0.0.1:18000/api/v1/harness/context \
 |---|---|---|
 | Остановить | `make down` | сохраняются в volumes |
 | Поднять снова | `make up` | те же данные; bootstrap повторять не нужно |
-| Пересобрать один сервис | `docker compose build control-plane-api && docker compose up -d control-plane-api control-plane-worker context-adapter` | сохраняются |
+| Пересобрать один сервис | `tools/compose build control-plane-api && tools/compose up -d control-plane-api control-plane-worker context-adapter` | сохраняются |
 | Полный сброс | см. ниже | **удаляются** |
 
 !!! danger "Полный сброс стенда"
@@ -235,7 +235,7 @@ curl -s http://127.0.0.1:18000/api/v1/harness/context \
     на проверке state (IAM tenant из файла не найден):
 
     ```bash
-    docker compose --profile "*" down -v
+    tools/compose --profile "*" down -v
     make reset-state
     make up && make bootstrap
     ```

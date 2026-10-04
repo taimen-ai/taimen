@@ -9,7 +9,7 @@
 ```bash
 cd /opt/taimen/src
 make smoke                                   # health всех поднятых сервисов
-docker compose --profile "*" ps              # статусы и healthcheck контейнеров
+tools/compose --profile "*" ps              # статусы и healthcheck контейнеров
 curl -s http://127.0.0.1:18000/health/ready  # Control Plane: БД + ревизия миграций
 curl -s http://127.0.0.1:18000/metrics | grep -E '^(context_adapter|active_)'
 ```
@@ -60,7 +60,7 @@ curl -s http://127.0.0.1:18000/metrics | grep -E '^(context_adapter|active_)'
     ```
 
 !!! note "Healthcheck внутри контейнеров"
-    Все healthcheck в `compose.yml` и Dockerfile обращаются к
+    Все healthcheck в `deploy/local/compose.yml` и Dockerfile обращаются к
     `127.0.0.1`, а не к `localhost`: в slim- и busybox-образах `localhost`
     может резолвиться в IPv6 `::1`, а сервис слушает только IPv4 —
     контейнер навсегда остаётся `unhealthy` при живом сервисе. Если пишете
@@ -114,7 +114,7 @@ scrape_configs:
 | Условие | Порог | Что делать |
 |---|---|---|
 | `/health/ready` Control Plane не `200` | 2 мин | См. [Установка и запуск](../troubleshooting/startup.md): `database_unreachable` или `migrations_pending` |
-| Любой контейнер `unhealthy` или в цикле рестартов | 5 мин | `docker compose logs <сервис>` |
+| Любой контейнер `unhealthy` или в цикле рестартов | 5 мин | `tools/compose logs <сервис>` |
 | `context_adapter_parked_tenants > 0` | сразу | Сценарий «доставка встала» ниже |
 | `context_adapter_lag_capped == 1` или `context_adapter_lag` растёт | 15 мин | Проверить `memory-service`, провайдер эмбеддингов, логи `context-adapter` |
 | Рост `context_provider_failures_total` / `context_degraded_total` | 10 мин | Память недоступна или медленна; координация при этом работает |
@@ -129,9 +129,9 @@ scrape_configs:
 ## Логи
 
 ```bash
-docker compose logs -f --since 10m control-plane-api
-docker compose logs --since 1h context-adapter | grep -iE 'error|park'
-make logs svc=iam-service                    # docker compose --profile "*" logs -f iam-service
+tools/compose logs -f --since 10m control-plane-api
+tools/compose logs --since 1h context-adapter | grep -iE 'error|park'
+make logs svc=iam-service                    # tools/compose --profile "*" logs -f iam-service
 ```
 
 - Control Plane пишет структурированные логи; уровень — `LOG_LEVEL`
@@ -145,7 +145,7 @@ make logs svc=iam-service                    # docker compose --profile "*" logs
   по `requestId` из ответа.
 
 !!! warning "Ротация логов Docker"
-    Сервисы корневого `compose.yml` используют драйвер логов по умолчанию,
+    Сервисы `deploy/local/compose.yml` используют драйвер логов по умолчанию,
     без ограничения размера. Настройте ротацию для демона Docker
     (`/etc/docker/daemon.json`):
 

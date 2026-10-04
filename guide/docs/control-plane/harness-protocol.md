@@ -34,7 +34,7 @@ A bearer credential comes in two kinds:
   binding of the identity to a local principal. This is the primary mode of the
   delivery;
 - **legacy API key** `cp_<prefix>_<secret>`. Accepted only while
-  `CP_LEGACY_API_KEYS_ENABLED=true`. The delivery's `compose.yml` sets `false`
+  `CP_LEGACY_API_KEYS_ENABLED=true`. The delivery's `deploy/local/compose.yml` sets `false`
   by default.
 
 ## Harness lifecycle

@@ -49,7 +49,7 @@ python3 deploy/bootstrap.py --env .env
 `make bootstrap` при установленном uv подключает их сам; без uv они нужны в
 системном Python.
 Доменные валидаторы Control Plane `package-sdk` берёт из сабмодуля
-`control-plane/src`; если они не импортируются, выдаётся предупреждение и
+`services/control-plane/src`; если они не импортируются, выдаётся предупреждение и
 проверяется только схема формата.
 
 ## Идемпотентность и состояние
@@ -181,7 +181,7 @@ service account нет.
 
 !!! note "Перезапуск ядра"
     После выпуска или перевыпуска файла выполните
-    `docker compose up -d control-plane-api control-plane-worker context-adapter` —
+    `tools/compose up -d control-plane-api control-plane-worker context-adapter` —
     `env_file` читается при создании контейнера.
 
 ### 3. Control Plane: tenant, администратор, binding
@@ -293,7 +293,7 @@ spec:
 Plane, замкнутость ссылок, `engines`, переменные установки), затем сравнивает их
 со стендом по секциям: каталог, план ядра для пакетов с процессами или
 календарями, онтологии и их включение, правила уведомлений, вывод из оборота.
-Каталог приводится в порядке `WorkspaceType`, `Capability`, `Role`, `Skill`,
+Каталог приводится в порядке `WorkspaceType`, `Capability`, `ConnectionType`, `Role`, `Skill`,
 `ArtifactType`, `TaskType`, `Agent`, `ProjectTemplate`, `WorkRule`; у пакета с
 процессами или календарями типы задач, агентов, календари, процессы и правила
 ставит ядро своим планом (подробно — в [Пакетах
@@ -344,7 +344,7 @@ Plane):
    описания.
 
 После выпуска файла скрипт напоминает пересоздать сервис
-(`docker compose --profile notify up -d notification-service`).
+(`tools/compose --profile notify up -d notification-service`).
 
 Затем скрипт отзывает legacy API-ключ администратора из шага 3
 (`POST /api/v1/api-keys/{id}:revoke`) — стенд работает только через IAM.
@@ -385,7 +385,7 @@ credential для MCP-плагина/CLI: ~/.config/iam/credentials.json, клю
 | Сообщение | Причина | Решение |
 |---|---|---|
 | `не дождался http://127.0.0.1:18000/health/ready` | ядро не поднялось или порт другой | `make ps`, `make logs svc=control-plane-api`; проверить `CP_HOST_PORT` |
-| `POST /api/v1/tenants: HTTP 401` | `IAM_BOOTSTRAP_TOKEN` в `.env` не совпадает с тем, с которым запущен `iam-service` | после правки `.env` пересоздать контейнер: `docker compose up -d iam-service` |
+| `POST /api/v1/tenants: HTTP 401` | `IAM_BOOTSTRAP_TOKEN` в `.env` не совпадает с тем, с которым запущен `iam-service` | после правки `.env` пересоздать контейнер: `tools/compose up -d iam-service` |
 | `POST /api/v1/bootstrap: HTTP 409 … already_bootstrapped` | Control Plane уже инициализирован, файла состояния нет | восстановить `deploy/state/<name>.json` |
 | `POST /api/v1/bootstrap: HTTP 403 … bootstrap_disabled` | пустой `CP_BOOTSTRAP_TOKEN` | задать значение, пересоздать `control-plane-api` |
 | `нужен PyYAML` / `нужен jsonschema` | uv не установлен, у системного Python нет зависимостей | установить uv или `pip install pyyaml jsonschema`; при прямом вызове — `uv run --no-project --with pyyaml --with jsonschema python3 deploy/bootstrap.py …` |

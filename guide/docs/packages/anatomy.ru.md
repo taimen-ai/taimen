@@ -107,7 +107,7 @@ spec:
   authors: ["Example Integrations <dev@example.com>"]
   homepage: https://git.example.com/example/access-requests
   engines:
-    control-plane: ">=0.9,<0.10"
+    control-plane: ">=0.10,<0.11"
   requires:
     - {package: access-base, version: ">=0.1"}
   knowledge: ["access@1"]
@@ -137,7 +137,7 @@ spec:
 ### `engines` — совместимость { #engines }
 
 `engines` — диапазоны версий компонентов платформы, против которых пакет
-проверен: `{control-plane: ">=0.9,<0.10"}`. Диапазон — условия через запятую,
+проверен: `{control-plane: ">=0.10,<0.11"}`. Диапазон — условия через запятую,
 выполняться должны все; операторы `>=`, `>`, `<=`, `<`, `=`, `^`, `~`; версия
 без оператора — точная версия или префикс (`1.2` — любая `1.2.x`); `*` —
 любая.

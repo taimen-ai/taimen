@@ -65,7 +65,7 @@ The service belongs to the `notify` compose profile: the containers `notificatio
 `alembic upgrade head` and then starts the service on port 8000.
 
 ```bash
-docker compose --profile core --profile edge --profile notify up -d
+tools/compose --profile core --profile edge --profile notify up -d
 ```
 
 | What | Value |
@@ -100,7 +100,7 @@ the scope `iam:channel-links`, and adds `control-plane:decide` to the scopes of 
 recreate the service:
 
 ```bash
-docker compose --profile notify up -d notification-service
+tools/compose --profile notify up -d notification-service
 ```
 
 ### What works without configuration
@@ -598,7 +598,7 @@ All variables have the `NS_` prefix; the full list is in
 | `NS_TELEGRAM_*` | empty | Telegram bot, see [Telegram](telegram.md) |
 
 !!! note "In the standard stack, email is only written to the log"
-    `compose.yml` passes `NS_EMAIL_FROM`, `NS_SMTP_HOST`, and `NS_SMTP_PORT` to the service
+    `deploy/local/compose.yml` passes `NS_EMAIL_FROM`, `NS_SMTP_HOST`, and `NS_SMTP_PORT` to the service
     (from `NOTIFY_EMAIL_FROM`, `NOTIFY_SMTP_HOST`, `NOTIFY_SMTP_PORT`), but not
     `NS_EMAIL_MODE`, so the `email` channel works in `log` mode. For real sending, set
     `NS_EMAIL_MODE=smtp` and the credentials `NS_SMTP_USERNAME`/`NS_SMTP_PASSWORD` for the
@@ -609,7 +609,7 @@ All variables have the `NS_` prefix; the full list is in
 | Symptom | Cause | What to do |
 |---|---|---|
 | Any request to `/api/v1` returns `503` | `NS_IAM_ISSUER` or JWKS is not set | Check the container environment |
-| Sending to a role returns `503 dependency_unavailable` | No `secrets/notification-iam.env`, or the container was created before bootstrap | Run bootstrap and `docker compose --profile notify up -d notification-service` |
+| Sending to a role returns `503 dependency_unavailable` | No `secrets/notification-iam.env`, or the container was created before bootstrap | Run bootstrap and `tools/compose --profile notify up -d notification-service` |
 | `422 unknown_recipient` | The principal or role does not exist in the core; the group is unlinked | Check the id; for a group — `GET …/channel-groups` |
 | The notification is accepted, but the person sees nothing, and the log shows `recipient_has_no_identity` | The principal has no IAM binding in the sender's tenant | Create a binding for the principal (see [Permissions and scopes](../reference/permissions.md)) |
 | A role is addressed, but `deliveries` is empty | The role has no holders in this workspace and no linked groups | Assign the role or link a group |

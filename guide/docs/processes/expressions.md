@@ -49,6 +49,7 @@ enclosed in single quotes: `"'invoice:' + data.number"`.
 | `task` | the step's task: `id`, `publicId`, `typeKey`, `title`, `status`, `assigneeId`, `customFields`, `artifacts`… | `customFields` follows the task type's `fieldSchema` |
 | `stage` | `stage.<id>.completed`, `stage.<id>.active` (or `stage["<id>"]`) | `bool` |
 | `instance` | `id`, `key`, `version`, `startedAt`, `clock` | `clock` is the time of the current input |
+| `settings` | the effective [package settings](../packages/settings.md#references) of the process; read once per step transaction | from the `spec.settings` schema of the manifest |
 
 Besides the profile variables, local bindings are visible where they apply:
 `milestone.<id>` (stage milestones), the error name from `try.catch[].as` in

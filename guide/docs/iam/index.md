@@ -150,7 +150,7 @@ service accounts, and PATs. See [Bootstrap](../getting-started/bootstrap.md).
 
 ## Deployment
 
-In the root `compose.yml`, IAM belongs to the `core` profile:
+In the `deploy/local/compose.yml`, IAM belongs to the `core` profile:
 
 | Container | Purpose |
 |---|---|

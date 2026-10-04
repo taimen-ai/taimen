@@ -2,37 +2,42 @@
 # Delivery contents
 
 This page lists the components of the Taimen platform, shows how they map to
-the profiles of the root `compose.yml`, and records the status of each profile:
+the profiles of the `deploy/local/compose.yml`, and records the status of each profile:
 what is in the default set, what is experimental, and what is frozen. Use it
 when you plan a deployment and choose which profiles to enable.
 
 ## Repository layout
 
 The platform is assembled in a **superproject**, an umbrella repository to
-which the components are attached as git submodules, **flat at the root**:
+which the components are attached as git submodules: services in `services/`,
+libraries in `sdk/`:
 
 ```text
 <superproject>/
-├── control-plane/          # submodule
-├── iam-service/            # submodule
-├── memory-service/         # submodule
-├── notification-service/   # submodule (notify profile)
-├── platform-auth-sdk/      # submodule (library)
-├── skill-sdk/              # submodule (library)
-├── platform-llm/           # submodule (library)
-├── package-sdk/            # submodule (package author tools)
-├── compose.yml  .env.example  Makefile
-├── deploy/                 # bootstrap.py, Caddyfile
-├── tools/                  # smoke, fill_secrets, docs_gen, …
-└── docs/                   # architecture and ADRs
+├── services/
+│   ├── control-plane/          # submodule
+│   ├── iam-service/            # submodule
+│   ├── memory-service/         # submodule
+│   └── notification-service/   # submodule (notify profile)
+├── sdk/
+│   ├── platform-auth-sdk/      # submodule (library)
+│   ├── skill-sdk/              # submodule (library)
+│   ├── platform-llm/           # submodule (library)
+│   └── package-sdk/            # submodule (package author tools)
+├── deploy/
+│   ├── local/compose.yml       # single description of the services, run from the root
+│   └── bootstrap.py, caddy/    # initialization, Caddyfile
+├── .env.example  Makefile
+├── tools/                      # compose (wrapper), smoke, fill_secrets, docs_gen, …
+└── docs/                       # architecture and ADRs
 ```
 
-!!! warning "The flat layout is mandatory"
+!!! warning "The `services/`, `sdk/` layout is mandatory"
     `control-plane`, `memory-service`, and other services include
-    `platform-auth-sdk` as a **path dependency in a sibling directory**
-    (`../platform-auth-sdk`), so their images are built with the superproject
-    root as the build context. Do not move submodules into subdirectories: the
-    build will break.
+    `platform-auth-sdk` as the **path dependency** `../../sdk/platform-auth-sdk`,
+    so their images are built with the superproject root as the build context.
+    Do not move submodules into other directories: the build will break. Compose
+    is run from the root, with `make` targets or the `tools/compose` wrapper.
 
 A change to a component is committed in that component's repository, and the
 submodule pointer in the superproject is updated in a separate commit.
@@ -47,7 +52,6 @@ submodule pointer in the superproject is updated in a separate commit.
 |---|---|---|---|
 | **control-plane** | Authoritative operational state: tasks, types, claims, runs, approvals, artifacts, goals, event log, harness protocol; the `control-plane` CLI, the `control-plane-mcp` MCP server, the `control-plane-agent` executor daemon | `control-plane-api`, `control-plane-worker`, `context-adapter` (one image) | PostgreSQL 16 (`control-plane-db`) |
 | **iam-service** | Tenants, principals, audiences, PAT, service accounts, federation with external IdPs, SCIM, RS256 token issuance, JWKS | `iam-service` | PostgreSQL 16 (`iam-db`) |
-| **console** | Web console of the running organization: pulse, work provenance, processes, rules, agents, control actions, packages, people and roles. Superproject code (`web/console`), no database of its own; see [Console](../operator/console.md) | `console` | none (sessions in memory) |
 | **memory-service** | Knowledge graph with temporal facts and provenance, documents, hybrid search (vector + lexical + graph), Context Compiler; HTTP API, MCP server, CLI | `memory-service` | PostgreSQL 16 with Apache AGE and pgvector (`memory-db`, its own image) |
 
 ### Libraries
@@ -58,7 +62,7 @@ submodule pointer in the superproject is updated in a separate commit.
 | **skill-sdk** | You write a skill once, in code; the SDK provides the contract, the invocation context, hosting over the `local`, `http`, and `mcp` protocols, and YAML export into a catalog package |
 | **platform-llm** | A shared LLM client: any OpenAI-compatible `/chat/completions`, responses constrained by a JSON schema, retries, and model fallback |
 | **package-sdk** | Tools for catalog package authors: the `package-sdk` CLI (`check`, `test`, `lock`, `plan`, `apply`), the format schemas, the `package_sdk.connector` observer runtime, and the `package-author` Claude Code plugin. See [Packages](../packages/index.md) |
-| **control-plane-client** | The Control Plane client (distribution in `control-plane/client`): PAT-to-token exchange, retries, typed calls. See [Service clients](../sdk/clients.md) |
+| **control-plane-client** | The Control Plane client (distribution in `services/control-plane/client`): PAT-to-token exchange, retries, typed calls. See [Service clients](../sdk/clients.md) |
 
 ### Peripheral components
 
@@ -69,7 +73,7 @@ submodule pointer in the superproject is updated in a separate commit.
 
 ## Compose profiles
 
-The root `compose.yml` is one file with one network (`${TAIMEN_NETWORK}`) and the
+The `deploy/local/compose.yml` is one file with one network (`${TAIMEN_NETWORK}`) and the
 same service DNS names locally and on a production deployment. You select the
 set of services with profiles.
 
@@ -88,7 +92,7 @@ flowchart LR
 
 | Profile | Services | Status | When to enable |
 |---|---|---|---|
-| `core` | `iam-db`, `iam-service`, `control-plane-db`, `control-plane-api`, `control-plane-worker`, `context-adapter`, `memory-db`, `memory-service`, `minio`, `minio-bootstrap`, `console` | **stable core** | always (MinIO stores the core's artifact content) |
+| `core` | `iam-db`, `iam-service`, `control-plane-db`, `control-plane-api`, `control-plane-worker`, `context-adapter`, `memory-db`, `memory-service`, `minio`, `minio-bootstrap` | **stable core** | always (MinIO stores the core's artifact content) |
 | `edge` | `caddy` | stable | always, unless the edge is provided some other way |
 | `notify` | `notification-db`, `notification-service` | optional | notifications for people based on Control Plane events; bootstrap creates the service's account |
 
@@ -97,13 +101,13 @@ Commands:
 ```bash
 make up                                     # core edge (default)
 make up PROFILES="core notify edge"         # with notifications
-docker compose --profile core --profile edge up -d   # the same without make
+tools/compose --profile core --profile edge up -d   # the same without make
 ```
 
 `make down` stops all profiles (`--profile "*"`); data in volumes is kept.
 
 !!! warning "Interpolation covers the whole file"
-    Docker Compose substitutes variables in the **entire** `compose.yml`, not
+    Docker Compose substitutes variables in the **entire** `deploy/local/compose.yml`, not
     only in the services of enabled profiles. For this reason, only the values
     that `make secrets` generates are declared as required (`${VAR:?…}`).
     Identifiers for optional profiles (for example, `IAM_TENANT_ID`) are empty
@@ -115,11 +119,11 @@ docker compose --profile core --profile edge up -d   # the same without make
 
 | Image | Build context | Dockerfile |
 |---|---|---|
-| `${IMAGE_PREFIX}/control-plane` | superproject root (`CP_BUILD_CONTEXT`) | `control-plane/Dockerfile` |
-| `${IMAGE_PREFIX}/iam-service` | `./iam-service` (`IAM_BUILD_CONTEXT`) | `iam-service/Dockerfile` |
-| `${IMAGE_PREFIX}/memory-service` | root (`MEMORY_BUILD_CONTEXT`) | `memory-service/Dockerfile` |
-| `${IMAGE_PREFIX}/memory-db` | `memory-service/infra/memory-db` | PostgreSQL + AGE + pgvector |
-| `${IMAGE_PREFIX}/notification-service` | root (`NOTIFY_BUILD_CONTEXT`) | `notification-service/Dockerfile` |
+| `${IMAGE_PREFIX}/control-plane` | superproject root (`CP_BUILD_CONTEXT`) | `services/control-plane/Dockerfile` |
+| `${IMAGE_PREFIX}/iam-service` | `./services/iam-service` (`IAM_BUILD_CONTEXT`) | `services/iam-service/Dockerfile` |
+| `${IMAGE_PREFIX}/memory-service` | root (`MEMORY_BUILD_CONTEXT`) | `services/memory-service/Dockerfile` |
+| `${IMAGE_PREFIX}/memory-db` | `services/memory-service/infra/memory-db` | PostgreSQL + AGE + pgvector |
+| `${IMAGE_PREFIX}/notification-service` | root (`NOTIFY_BUILD_CONTEXT`) | `services/notification-service/Dockerfile` |
 
 `IMAGE_PREFIX` defaults to `taimen`, and `IMAGE_TAG` to `local`. Python service
 containers run as an unprivileged user (uid `10001` for Control Plane and IAM),

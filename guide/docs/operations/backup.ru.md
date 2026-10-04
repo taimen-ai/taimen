@@ -15,6 +15,7 @@
 | БД Control Plane | том `control_plane_db`, сервис `control-plane-db`, БД `control_plane` | Задачи, claims, runs, артефакты, approvals, журнал событий и его архив, курсоры потребителей, IAM bindings | Критично |
 | БД памяти | том `memory_db`, сервис `memory-db`, БД `company_brain` | Граф знаний (Apache AGE), чанки и вектора (pgvector), наблюдения, трассы контекста | Критично; содержит данные заказчика, возможно ПДн |
 | Объекты MinIO | том `platform_minio` | Содержимое артефактов Control Plane (бакет `CP_S3_BUCKET`) | Критично: MinIO входит в профиль `core`; бэкапить вместе с `control-plane-db` |
+| Хранилище секретов | том `openbao_data`, сервис `openbao` | Материал подключений, секреты агентов, OAuth-приложения типов, политики и роли агентов | Критично: без него подключения подключаются заново, секреты агентов задаются снова. Не копировать том, а снимать `bao operator raft snapshot` токеном `backup` — см. [Хранилище секретов](secret-store.md#backup). Ключ распечатывания `secrets/openbao-unseal.key` хранить **отдельно** от снимков |
 | Сертификаты | том `caddy_data` | Сертификаты, ключи, ACME-аккаунт | Желательно: без него сертификаты выпускаются заново |
 | Конфигурация | `.env`, `secrets/`, `deploy/state/<env>.json`, Caddyfile установки | Секреты, ключ подписи IAM, PAT, идентификаторы bootstrap | Критично; хранить отдельно и шифровать |
 
@@ -60,7 +61,7 @@ cd /opt/taimen/src
 STAMP=$(date -u +%Y%m%dT%H%MZ)
 OUT=/opt/taimen/backups/$STAMP
 mkdir -p "$OUT" && chmod 700 "$OUT"
-DC=(docker compose --profile "*")
+DC=(tools/compose --profile "*")
 
 dump() {  # dump <сервис> <пользователь> <база>
   if "${DC[@]}" ps --status running --services | grep -qx "$1"; then
@@ -151,8 +152,8 @@ COMMIT;
 ```
 
 ```bash
-docker compose exec -T memory-db psql -U memory -d company_brain -v ON_ERROR_STOP=1 < fix-age-oids.sql
-docker compose restart memory-service
+tools/compose exec -T memory-db psql -U memory -d company_brain -v ON_ERROR_STOP=1 < fix-age-oids.sql
+tools/compose restart memory-service
 curl -fsS http://127.0.0.1:18001/healthz     # {"ok": true, "graph": ..., "nodes": N, "chunks": M}
 ```
 
@@ -160,7 +161,7 @@ curl -fsS http://127.0.0.1:18001/healthz     # {"ok": true, "graph": ..., "nodes
 
 !!! tip "Физическая копия тома обходит проблему"
     Копия тома `memory_db`, снятая при **остановленном** `memory-db`
-    (`docker compose stop memory-db` и `tar` тома), сохраняет OID как есть и
+    (`tools/compose stop memory-db` и `tar` тома), сохраняет OID как есть и
     восстанавливается без правки каталога. Для переноса памяти на новый хост
     это самый надёжный путь; логический дамп оставьте для ежедневных копий.
 
@@ -172,12 +173,12 @@ curl -fsS http://127.0.0.1:18001/healthz     # {"ok": true, "graph": ..., "nodes
 ### Одна база Control Plane
 
 ```bash
-docker compose stop control-plane-worker context-adapter control-plane-api
-docker compose exec -T control-plane-db pg_restore -U control_plane -d control_plane \
+tools/compose stop control-plane-worker context-adapter control-plane-api
+tools/compose exec -T control-plane-db pg_restore -U control_plane -d control_plane \
   --clean --if-exists --no-owner < backups/<stamp>/control-plane-db-control_plane.dump
-docker compose up -d control-plane-api           # применит миграции, если дамп старее
+tools/compose up -d control-plane-api           # применит миграции, если дамп старее
 curl -fsS http://127.0.0.1:18000/health/ready    # 503 migrations_pending, пока ревизия отстаёт
-docker compose up -d control-plane-worker context-adapter
+tools/compose up -d control-plane-worker context-adapter
 ```
 
 Частичное восстановление отдельных таблиц Control Plane не поддерживается:
@@ -196,10 +197,10 @@ curl -s -X POST http://127.0.0.1:18000/api/v1/operations/context-adapter/<tenant
 ### База IAM
 
 ```bash
-docker compose stop iam-service
-docker compose exec -T iam-db pg_restore -U iam -d iam --clean --if-exists --no-owner \
+tools/compose stop iam-service
+tools/compose exec -T iam-db pg_restore -U iam -d iam --clean --if-exists --no-owner \
   < backups/<stamp>/iam-db-iam.dump
-docker compose up -d iam-service
+tools/compose up -d iam-service
 ```
 
 !!! danger "Отзывы после даты дампа теряются"
@@ -225,7 +226,7 @@ docker compose up -d iam-service
 4. Поднимите только базы и дождитесь `healthy`:
 
     ```bash
-    docker compose up -d iam-db control-plane-db memory-db    # + базы других поднятых профилей
+    tools/compose up -d iam-db control-plane-db memory-db    # + базы других поднятых профилей
     ```
 
 5. Восстановите каждую базу `pg_restore --clean --if-exists --no-owner`.
@@ -233,9 +234,9 @@ docker compose up -d iam-service
    дампом) и проверьте `/healthz`.
 7. Восстановите том MinIO (`platform_minio`) тем же способом, что
    `caddy_data`: в нём содержимое артефактов ядра.
-   Если ядро работает с внешним S3 (`compose.s3.example.yml`), восстановите
+   Если ядро работает с внешним S3 (`deploy/local/compose.s3.example.yml`), восстановите
    бакет средствами провайдера.
-8. Поднимите всё: `docker compose --profile core --profile edge … up -d`.
+8. Поднимите всё: `tools/compose --profile core --profile edge … up -d`.
 9. Проверьте `make smoke`, `/health/ready`, вход оператора, метрику
    `context_adapter_parked_tenants`.
 10. Переключите DNS на новый хост.
@@ -265,6 +266,7 @@ docker compose up -d iam-service
 
 ## См. также
 
+- [Хранилище секретов](secret-store.md)
 - [Обновление и миграции](upgrades.md)
 - [Хранилище объектов (MinIO)](object-storage.md)
 - [Аварийные процедуры](emergency.md)

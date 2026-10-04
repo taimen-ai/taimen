@@ -9,7 +9,7 @@ installation.
 ## What a release is
 
 A platform release is a **superproject commit**. It pins the revisions of
-all components with submodule pointers, along with `compose.yml`,
+all components with submodule pointers, along with `deploy/local/compose.yml`,
 `.env.example`, `deploy/`, and catalog packages. Upgrading an installation
 means moving the superproject clone to the new commit, updating submodules
 to the pinned revisions, rebuilding images, and recreating the containers
@@ -24,8 +24,8 @@ sequenceDiagram
     Op->>Op: back up databases and secrets/
     Op->>Git: git pull --ff-only
     Op->>Git: git submodule update --init --recursive
-    Op->>D: docker compose build (services keep running)
-    Op->>D: docker compose up -d
+    Op->>D: tools/compose build (services keep running)
+    Op->>D: tools/compose up -d
     D->>Svc: recreate the changed containers
     Svc->>Svc: alembic upgrade head at startup
     Op->>Svc: make smoke, /health/ready
@@ -48,15 +48,15 @@ git submodule update --init --recursive
 git submodule status                                    # no line with "+" or "-"
 
 # 2. Build ahead of time: running containers are not touched
-docker compose $PROFILES build
+tools/compose $PROFILES build
 
 # 3. Switchover: only containers with a new image or configuration are recreated
-docker compose $PROFILES up -d
+tools/compose $PROFILES up -d
 
 # 4. Verification
 make smoke
 curl -fsS http://127.0.0.1:18000/health/ready           # {"status":"ready","revision":"..."}
-docker compose --profile "*" ps
+tools/compose --profile "*" ps
 ```
 
 !!! tip "Build first, then up"
@@ -83,14 +83,14 @@ not.
 
 Consequences:
 
-- `docker compose build control-plane-worker` builds nothing. Build
+- `tools/compose build control-plane-worker` builds nothing. Build
   `control-plane-api` or the whole `core` profile.
-- After the build, recreate **all three** containers. `docker compose up -d`
+- After the build, recreate **all three** containers. `tools/compose up -d`
   without service names does this itself (all three have a new image). If
   you list services explicitly, list all three:
 
   ```bash
-  docker compose up -d control-plane-api control-plane-worker context-adapter
+  tools/compose up -d control-plane-api control-plane-worker context-adapter
   ```
 
 - The adapter service name is `context-adapter`, without the
@@ -122,10 +122,10 @@ the old schema:
 Check revisions manually:
 
 ```bash
-docker compose exec control-plane-db psql -U control_plane -d control_plane \
+tools/compose exec control-plane-db psql -U control_plane -d control_plane \
   -c 'SELECT version_num FROM alembic_version'
-docker compose exec iam-db psql -U iam -d iam -c 'SELECT version_num FROM alembic_version'
-docker compose run --rm --no-deps control-plane-api alembic heads
+tools/compose exec iam-db psql -U iam -d iam -c 'SELECT version_num FROM alembic_version'
+tools/compose run --rm --no-deps control-plane-api alembic heads
 ```
 
 !!! warning "Indexes are not built CONCURRENTLY"
@@ -140,11 +140,11 @@ conservative order is as follows (the memory delivery adapter is a
 singleton, so it is better to stop it before the schema changes):
 
 ```bash
-docker compose $PROFILES build
-docker compose stop context-adapter
-docker compose up -d control-plane-api          # applies migrations
+tools/compose $PROFILES build
+tools/compose stop context-adapter
+tools/compose up -d control-plane-api          # applies migrations
 curl -fsS http://127.0.0.1:18000/health/ready    # wait for 200
-docker compose up -d control-plane-worker context-adapter
+tools/compose up -d control-plane-worker context-adapter
 ```
 
 ## After the upgrade
@@ -152,7 +152,7 @@ docker compose up -d control-plane-worker context-adapter
 | What to check | When it is needed |
 |---|---|
 | Rerun `deploy/bootstrap.py` | If the release changed `AUDIENCES`, service account ceilings, default agent permissions, or catalog packages. The script is idempotent: it brings the audiences' `allowedScopes` in line with the registry (`PATCH`), and if a ceiling changed it reissues the core service account and revokes the previous one |
-| Restart the core after bootstrap | If bootstrap reissued `secrets/control-plane-iam.env`: `docker compose up -d control-plane-api control-plane-worker context-adapter` |
+| Restart the core after bootstrap | If bootstrap reissued `secrets/control-plane-iam.env`: `tools/compose up -d control-plane-api control-plane-worker context-adapter` |
 | Catalog plan | `package-sdk plan --install deploy/packages.yaml --server https://platform.example.com --out plan.json` shows catalog differences before applying them (token in `CP_TOKEN`) |
 | Runner host | Upgrade separately; see below |
 | Operator workstations | Reinstall the `control-plane` package (MCP plugin, CLI) and restart the session: new `cp_*` tools appear only in a new session |
@@ -176,10 +176,11 @@ The executor is not upgraded together with the platform host.
     `Permission denied`:
 
     ```bash
-    sudo -u runner git -C <runner-root>/src/control-plane pull --ff-only
+    sudo -u runner git -C <runner-root>/src/services/control-plane pull --ff-only
+    sudo -u runner git -C <runner-root>/src/sdk/platform-auth-sdk pull --ff-only
     sudo -u runner env HOME=/home/runner \
       UV_TOOL_DIR=<runner-root>/tools UV_TOOL_BIN_DIR=<runner-root>/bin \
-      /home/runner/.local/bin/uv tool install --reinstall <runner-root>/src/control-plane
+      /home/runner/.local/bin/uv tool install --reinstall <runner-root>/src/services/control-plane
     sudo -u runner git -C <runner-root>/<repo>.git fetch origin '+refs/heads/*:refs/heads/*'
     sudo systemctl restart <executor units>
     ```
@@ -188,7 +189,9 @@ The executor is not upgraded together with the platform host.
     `/root/.local/share/uv/tools`, bypassing the services, and they silently
     stay on the old code. Update both places: `src/` (what the daemon is
     built from) and the bare mirror (what task working copies are made
-    from).
+    from). The clones in `src/` follow the delivery layout:
+    `src/services/control-plane` and its path dependency
+    `src/sdk/platform-auth-sdk`.
 
 Stopping the executor is safe at any moment: at the next start the daemon
 finds its orphaned run and closes it with `failure_reason=restart_recovery`;
@@ -205,8 +208,8 @@ commit:
 ```bash
 git checkout <previous superproject commit>
 git submodule update --init --recursive
-docker compose $PROFILES build
-docker compose $PROFILES up -d
+tools/compose $PROFILES build
+tools/compose $PROFILES up -d
 ```
 
 !!! tip "Keep previous images"
@@ -214,7 +217,7 @@ docker compose $PROFILES up -d
     old one. If you set `IMAGE_TAG=<short commit hash>` in `.env` before
     building, the image of the previous release stays on the host, and
     rolling back comes down to restoring the previous `IMAGE_TAG` and
-    running `docker compose up -d`, without a rebuild.
+    running `tools/compose up -d`, without a rebuild.
 
 ### Rollback with migrations
 
@@ -227,8 +230,8 @@ revision, so the order is strict:
 2. Run the downgrade with the **new** image:
 
     ```bash
-    docker compose stop control-plane-worker context-adapter control-plane-api
-    docker compose run --rm --no-deps control-plane-api alembic downgrade <revision>
+    tools/compose stop control-plane-worker context-adapter control-plane-api
+    tools/compose run --rm --no-deps control-plane-api alembic downgrade <revision>
     ```
 
 3. Switch the code and images to the previous release (as in the fast

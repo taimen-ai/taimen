@@ -46,6 +46,7 @@ CEL (Common Expression Language) в профиле платформы. Стат�
 | `task` | задача шага: `id`, `publicId`, `typeKey`, `title`, `status`, `assigneeId`, `customFields`, `artifacts`… | `customFields` — по `fieldSchema` типа задачи |
 | `stage` | `stage.<id>.completed`, `stage.<id>.active` (или `stage["<id>"]`) | `bool` |
 | `instance` | `id`, `key`, `version`, `startedAt`, `clock` | `clock` — время текущего входа |
+| `settings` | действующие [настройки пакета](../packages/settings.md#references) процесса; читаются один раз на транзакцию шага | из схемы `spec.settings` манифеста |
 
 Кроме переменных профиля, по месту видны привязки: `milestone.<id>` (вехи
 стадий), имя ошибки из `try.catch[].as` в её обработчике и `compensated`

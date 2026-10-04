@@ -85,7 +85,7 @@ empty in `.env`:
 | `CP_S3_BUCKET` | the artifact content bucket, `artifacts` by default |
 
 `CP_S3_ACCESS_KEY_ID` and `CP_S3_SECRET_ACCESS_KEY` are required in
-`compose.yml` (`${VAR:?…}`): without them neither MinIO-bootstrap nor the
+`deploy/local/compose.yml` (`${VAR:?…}`): without them neither MinIO-bootstrap nor the
 core processes start. The other core settings (`CP_S3_ENDPOINT_URL`,
 `CP_S3_REGION`, timeouts, limits) are in the [Control Plane configuration](../control-plane/configuration.md#content-store).
 
@@ -97,12 +97,12 @@ core processes start. The other core settings (`CP_S3_ENDPOINT_URL`,
 ## External S3 instead of MinIO
 
 You can keep artifact content with any S3-compatible provider. The
-`compose.s3.example.yml` file in the superproject root takes `minio` and
+`deploy/local/compose.s3.example.yml` file in the superproject root takes `minio` and
 `minio-bootstrap` out of the `core` profile (it assigns them a profile that
 the installation does not start); include it as the second file:
 
 ```bash
-docker compose -f compose.yml -f compose.s3.example.yml --profile core --profile edge up -d
+tools/compose -f deploy/local/compose.s3.example.yml --profile core --profile edge up -d
 ```
 
 In `.env`:
@@ -124,7 +124,7 @@ CP_S3_SECRET_ACCESS_KEY=<user secret>
     If `CP_S3_ENDPOINT_URL` is empty, Control Plane runs without storage:
     link artifacts and JSON artifacts are created as usual, and the content
     routes return `503 content_store_unavailable`. In the shipped
-    `compose.yml` the default address is `http://minio:9000`.
+    `deploy/local/compose.yml` the default address is `http://minio:9000`.
 
 ## Backup { #backup }
 
@@ -163,9 +163,9 @@ Account for volume growth in [Resources and scaling](capacity.md).
 | Symptom | Cause | What to do |
 |---|---|---|
 | `503 content_store_unavailable` on `PUT /artifact-contents` while MinIO is running | `CP_S3_ENDPOINT_URL` is empty, so storage is disabled in the core | Set the address and recreate the Control Plane processes |
-| `503 content_store_unavailable`, with the warning `content store unavailable at start-up` in the API log | MinIO is not up, the keys are wrong, or the user lacks `ListBucket` | `docker compose ps minio minio-bootstrap`, `minio-bootstrap` logs; check the keys in `.env` and the policy |
+| `503 content_store_unavailable`, with the warning `content store unavailable at start-up` in the API log | MinIO is not up, the keys are wrong, or the user lacks `ListBucket` | `tools/compose ps minio minio-bootstrap`, `minio-bootstrap` logs; check the keys in `.env` and the policy |
 | `503 content_store_unavailable` only when reading individual artifacts | The object is missing from storage while the record says `stored`: the volume was restored from an older copy than the database | Restore the MinIO volume from a copy consistent with the database |
-| `docker compose up` fails on `set CP_S3_ACCESS_KEY_ID` | The core keys are missing from `.env` | `make secrets` adds the missing keys |
+| `tools/compose up` fails on `set CP_S3_ACCESS_KEY_ID` | The core keys are missing from `.env` | `make secrets` adds the missing keys |
 | `413 request_too_large` on upload | The file is larger than `CP_ARTIFACT_MAX_BYTES` | Reduce the file or raise the installation limit |
 | `422 artifact_too_large` when creating an artifact | The file is larger than the registered artifact type's `maxBytes` | Publish a version of the type with a larger `maxBytes` (not above `CP_ARTIFACT_MAX_BYTES`) |
 

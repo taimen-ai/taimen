@@ -16,16 +16,21 @@ for IAM; memory-service, from inside the compose network.
 <!-- generated:api-control-plane -->
 _This section is generated from code; do not edit it by hand._
 
-API version `0.9.0`, operations: 225.
+API version `0.9.0`, operations: 256.
 
 | Method | Path | Description | Edge |
 |---|---|---|---|
 | `GET` | `/api/v1/agents` | A page of agents; include=status adds the observed state of each | public |
 | `POST` | `/api/v1/agents` | Publish an agent spec: a new revision only when its canonical hash differs | public |
-| `GET` | `/api/v1/agents/me` | The agent the caller is, with its current revision | public |
+| `GET` | `/api/v1/agents/me` | The agent the caller is, with its current revision and its package's settings | public |
+| `GET` | `/api/v1/agents/me/connections` | The connections the caller's agent names, without material | public |
+| `GET` | `/api/v1/agents/me/connections/{key}` | One connection the caller's agent names; any other key is not found | public |
 | `PUT` | `/api/v1/agents/{key}/identity` | Link the IAM identity of an agent; the core derives principal and binding | public |
 | `POST` | `/api/v1/agents/{key}/identity:replace` | Move a service agent to a new IAM identity; the principal stays the same | public |
 | `GET` | `/api/v1/agents/{key}/revisions` | Revisions of an agent, newest first, without their specs (those are key@revision) | public |
+| `GET` | `/api/v1/agents/{key}/secrets` | The names of an agent's secrets, without values | public |
+| `PUT` | `/api/v1/agents/{key}/secrets/{name}` | Set an agent's secret by name: the value goes to the secret store | public |
+| `DELETE` | `/api/v1/agents/{key}/secrets/{name}` | Delete an agent's secret with every version from the secret store | public |
 | `PATCH` | `/api/v1/agents/{key}/state` | Change the desired state or replicas; never a new revision | public |
 | `GET` | `/api/v1/agents/{key}/status` | Observed state of an agent | public |
 | `PUT` | `/api/v1/agents/{key}/status` | Report the observed state of an agent (placement service only) | public |
@@ -66,6 +71,21 @@ API version `0.9.0`, operations: 225.
 | `POST` | `/api/v1/claims/{claim_id}:heartbeat` | Heartbeat Claim | public |
 | `POST` | `/api/v1/claims/{claim_id}:reclaim` | Take over an expired claim atomically (new fencing token) | public |
 | `POST` | `/api/v1/claims/{claim_id}:release` | Release Claim | public |
+| `GET` | `/api/v1/connection-types` | List Connection Types | public |
+| `POST` | `/api/v1/connection-types` | Publish a version of a connection type; the same spec again changes nothing | public |
+| `GET` | `/api/v1/connection-types/{key}/oauth-app` | Whether the OAuth application of a type is set, and its client id | public |
+| `PUT` | `/api/v1/connection-types/{key}/oauth-app` | Set the OAuth application of a type; the secret goes to the secret store only | public |
+| `GET` | `/api/v1/connection-types/{ref}` | Get Connection Type | public |
+| `PATCH` | `/api/v1/connection-types/{ref}` | Move the status of one version (key@version) forward | public |
+| `GET` | `/api/v1/connections` | List Connections | public |
+| `POST` | `/api/v1/connections` | Create a connection; it waits for authorization | public |
+| `GET` | `/api/v1/connections/{key}` | Get Connection | public |
+| `PATCH` | `/api/v1/connections/{key}` | Change the display name, settings or type version of a connection | public |
+| `PUT` | `/api/v1/connections/{key}/status` | Report that access still works or has expired (the connector only) | public |
+| `PUT` | `/api/v1/connections/{key}/token` | Connect with a key: the key goes to the secret store, the connection is active | public |
+| `POST` | `/api/v1/connections/{key}:authorize` | Start OAuth: a one-time state and the provider's address for consent | public |
+| `POST` | `/api/v1/connections/{key}:revoke` | Revoke: the material and the agents' access go, the connection is revoked | public |
+| `GET` | `/api/v1/connections:callback` | The provider returns the browser here; the one-time state authenticates it | public |
 | `POST` | `/api/v1/context` | Working Context | public |
 | `GET` | `/api/v1/context-packs/{pack_id}` | Get Context Pack | public |
 | `POST` | `/api/v1/context-packs/{pack_id}:replay` | Replay Context Pack | public |
@@ -73,7 +93,9 @@ API version `0.9.0`, operations: 225.
 | `GET` | `/api/v1/delegations` | List Delegations | public |
 | `POST` | `/api/v1/delegations` | Create Delegation | public |
 | `POST` | `/api/v1/delegations/{delegation_id}:revoke` | Revoke Delegation | public |
+| `GET` | `/api/v1/event-types` | The event catalog: groups, versions and payload schemas of the types, captions in the language asked | public |
 | `GET` | `/api/v1/events` | List Events | public |
+| `GET` | `/api/v1/events:export` | Export the journal of a bounded period for an audit, streamed as JSONL or CSV | public |
 | `GET` | `/api/v1/external-references` | List External References | public |
 | `POST` | `/api/v1/external-references` | Register External Reference | public |
 | `GET` | `/api/v1/goals` | List Goals | public |
@@ -97,6 +119,10 @@ API version `0.9.0`, operations: 225.
 | `POST` | `/api/v1/operations/context-adapter/{tenant_id}:redrive` | Redrive Context Adapter | public |
 | `POST` | `/api/v1/operations/journal:archive` | Archive Journal | public |
 | `POST` | `/api/v1/operations/journal:prune` | Prune Journal | public |
+| `GET` | `/api/v1/package-settings` | The packages whose installed revision declares settings | public |
+| `GET` | `/api/v1/packages/{key}/settings` | The settings of a package: schema and layout with their strings, saved and effective values | public |
+| `PUT` | `/api/v1/packages/{key}/settings` | Save the settings of a package whole: a new version, or the state as it is when nothing changes | public |
+| `GET` | `/api/v1/packages/{key}/settings/versions` | The history of the settings of a package, newest first | public |
 | `POST` | `/api/v1/packages:apply` | Apply exactly the plan with this hash; the catalog changed since — 409 plan_stale | public |
 | `POST` | `/api/v1/packages:plan` | Plan applying a package: structural and behavioural diff, open instances, hash | public |
 | `POST` | `/api/v1/packages:record` | Link the objects an installer applied through their routes to their package | public |
@@ -104,6 +130,7 @@ API version `0.9.0`, operations: 225.
 | `GET` | `/api/v1/principals` | List Principals | public |
 | `POST` | `/api/v1/principals` | Create Principal | public |
 | `GET` | `/api/v1/principals/{principal_id}` | Get Principal | public |
+| `PATCH` | `/api/v1/principals/{principal_id}` | Change the display name and profile of a principal | public |
 | `POST` | `/api/v1/principals/{principal_id}/api-keys` | Issue an API key; the full key is returned only in this response | public |
 | `GET` | `/api/v1/principals/{principal_id}/capabilities` | List Capabilities | public |
 | `POST` | `/api/v1/principals/{principal_id}/capabilities` | Assign Capability | public |
@@ -199,6 +226,7 @@ API version `0.9.0`, operations: 225.
 | `GET` | `/api/v1/task-types` | List Task Types | public |
 | `POST` | `/api/v1/task-types` | Create the next immutable version of a work item type | public |
 | `GET` | `/api/v1/task-types/{type_id}` | Get Task Type | public |
+| `GET` | `/api/v1/task-types/{type_id}/executors` | Who may take this task type version in a workspace (ADR-0048, 2026-10-03 A2) | public |
 | `POST` | `/api/v1/task-types/{type_id}:deprecate` | Deprecate Task Type | public |
 | `POST` | `/api/v1/task-types/{type_id}:migrate-tasks` | Move the open tasks of this version to another version of its key (ADR-0048) | public |
 | `GET` | `/api/v1/tasks` | List Tasks | public |
@@ -223,6 +251,9 @@ API version `0.9.0`, operations: 225.
 | `POST` | `/api/v1/tasks/{task_ref}:start-run` | Start an execution attempt under a live claim | public |
 | `GET` | `/api/v1/tools` | Tools this principal may use right now (bounded projection) | public |
 | `GET` | `/api/v1/tools/{tool_ref}` | Full sanitized projection of one tool | public |
+| `GET` | `/api/v1/views` | The views of packages the caller sees: a role of their audience and the right to read their source | public |
+| `GET` | `/api/v1/views/{view_key}` | A view by key, its strings in the language asked; one the caller may not see is 404 | public |
+| `POST` | `/api/v1/views/{view_key}:query` | The data one block of a view draws, as the caller may see it; a view or an instance the caller may not see is 404 | public |
 | `GET` | `/api/v1/work/available` | Tasks the calling principal could claim right now (advisory) | public |
 | `GET` | `/api/v1/workspace-types` | List Workspace Types | public |
 | `POST` | `/api/v1/workspace-types` | Create Workspace Type | public |
@@ -252,7 +283,7 @@ API version `0.9.0`, operations: 225.
 <!-- generated:api-iam-service -->
 _This section is generated from code; do not edit it by hand._
 
-API version `0.1.0`, operations: 59.
+API version `0.1.0`, operations: 62.
 
 | Method | Path | Description | Edge |
 |---|---|---|---|
@@ -291,12 +322,15 @@ API version `0.1.0`, operations: 59.
 | `POST` | `/api/v1/tenants/{tenant_id}/principals/{principal_id}/authentication-contexts` | Create Authentication Context | internal network only |
 | `GET` | `/api/v1/tenants/{tenant_id}/principals/{principal_id}/external-identities` | List Principal External Identities | internal network only |
 | `POST` | `/api/v1/tenants/{tenant_id}/principals/{principal_id}/external-identities` | Link External Identity | internal network only |
+| `DELETE` | `/api/v1/tenants/{tenant_id}/principals/{principal_id}/external-identities/{identity_id}` | Unlink Connection Identity | internal network only |
 | `POST` | `/api/v1/tenants/{tenant_id}/principals/{principal_id}/platform-access-tokens` | Issue Platform Access Token | internal network only |
 | `POST` | `/api/v1/tenants/{tenant_id}/principals/{principal_id}:disable` | Disable Principal | internal network only |
 | `POST` | `/api/v1/tenants/{tenant_id}/principals/{principal_id}:enable` | Enable Principal | internal network only |
+| `GET` | `/api/v1/tenants/{tenant_id}/principals:by-email` | Find Principals By Email | internal network only |
 | `GET` | `/api/v1/tenants/{tenant_id}/provisioning-sources` | List Provisioning Sources | internal network only |
 | `POST` | `/api/v1/tenants/{tenant_id}/provisioning-sources` | Register Provisioning Source | internal network only |
 | `POST` | `/api/v1/tenants/{tenant_id}/service-accounts` | Create Service Account | internal network only |
+| `PATCH` | `/api/v1/tenants/{tenant_id}/service-accounts/{client_id}` | Update Service Account | internal network only |
 | `POST` | `/api/v1/tenants/{tenant_id}/service-accounts/{client_id}:revoke` | Revoke Service Account | internal network only |
 | `POST` | `/api/v1/tokens/exchange` | Exchange Token | `/iam/api/v1/tokens/exchange` |
 | `GET` | `/healthz` | Health | `/iam/healthz` |

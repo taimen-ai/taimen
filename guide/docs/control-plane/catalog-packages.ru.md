@@ -71,7 +71,7 @@ spec:
 Файл в папке `agents/` описывает агента целиком: личность и права, какую работу
 он берёт, вид исполнителя с параметрами и инструкциями, рабочую копию, скиллы и
 размещение (TAI-ADR-0052). Схема — `$defs.agentSpec` в
-`package-sdk/schema/v1/object.schema.json`, для автора — [Агенты
+`sdk/package-sdk/schema/v1/object.schema.json`, для автора — [Агенты
 пакета](../packages/agents.md).
 
 - `check` проверяет описание схемой формата и моделью `AgentSpec` ядра,

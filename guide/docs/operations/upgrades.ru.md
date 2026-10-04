@@ -7,7 +7,7 @@
 ## Что такое релиз
 
 Релиз платформы — **коммит суперпроекта**. Он закрепляет ревизии всех
-компонентов указателями сабмодулей, а заодно `compose.yml`, `.env.example`,
+компонентов указателями сабмодулей, а заодно `deploy/local/compose.yml`, `.env.example`,
 `deploy/` и пакеты каталога. Обновить установку — значит перевести клон
 суперпроекта на новый коммит, подтянуть сабмодули на закреплённые ревизии,
 пересобрать образы и пересоздать изменившиеся контейнеры.
@@ -21,8 +21,8 @@ sequenceDiagram
     Op->>Op: бэкап БД и secrets/
     Op->>Git: git pull --ff-only
     Op->>Git: git submodule update --init --recursive
-    Op->>D: docker compose build (сервисы продолжают работать)
-    Op->>D: docker compose up -d
+    Op->>D: tools/compose build (сервисы продолжают работать)
+    Op->>D: tools/compose up -d
     D->>Svc: пересоздание изменившихся контейнеров
     Svc->>Svc: alembic upgrade head при старте
     Op->>Svc: make smoke, /health/ready
@@ -45,15 +45,15 @@ git submodule update --init --recursive
 git submodule status                                    # ни одной строки с «+» или «-»
 
 # 2. Сборка заранее: работающие контейнеры не трогаются
-docker compose $PROFILES build
+tools/compose $PROFILES build
 
 # 3. Переключение: пересоздаются только контейнеры с новым образом или конфигурацией
-docker compose $PROFILES up -d
+tools/compose $PROFILES up -d
 
 # 4. Проверка
 make smoke
 curl -fsS http://127.0.0.1:18000/health/ready           # {"status":"ready","revision":"..."}
-docker compose --profile "*" ps
+tools/compose --profile "*" ps
 ```
 
 !!! tip "Сначала build, потом up"
@@ -79,14 +79,14 @@ docker compose --profile "*" ps
 
 Следствия:
 
-- `docker compose build control-plane-worker` ничего не собирает. Собирайте
+- `tools/compose build control-plane-worker` ничего не собирает. Собирайте
   `control-plane-api` или весь профиль `core`.
-- После сборки пересоздайте **все три** контейнера. `docker compose up -d`
+- После сборки пересоздайте **все три** контейнера. `tools/compose up -d`
   без имён сервисов сделает это сам (у всех трёх сменился образ). Если
   перечисляете сервисы явно — перечисляйте все три:
 
   ```bash
-  docker compose up -d control-plane-api control-plane-worker context-adapter
+  tools/compose up -d control-plane-api control-plane-worker context-adapter
   ```
 
 - Имя сервиса адаптера — `context-adapter`, без префикса `control-plane-`.
@@ -117,10 +117,10 @@ healthcheck не пропустит worker и адаптер к старой с�
 Проверить ревизии вручную:
 
 ```bash
-docker compose exec control-plane-db psql -U control_plane -d control_plane \
+tools/compose exec control-plane-db psql -U control_plane -d control_plane \
   -c 'SELECT version_num FROM alembic_version'
-docker compose exec iam-db psql -U iam -d iam -c 'SELECT version_num FROM alembic_version'
-docker compose run --rm --no-deps control-plane-api alembic heads
+tools/compose exec iam-db psql -U iam -d iam -c 'SELECT version_num FROM alembic_version'
+tools/compose run --rm --no-deps control-plane-api alembic heads
 ```
 
 !!! warning "Индексы строятся не CONCURRENTLY"
@@ -135,11 +135,11 @@ docker compose run --rm --no-deps control-plane-api alembic heads
 схемы):
 
 ```bash
-docker compose $PROFILES build
-docker compose stop context-adapter
-docker compose up -d control-plane-api          # применит миграции
+tools/compose $PROFILES build
+tools/compose stop context-adapter
+tools/compose up -d control-plane-api          # применит миграции
 curl -fsS http://127.0.0.1:18000/health/ready    # ждать 200
-docker compose up -d control-plane-worker context-adapter
+tools/compose up -d control-plane-worker context-adapter
 ```
 
 ## После обновления
@@ -147,7 +147,7 @@ docker compose up -d control-plane-worker context-adapter
 | Что проверить | Когда нужно |
 |---|---|
 | Повторный прогон `deploy/bootstrap.py` | Если релиз менял `AUDIENCES`, потолки service accounts, права агентов по умолчанию или пакеты каталога. Скрипт идемпотентен: приводит `allowedScopes` audiences к реестру (`PATCH`), при изменившемся потолке перевыпускает service account ядра и отзывает прежний |
-| Перезапуск ядра после bootstrap | Если bootstrap перевыпустил `secrets/control-plane-iam.env`: `docker compose up -d control-plane-api control-plane-worker context-adapter` |
+| Перезапуск ядра после bootstrap | Если bootstrap перевыпустил `secrets/control-plane-iam.env`: `tools/compose up -d control-plane-api control-plane-worker context-adapter` |
 | План каталога | `package-sdk plan --install deploy/packages.yaml --server https://platform.example.com --out plan.json` показывает расхождения каталога до применения (токен — `CP_TOKEN`) |
 | Runner-хост | Обновить отдельно, см. ниже |
 | Рабочие места операторов | Переустановить пакет `control-plane` (MCP-плагин, CLI) и перезапустить сессию: новые инструменты `cp_*` появляются только в новой сессии |
@@ -170,10 +170,11 @@ docker compose up -d control-plane-worker context-adapter
     root, и следующая установка упадёт с `Permission denied`:
 
     ```bash
-    sudo -u runner git -C <runner-root>/src/control-plane pull --ff-only
+    sudo -u runner git -C <runner-root>/src/services/control-plane pull --ff-only
+    sudo -u runner git -C <runner-root>/src/sdk/platform-auth-sdk pull --ff-only
     sudo -u runner env HOME=/home/runner \
       UV_TOOL_DIR=<runner-root>/tools UV_TOOL_BIN_DIR=<runner-root>/bin \
-      /home/runner/.local/bin/uv tool install --reinstall <runner-root>/src/control-plane
+      /home/runner/.local/bin/uv tool install --reinstall <runner-root>/src/services/control-plane
     sudo -u runner git -C <runner-root>/<repo>.git fetch origin '+refs/heads/*:refs/heads/*'
     sudo systemctl restart <юниты исполнителей>
     ```
@@ -181,7 +182,9 @@ docker compose up -d control-plane-worker context-adapter
     `uv tool install` от root ставит пакет в `/root/.local/share/uv/tools` —
     мимо сервисов, и они молча остаются на старом коде. Обновлять нужно оба
     места: `src/` (из чего собран демон) и bare-зеркало (из чего делаются
-    рабочие копии задач).
+    рабочие копии задач). Клоны в `src/` лежат в раскладке поставки:
+    `src/services/control-plane` и его path-зависимость `src/sdk/platform-auth-sdk`.
+
 
 Остановка исполнителя безопасна в любой момент: при следующем старте демон
 находит свой осиротевший run и закрывает его с
@@ -198,8 +201,8 @@ docker compose up -d control-plane-worker context-adapter
 ```bash
 git checkout <предыдущий коммит суперпроекта>
 git submodule update --init --recursive
-docker compose $PROFILES build
-docker compose $PROFILES up -d
+tools/compose $PROFILES build
+tools/compose $PROFILES up -d
 ```
 
 !!! tip "Держите предыдущие образы"
@@ -207,7 +210,7 @@ docker compose $PROFILES up -d
     перезаписывает старую. Если перед сборкой выставлять в `.env`
     `IMAGE_TAG=<короткий хэш коммита>`, образ предыдущего релиза остаётся
     на хосте, и откат сводится к возврату прежнего `IMAGE_TAG` и
-    `docker compose up -d` — без пересборки.
+    `tools/compose up -d` — без пересборки.
 
 ### Откат с миграциями
 
@@ -220,8 +223,8 @@ Alembic откатывает схему только кодом, который 
 2. **Новым** образом выполните downgrade:
 
     ```bash
-    docker compose stop control-plane-worker context-adapter control-plane-api
-    docker compose run --rm --no-deps control-plane-api alembic downgrade <ревизия>
+    tools/compose stop control-plane-worker context-adapter control-plane-api
+    tools/compose run --rm --no-deps control-plane-api alembic downgrade <ревизия>
     ```
 
 3. Переключите код и образы на предыдущий релиз (как в быстром откате).

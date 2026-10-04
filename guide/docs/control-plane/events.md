@@ -294,6 +294,24 @@ payload fields of instance events: `instanceId`, `definitionKey`, `version`,
 Step events and their outcomes are described in [Step events](../processes/index.md#step-events),
 deadlines and the `owner`, `assignee` addressees in [Deadlines and SLA](../processes/index.md#sla).
 
+### Connections and agent secrets
+
+None of these events carries secret values, the account or the provider's text
+(see [Connections](connections.md)).
+
+| Type | Stream | Key payload fields |
+|---|---|---|
+| `connection_type.published` | connection_type | `key`, `version`, `auth`; a repeat of the same `spec` records nothing |
+| `connection_type.oauth_app_set` | connection_type | `type`, `created` — without the client id and the secret |
+| `connection.created` | connection | `key`, `type`, `typeVersion`, `status` |
+| `connection.updated` | connection | `key`, `version`, `changes` — names of the changed fields (`displayName`, `settings`, `typeVersion`) |
+| `connection.authorized` | connection | `key`, `type`, `auth`, `previousStatus`, `connectedBy` |
+| `connection.authorization_failed` | connection | `key`, `type`, `reason` (a code, e.g. `consent_denied`), `initiatedBy` |
+| `connection.status_changed` | connection | `key`, `type`, `from`, `to`, `reason` (a code), `connectedBy` |
+| `connection.revoked` | connection | `key`, `type`, `previousStatus`; a repeated revocation records nothing |
+| `agent.secret_set` | agent | `agentKey`, `name`, `created` (the first value, not a replacement) |
+| `agent.secret_deleted` | agent | `agentKey`, `name` |
+
 ### Organization and configuration
 
 | Group | Types |
@@ -303,6 +321,7 @@ deadlines and the `owner`, `assignee` addressees in [Deadlines and SLA](../proce
 | Roles and catalog | `role.created`, `.updated`, `.assigned`, `.revoked`; `capability.created`, `.assigned`, `.revoked`; `skill.registered`, `.updated`, `.assigned`, `.revoked` |
 | Projects | `project_template.created`, `.deprecated`; `project.created`, `.updated`, `.archived`, `.status_changed`, `.config_revision_created`, `.config_revision_activated`, `.external_reference_added`, `.external_reference_updated` |
 | Operations | `context_adapter.redriven`, `context_adapter.rebuilt`, `event_journal.archived`, `event_journal.pruned` |
+| Packages | `package.settings_changed`: package settings were saved; `package`, `version`, `previousVersion`, `schemaRevision`, `changedPaths`, `actorId`, no values (see [Package settings](../packages/settings.md#event)) |
 
 !!! tip "Status: key or category"
     Task events carry both the user-defined `status` key and

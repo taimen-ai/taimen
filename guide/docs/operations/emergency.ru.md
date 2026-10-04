@@ -22,9 +22,9 @@ Runbook для инцидентов: что продолжает работат�
 **Оценка.**
 
 ```bash
-docker compose ps iam-service iam-db
+tools/compose ps iam-service iam-db
 curl -s http://127.0.0.1:18010/healthz
-docker compose logs --since 15m iam-service | tail -50
+tools/compose logs --since 15m iam-service | tail -50
 ```
 
 
@@ -37,7 +37,7 @@ service account, получает отказы и копит отставани�
 
 **Шаги.**
 
-1. Если лежит база: `docker compose up -d iam-db`, проверить диск и логи
+1. Если лежит база: `tools/compose up -d iam-db`, проверить диск и логи
    PostgreSQL.
 2. Если сервис падает при старте — смотреть первую ошибку в логах:
     - ошибка миграции Alembic → откат релиза (ниже);
@@ -45,7 +45,7 @@ service account, получает отказы и копит отставани�
       должен быть uid 10001 (`chown 10001:10001`, режим `600`);
     - ошибка подключения к БД → пароль `IAM_POSTGRES_PASSWORD` в `.env`
       не совпадает с ролью в базе.
-3. `docker compose up -d iam-service`, дождаться `healthy`.
+3. `tools/compose up -d iam-service`, дождаться `healthy`.
 4. Проверить `context_adapter_parked_tenants`; при `> 0` —
    `control-plane ops adapter redrive <tenant-id>`.
 
@@ -60,7 +60,7 @@ claim, отменить задачу, отозвать binding), владеле�
 ```bash
 # principal оператора — cpOperatorPrincipalId в deploy/state/<env>.json
 PRINCIPAL=$(python3 -c 'import json;print(json.load(open("deploy/state/taimen.json"))["cpOperatorPrincipalId"])')
-docker compose exec -e BREAK_GLASS_OPERATOR="$(whoami)" control-plane-api \
+tools/compose exec -e BREAK_GLASS_OPERATOR="$(whoami)" control-plane-api \
   python -m control_plane.break_glass issue --principal "$PRINCIPAL" --ttl 3600 \
   --reason "IAM недоступен, <номер инцидента>"
 ```
@@ -81,7 +81,7 @@ docker compose exec -e BREAK_GLASS_OPERATOR="$(whoami)" control-plane-api \
 Как только IAM поднят — отзовите все аварийные ключи:
 
 ```bash
-docker compose exec control-plane-api python -m control_plane.break_glass revoke
+tools/compose exec control-plane-api python -m control_plane.break_glass revoke
 ```
 
 ## Control Plane не готов
@@ -90,9 +90,9 @@ docker compose exec control-plane-api python -m control_plane.break_glass revoke
 
 | Ответ | Причина | Действие |
 |---|---|---|
-| `503 database_unreachable` | База недоступна | `docker compose ps control-plane-db`, логи, диск; `docker compose up -d control-plane-db` |
+| `503 database_unreachable` | База недоступна | `tools/compose ps control-plane-db`, логи, диск; `tools/compose up -d control-plane-db` |
 | `503 migrations_pending` | Ревизия БД не равна head образа | Если API не стартует из-за ошибки миграции — логи `control-plane-api`, откат релиза; если ревизия БД **новее** образа — запущен старый образ поверх новой схемы: вернуть новый образ или сделать downgrade |
-| Нет ответа | Контейнер в цикле рестартов | `docker compose logs --tail 100 control-plane-api` |
+| Нет ответа | Контейнер в цикле рестартов | `tools/compose logs --tail 100 control-plane-api` |
 
 Пока API не готов, `control-plane-worker` и `context-adapter` не стартуют
 (зависимость `service_healthy`) — это защита, а не отдельная проблема.
@@ -104,12 +104,12 @@ docker compose exec control-plane-api python -m control_plane.break_glass revoke
 ```bash
 cd /opt/taimen/src
 # 1. Если новый релиз применил миграции — downgrade НОВЫМ образом
-docker compose stop control-plane-worker context-adapter control-plane-api
-docker compose run --rm --no-deps control-plane-api alembic downgrade <ревизия прошлого релиза>
+tools/compose stop control-plane-worker context-adapter control-plane-api
+tools/compose run --rm --no-deps control-plane-api alembic downgrade <ревизия прошлого релиза>
 # 2. Код и образы прошлого релиза
 git checkout <коммит прошлого релиза> && git submodule update --init --recursive
-docker compose --profile core --profile edge build     # или прежний IMAGE_TAG без сборки
-docker compose --profile core --profile edge up -d
+tools/compose --profile core --profile edge build     # или прежний IMAGE_TAG без сборки
+tools/compose --profile core --profile edge up -d
 make smoke
 ```
 
@@ -185,7 +185,7 @@ Control Plane раньше. Если PAT имел `control-plane:admin`, про�
 
 
 1. Сменить значение в `.env` на новое случайное (`openssl rand -hex 24`),
-   `docker compose up -d iam-service`.
+   `tools/compose up -d iam-service`.
 2. Выгрузить список PAT (`GET …/platform-access-tokens?includeRevoked=true`)
    и audit IAM; отозвать всё, что выпущено не вами после вероятного момента
    утечки.
@@ -203,7 +203,7 @@ Control Plane раньше. Если PAT имел `control-plane:admin`, про�
 ```bash
 # ядро: bootstrap перевыпустит и отзовёт прежний
 mv secrets/control-plane-iam.env /tmp/ && python3 deploy/bootstrap.py --env .env --name <env>
-docker compose up -d control-plane-api control-plane-worker context-adapter
+tools/compose up -d control-plane-api control-plane-worker context-adapter
 ```
 
 Для прочих service accounts — отзыв в IAM и перевыпуск; см.
@@ -264,7 +264,7 @@ journalctl --vacuum-size=500M
    остаются и не мешают.
 2. Настройте DNS и Caddyfile для нового имени, дождитесь сертификата.
 3. Поменяйте `TAIMEN_PUBLIC_URL` и `TAIMEN_PUBLIC_HOST` в `.env`.
-4. Пересоздайте сервисы, чтобы они взяли новый адрес: `docker compose … up -d`.
+4. Пересоздайте сервисы, чтобы они взяли новый адрес: `tools/compose … up -d`.
 5. Обновите `CONTROL_PLANE_SERVER` и `CONTROL_PLANE_IAM_URL` у исполнителей
    и операторов. Ключ записи в `credentials.json` включает адрес IAM —
    перенесите записи под новый адрес.

@@ -304,7 +304,13 @@ is a rejection (`no_approvers`).
 approval. The process knows whom to exclude from its own data: for example,
 who reviewed the case is kept by `output.as` of the preceding `human` step,
 `reviewedBy: string(task.assigneeId)` (the full example is in
-[Expressions](expressions.md#variables)). A vote by an excluded principal is rejected with `403
+[Expressions](expressions.md#variables)). Take the author of an input from
+the event, not from its data: the core sets `event.actorId` from the
+authenticated sender, while `event.payload` is written by the sender itself,
+and someone else's id put there would drop the exclusion. That is why invoice
+payment excludes both the author of the observation
+(`uploadedBy: string(event.actorId)`, see [Start and correlation](#start))
+and the uploader named in the data, if any. A vote by an excluded principal is rejected with `403
 separation_of_duties_violation` on any path (from the workspace, a channel,
 MCP, or the API), even if they hold the approver role. Such an approval is
 not shown to them in the "Attention" list.
@@ -420,7 +426,7 @@ data:
     supplier: {type: string}
     amount: {type: number}
     currency: {type: string}
-    uploadedBy: {type: string, description: "Principal who uploaded the invoice"}
+    uploadedBy: {type: string, format: uuid, minLength: 1, description: "Principal who uploaded the invoice"}
     dueDate: {type: string, format: date-time}
     review: {type: string, enum: [ok, mismatch]}
 ```
@@ -443,6 +449,7 @@ start:
   set:
     number: string(event.payload.data.invoice)
     amount: double(event.payload.data.amount)
+    uploadedBy: string(event.actorId)   # the author of the observation, not a payload field
 correlate:
   - "on": {observation: invoice.corrected}
     key: "'invoice:' + string(event.payload.data.invoice)"

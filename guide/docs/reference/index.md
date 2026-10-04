@@ -5,7 +5,7 @@ Summary tables for the whole delivery: environment variables, services and
 ports, permissions and scopes, machine error codes, `make` targets, the package
 schema and commands, and the glossary. The section is built for keyword search (`Ctrl+K`) and for reading
 "by row": every table row is checked against the component code,
-`compose.yml`, `.env.example`, `Makefile`, or `deploy/`.
+`deploy/local/compose.yml`, `.env.example`, `Makefile`, or `deploy/`.
 
 ## Where to find what
 
@@ -25,7 +25,7 @@ schema and commands, and the glossary. The section is built for keyword search (
 - Names of variables, fields, codes, and services are given **exactly as in
   code**: you can copy them into `.env`, requests, and log filters.
 - "Default" means the value that applies when the variable is not set. If
-  `compose.yml` substitutes its own value, this is stated separately: for the
+  `deploy/local/compose.yml` substitutes its own value, this is stated separately: for the
   stack containers, that value is the one that applies.
 - Addresses and identifiers in examples are neutral: `platform.example.com`,
   `<tenant-id>`, `<principal-id>`, `/opt/taimen`.

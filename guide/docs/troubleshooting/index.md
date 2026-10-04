@@ -10,8 +10,8 @@ the general diagnostic order below, then go to the table for your subsystem.
 ```mermaid
 flowchart TD
     A[Symptom] --> B{make smoke green?}
-    B -- no --> C[docker compose ps: which service is not healthy]
-    C --> D[docker compose logs for the service: first error]
+    B -- no --> C[tools/compose ps: which service is not healthy]
+    C --> D[tools/compose logs for the service: first error]
     D --> S[Installation and startup]
     B -- yes --> E{API response with an error code?}
     E -- 401/403 --> F[Authentication and access]
@@ -26,8 +26,8 @@ Basic commands, run from the root of the superproject clone:
 
 ```bash
 make smoke                                     # health of all running services
-docker compose --profile "*" ps                # statuses, healthchecks, restarts
-docker compose logs --since 15m <service>      # logs
+tools/compose --profile "*" ps                # statuses, healthchecks, restarts
+tools/compose logs --since 15m <service>      # logs
 curl -s http://127.0.0.1:18000/health/ready    # Control Plane readiness
 curl -s http://127.0.0.1:18000/metrics | grep context_adapter
 ```
@@ -65,7 +65,7 @@ for searching the tables in this section.
 ## What to collect before asking for help
 
 - The superproject commit (`git rev-parse HEAD`) and `git submodule status`.
-- The output of `docker compose --profile "*" ps`.
+- The output of `tools/compose --profile "*" ps`.
 - Logs of the affected service for the incident period (without secrets: make
   sure the excerpt contains no tokens or passwords).
 - The exact API response: status, error body, `requestId` / `request_id`.

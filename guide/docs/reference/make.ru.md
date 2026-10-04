@@ -12,7 +12,7 @@
 |---|---|---|
 | `help` | — | Список целей с описаниями (цель по умолчанию). |
 | `secrets` | — | Создаёт `.env` из `.env.example` (если его нет), заполняет пустые секреты, генерирует ключи подписи. |
-| `config` | `PROFILES` | Проверяет `compose.yml` после интерполяции для выбранных профилей. |
+| `config` | `PROFILES` | Проверяет `deploy/local/compose.yml` после интерполяции для выбранных профилей. |
 | `build` | `PROFILES` | Собирает образы выбранных профилей. |
 | `up` | `PROFILES` | Собирает и поднимает выбранные профили в фоне. |
 | `down` | — | Останавливает и удаляет контейнеры всех профилей; volumes сохраняются. |
@@ -22,7 +22,6 @@
 | `bootstrap` | `ARGS` | Первичная инициализация: tenant, principals, PAT, bindings, каталог. |
 | `reset-state` | — | После сброса volumes переносит state bootstrap и выданные им credentials в `secrets/stale-<время>/`. |
 | `check` | — | Lint + unit-тесты всех компонентов ядра (как обязательный CI). |
-| `check-frozen` | — | То же для замороженного периметра. |
 | `check-<компонент>` | — | Lint + тесты одного компонента. |
 | `lint-<компонент>` | — | Только lint одного компонента. |
 | `test-<компонент>` | — | Только тесты одного компонента. |
@@ -37,7 +36,7 @@
 
 | Переменная | По умолчанию | Где используется |
 |---|---|---|
-| `PROFILES` | `core edge` | `config`, `build`, `up`: превращается в `docker compose --profile <p> …` для каждого профиля. |
+| `PROFILES` | `core edge` | `config`, `build`, `up`: превращается в `tools/compose --profile <p> …` для каждого профиля. |
 | `svc` | пусто (все сервисы) | `logs`. |
 | `ARGS` | пусто | `bootstrap`: дополнительные аргументы `deploy/bootstrap.py`. |
 | `BOOTSTRAP_PY` | `uv run --no-project --quiet --with pyyaml --with jsonschema python3`, если uv установлен; иначе `python3` | `bootstrap`: интерпретатор скрипта. |
@@ -74,7 +73,7 @@ make secrets
     `chown 10001 secrets/*.pem`, иначе IAM не прочитает ключ подписи.
 
 
-`IAM_TENANT_ID` цель не заполняет: сгенерировать его нечем. В `compose.yml`
+`IAM_TENANT_ID` цель не заполняет: сгенерировать его нечем. В `deploy/local/compose.yml`
 он по умолчанию пуст, поэтому `make up` для `core edge` работает сразу после
 `make secrets` — см. [Переменные окружения](environment.md).
 
@@ -86,8 +85,8 @@ make config
 make config PROFILES="core notify edge"
 ```
 
-`docker compose … config --quiet`; при успехе печатает
-`compose.yml корректен для профилей: …`. Ловит пустые обязательные
+`tools/compose … config --quiet`; при успехе печатает
+`deploy/local/compose.yml корректен для профилей: …`. Ловит пустые обязательные
 переменные и ошибки интерполяции до запуска.
 
 ### make build / make up
@@ -100,7 +99,7 @@ make build PROFILES="core"
 ```
 
 
-`up` выполняет `docker compose --profile … up -d --build`: пересобирает
+`up` выполняет `tools/compose --profile … up -d --build`: пересобирает
 изменившиеся образы и пересоздаёт контейнеры.
 
 ### make down / ps / logs
@@ -158,7 +157,7 @@ make bootstrap ARGS="--name local --secrets-dir secrets --packages deploy/packag
 ### make reset-state
 
 ```bash
-docker compose --profile "*" down -v   # сброс volumes
+tools/compose --profile "*" down -v   # сброс volumes
 make reset-state
 make up && make bootstrap
 ```
@@ -206,7 +205,7 @@ make test-iam-service
 
 | Цель | Что делает дополнительно |
 |---|---|
-| `test-control-plane` | Поднимает `db-test` из `control-plane/docker-compose.yml` (профиль `test`, порт 5434), запускает `pytest tests/unit tests/client`, затем останавливает БД. |
+| `test-control-plane` | Поднимает `db-test` из `services/control-plane/docker-compose.yml` (профиль `test`, порт 5434), запускает `pytest tests/unit tests/client`, затем останавливает БД. |
 | `test-skill-sdk` | Тесты `skill-sdk` со всеми extras, затем сквозной тест исполнителя через `control-plane` (`tests/test_executor_e2e.py`). |
 | `test-memory-service` | `pytest` с extra `mcp`, без `tests/integration`. |
 
@@ -259,7 +258,7 @@ make packages-check
 === "Заново после сброса volumes"
 
     ```bash
-    docker compose --profile "*" down -v
+    tools/compose --profile "*" down -v
     make reset-state
     make up
     make bootstrap

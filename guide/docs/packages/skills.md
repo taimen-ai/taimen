@@ -56,7 +56,7 @@ PYTHONPATH=integration/src "$SKILL_SDK" export --package . --check claims_integr
 - **Where to get the command.** The `skills` extra installs `skill-sdk` into
   the environment of the `package-sdk` tool but does not expose it on `PATH`,
   hence the path through `uv tool dir`. `uv tool install --editable
-  ./skill-sdk` puts it on `PATH` separately; then the third-party dependencies
+  ./sdk/skill-sdk` puts it on `PATH` separately; then the third-party dependencies
   of the integration code must be added there too (`--with`).
 - **`PYTHONPATH`.** The integration code lives in `integration/src`, and
   without it on `sys.path` the module is not importable

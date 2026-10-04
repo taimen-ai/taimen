@@ -131,12 +131,12 @@ the secret): the provider raises `VerificationUnavailable("service_token_exchang
 
 `make bootstrap` (`deploy/bootstrap.py`) creates the following service
 accounts and writes their credentials to `secrets/` (0600). Services pick up
-the files through `env_file` in `compose.yml`.
+the files through `env_file` in `deploy/local/compose.yml`.
 
 
 | Service account | Audiences | Ceiling | File | Used by |
 |---|---|---|---|---|
-| Control Plane | `memory-service` | `memory:read`, `memory:write`, `memory:tenants`, `memory:on-behalf`, `memory:service` | `control-plane-iam.env` (`CP_IAM_CLIENT_ID`, `CP_IAM_CLIENT_SECRET`) | control-plane-api, worker, context-adapter |
+| Control Plane | `memory-service`, `openbao` | `memory:read`, `memory:write`, `memory:tenants`, `memory:on-behalf`, `memory:service`, `secrets:read` | `control-plane-iam.env` (`CP_IAM_CLIENT_ID`, `CP_IAM_CLIENT_SECRET`) | control-plane-api, worker, context-adapter |
 
 !!! note "A service account is also a principal in Control Plane"
     If a service account calls Control Plane (as a connector or the
@@ -146,16 +146,71 @@ the files through `env_file` in `compose.yml`.
 
 After an env file appears or changes, recreate the services so they read it,
 for example:
-`docker compose up -d control-plane-api control-plane-worker context-adapter`.
+`tools/compose up -d control-plane-api control-plane-worker context-adapter`.
 
-## Changing the secret or the ceiling
+## Changing the secret or the ceiling { #update }
 
-A service account has **no** endpoints for secret rotation or for changing
-`audiences`/`scopeCeiling`. The replacement procedure is "issue a new one,
-switch over, revoke the old one":
+`PATCH /api/v1/tenants/{tenantId}/service-accounts/{clientId}` changes the
+account in place: the principal and the `clientId` stay the same, so the
+permissions in Control Plane and the agents the account owns stay with it
+(iam-service ADR-0005). Only bootstrap calls it (`X-IAM-Bootstrap-Token`).
 
-1. Create a new service account with the audiences and ceiling you need
-   (`POST …/service-accounts`).
+| Field | Description |
+|---|---|
+| `audiences` | The new list of audiences as a whole (not empty); each must be registered and active in the tenant |
+| `scopeCeiling` | The new ceiling as a whole; every scope comes from the `allowedScopes` of the given audiences |
+| `rotateSecret` | `true` issues a new secret; the old one stops working in the same commit |
+
+An omitted field does not change. With no changes and no `rotateSecret`, IAM
+writes nothing and returns the account's view, so an empty `PATCH {}` checks
+that the account is alive.
+
+```bash
+curl -s -X PATCH "$IAM_URL/api/v1/tenants/$TENANT/service-accounts/$CLIENT_ID" \
+  -H "X-IAM-Bootstrap-Token: $IAM_BOOTSTRAP_TOKEN" -H "Content-Type: application/json" \
+  -d '{"rotateSecret": true}'
+```
+
+```json
+{"principalId": "<principal-id>", "clientId": "<client-id>",
+ "audiences": ["memory-service"], "scopeCeiling": ["memory:read"],
+ "clientSecret": "<the new secret, shown once>"}
+```
+
+`clientSecret` is in the response only with `rotateSecret`. Access tokens
+already issued live until their `exp`. A change records the event
+`service_account.updated` and the audit record `service_accounts.update` (a
+diff such as `audience:+x`, `scope:-y`); a secret rotation records
+`service_account.secret_rotated` and `service_accounts.rotate_secret`.
+
+After rotating the secret, write it to the service's env file (0600) and
+recreate the service containers.
+
+### How bootstrap does it
+
+For the core and `notification-service` accounts, `deploy/bootstrap.py` keeps
+a fingerprint (scopes and audiences) in its state and, on every run:
+
+1. checks the account against IAM with an empty `PATCH {}`; if the principal in
+   the response is not the one in the state, it stops before any write;
+2. if the ceiling in the code changed, it first brings the audiences'
+   `allowedScopes` in line, then sends a `PATCH` with the full `audiences` and
+   `scopeCeiling`;
+3. if the env file is missing, it sends `PATCH {"rotateSecret": true}` and
+   writes the new secret to the env file at once (atomically); what is left is
+   to restart the service;
+4. if IAM answers `404 service_account_not_found` or `409
+   service_account_revoked`, it creates a new account (`POST`).
+
+An IAM without the `PATCH` route stops bootstrap: there is no silent switch
+to a new account.
+
+### A new account instead of the old one
+
+If the old account is revoked or has to be replaced as a whole: "issue a new
+one, switch over, revoke the old one":
+
+1. Create a new service account (`POST …/service-accounts`).
 2. Write the new pair to the service's env file (0600).
 3. Recreate the service containers and make sure the exchange works.
 4. Revoke the old `clientId`:
@@ -170,9 +225,10 @@ switch over, revoke the old one":
 !!! warning "A new service account is a new principal"
     Each creation makes a **new** principal with a new `principal_id` (`sub`
     in the token). If the recipient ties permissions to the principal (for
-    example, a binding in Control Plane), you must create the binding for the
-    new principal as well. `deploy/bootstrap.py` reissues the core service
-    account itself when its ceiling in the code changes, and revokes the old one.
+    example, a binding in Control Plane or the core's role in the secret
+    store), they must be created for the new principal as well. That is why a
+    change of the ceiling or the secret goes through `PATCH`, not through a new
+    account.
 
 ## Revocation
 
@@ -193,12 +249,14 @@ Disabling the service account's principal (`:disable`) also closes exchange
 
 | HTTP | `detail` | Operation | Cause |
 |---|---|---|---|
-| 401 | `unauthorized` | creation, revocation | missing or wrong `X-IAM-Bootstrap-Token` |
+| 401 | `unauthorized` | creation, revocation, `PATCH` | missing or wrong `X-IAM-Bootstrap-Token` |
 | 401 | `invalid_client` | exchange | unknown/revoked `clientId`, wrong secret, inactive principal or membership |
 | 403 | `audience_not_allowed` | exchange | the audience is not in the service account's list or is not active |
 | 403 | `scope_not_allowed` | exchange | scope outside the ceiling or outside `allowedScopes` (a common cause is a missing prefix) |
-| 404 | `service_account_not_found` | revocation | `clientId` not found in the tenant |
-| 422 | `unknown_audience` | creation | the audience is not registered or is disabled |
+| 404 | `service_account_not_found` | revocation, `PATCH` | `clientId` not found in the tenant |
+| 409 | `service_account_revoked` | `PATCH` | the account is revoked |
+| 422 | `unknown_audience` | creation, `PATCH` | the audience is not registered or is disabled |
+| 422 | `invalid_scope_ceiling` | `PATCH` | a scope outside the `allowedScopes` of the given audiences |
 
 ## See also
 

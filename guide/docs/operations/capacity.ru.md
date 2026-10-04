@@ -1,12 +1,12 @@
 # Ресурсы и масштабирование
 
 Сколько CPU, памяти и диска нужно установке Taimen, какие лимиты заданы в
-`compose.yml`, как их менять и где у платформы пределы масштабирования.
+`deploy/local/compose.yml`, как их менять и где у платформы пределы масштабирования.
 Статья для инженера, который выбирает машину и планирует рост.
 
 ## Лимиты памяти контейнеров
 
-Каждый сервис корневого `compose.yml` имеет `mem_limit`, заданный переменной
+Каждый сервис `deploy/local/compose.yml` имеет `mem_limit`, заданный переменной
 окружения со значением по умолчанию. Значение — потолок: при его превышении
 ядро убивает процесс контейнера (OOM), Docker перезапускает его по
 `restart: unless-stopped`.
@@ -41,7 +41,7 @@
 
 ```bash
 echo 'MEMORY_DB_MEM_LIMIT=1g' >> .env
-docker compose up -d memory-db
+tools/compose up -d memory-db
 docker stats --no-stream        # фактическое потребление против лимита
 ```
 
@@ -58,7 +58,7 @@ docker stats --no-stream        # фактическое потребление 
   меньше, но под нагрузкой к потолку подходят `memory-db` и
   `memory-service`. Фактическое потребление смотрите `docker stats`.
 - Оставьте не меньше 1 ГиБ на ОС, Docker, файловый кэш и **сборку образов**:
-  `docker compose build` на хосте кратковременно требует памяти и CPU больше,
+  `tools/compose build` на хосте кратковременно требует памяти и CPU больше,
   чем работающий стек. На машине с 2 vCPU сборку стоит выполнять заранее, до
   переключения (см. [Обновление и миграции](upgrades.md)).
 - Swap не заменяет память, но спасает от OOM во время сборки и пиков.
@@ -78,7 +78,7 @@ docker stats --no-stream        # фактическое потребление 
 
 ```bash
 docker system df -v | head -40
-docker compose exec control-plane-db psql -U control_plane -d control_plane \
+tools/compose exec control-plane-db psql -U control_plane -d control_plane \
   -c "SELECT relname, pg_size_pretty(pg_total_relation_size(relid)) FROM pg_catalog.pg_statio_user_tables ORDER BY pg_total_relation_size(relid) DESC LIMIT 10"
 ```
 
@@ -90,7 +90,7 @@ docker compose exec control-plane-db psql -U control_plane -d control_plane \
 | Компонент | Ограничение |
 |---|---|
 | `context-adapter` | Singleton: единственность держится advisory lock в базе. Второй экземпляр не ускорит доставку. Per-tenant изоляция изолирует **отказы** (один запаркованный tenant не блокирует остальных), а не даёт параллелизм |
-| `control-plane-api` | Один контейнер; горизонтальное масштабирование в `compose.yml` не описано |
+| `control-plane-api` | Один контейнер; горизонтальное масштабирование в `deploy/local/compose.yml` не описано |
 | Базы | Каждая — отдельный контейнер PostgreSQL 16 на этом же хосте. Для `memory-db` нужны расширения Apache AGE и pgvector, которых у управляемых PostgreSQL обычно нет |
 | Миграции | Индексы строятся не `CONCURRENTLY` — на больших таблицах нужно окно обслуживания |
 | Retention журнала | Планировщика нет: `:archive` запускает оператор |

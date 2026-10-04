@@ -66,7 +66,7 @@ flowchart LR
 выполняет `alembic upgrade head`, затем запускает сервис на порту 8000.
 
 ```bash
-docker compose --profile core --profile edge --profile notify up -d
+tools/compose --profile core --profile edge --profile notify up -d
 ```
 
 | Что | Значение |
@@ -103,7 +103,7 @@ audience `control-plane`.
 сервис нужно пересоздать:
 
 ```bash
-docker compose --profile notify up -d notification-service
+tools/compose --profile notify up -d notification-service
 ```
 
 ### Что работает без настройки
@@ -610,7 +610,7 @@ Control Plane, `NS_EVENTS_ENABLED=true` и в tenant'е есть хотя бы �
 | `NS_TELEGRAM_*` | пусто | Бот Telegram, см. [Telegram](telegram.md) |
 
 !!! note "Email в стандартном стеке только пишется в лог"
-    `compose.yml` передаёт сервису `NS_EMAIL_FROM`, `NS_SMTP_HOST` и
+    `deploy/local/compose.yml` передаёт сервису `NS_EMAIL_FROM`, `NS_SMTP_HOST` и
     `NS_SMTP_PORT` (из `NOTIFY_EMAIL_FROM`, `NOTIFY_SMTP_HOST`,
     `NOTIFY_SMTP_PORT`), но не `NS_EMAIL_MODE`, поэтому канал `email` работает
     в режиме `log`. Для реальной отправки задайте сервису `NS_EMAIL_MODE=smtp`
@@ -622,7 +622,7 @@ Control Plane, `NS_EVENTS_ENABLED=true` и в tenant'е есть хотя бы �
 | Симптом | Причина | Что делать |
 |---|---|---|
 | Любой запрос к `/api/v1` — `503` | Не заданы `NS_IAM_ISSUER` или JWKS | Проверить окружение контейнера |
-| Отправка роли — `503 dependency_unavailable` | Нет `secrets/notification-iam.env` или контейнер создан до bootstrap | Выполнить bootstrap и `docker compose --profile notify up -d notification-service` |
+| Отправка роли — `503 dependency_unavailable` | Нет `secrets/notification-iam.env` или контейнер создан до bootstrap | Выполнить bootstrap и `tools/compose --profile notify up -d notification-service` |
 | `422 unknown_recipient` | Principal или роль не существуют в ядре; группа отвязана | Проверить id; для группы — `GET …/channel-groups` |
 | Уведомление принято, но у человека пусто, в журнале `recipient_has_no_identity` | У principal'а нет IAM-binding в tenant'е отправителя | Завести binding principal'у (см. [Права и scopes](../reference/permissions.md)) |
 | Роль адресована, а `deliveries` пуст | У роли нет держателей в этом workspace и нет привязанных групп | Назначить роль или привязать группу |

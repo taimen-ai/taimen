@@ -2,7 +2,7 @@
 # Environment variables
 
 The full list of Taimen delivery environment variables: the root `.env` (the
-`.env.example` contract), the variables that `compose.yml` passes into
+`.env.example` contract), the variables that `deploy/local/compose.yml` passes into
 containers, the settings of each service (pydantic-settings with a prefix),
 and the variables of processes outside compose: the runner agent, the CLI, the
 MCP server, the connector, and the SDK. This page is for an engineer who
@@ -12,7 +12,7 @@ configures a deployment or investigates where a service got a value from.
 
 ```mermaid
 flowchart LR
-    ENV[".env<br/>(from .env.example)"] -->|${VAR} interpolation| COMPOSE["compose.yml"]
+    ENV[".env<br/>(from .env.example)"] -->|${VAR} interpolation| COMPOSE["deploy/local/compose.yml"]
     COMPOSE -->|environment:| SVC["container<br/>CP_* / IAM_* / CB_* / ..."]
     SECRETS["secrets/*.env<br/>(written by bootstrap)"] -->|env_file| SVC
     PEM["secrets/*.pem"] -->|docker secret| SVC
@@ -23,7 +23,7 @@ flowchart LR
    one concept has one name (`MEMORY_API_KEY`, `TAIMEN_PUBLIC_URL`,
    `LLM_MODEL`). `make secrets` creates it from `.env.example` and generates
    random secrets.
-2. `compose.yml` distributes the values across service prefixes: for example,
+2. `deploy/local/compose.yml` distributes the values across service prefixes: for example,
    `MEMORY_API_KEY` becomes `CB_SERVER_API_KEY` for memory-service and
    `CP_CONTEXT_API_KEY` for Control Plane.
    Compose hard-codes some service variables (addresses inside the network,
@@ -44,7 +44,7 @@ flowchart LR
 | `CONTROL_PLANE_*`, `IAM_*` (client-side) | runner, CLI, MCP server, SDK client | `control_plane_agent`, `control_plane_client` |
 
 !!! warning "Required variables are checked for all profiles"
-    Variables of the form `${VAR:?…}` in `compose.yml` are required **for any
+    Variables of the form `${VAR:?…}` in `deploy/local/compose.yml` are required **for any
     set of profiles**: Docker Compose interpolates the whole file before
     filtering by profile. That is why only the values that `make secrets`
     generates are declared required (`:?`); identifiers that there is nothing
@@ -54,9 +54,9 @@ flowchart LR
 
 ## Root `.env`
 
-The `.env.example` contract variables and the other `compose.yml`
+The `.env.example` contract variables and the other `deploy/local/compose.yml`
 interpolation variables. The "Default" column is the substitution value in
-`compose.yml` (`${VAR:-…}`); "required" means the `${VAR:?…}` substitution.
+`deploy/local/compose.yml` (`${VAR:-…}`); "required" means the `${VAR:?…}` substitution.
 
 ### Environment and edge
 
@@ -71,7 +71,7 @@ interpolation variables. The "Default" column is the substitution value in
 | `EDGE_HTTP_PORT` | `80` | no | Published HTTP port of the `caddy` container. |
 | `EDGE_HTTPS_PORT` | `443` | no | Published HTTPS port of the `caddy` container. |
 | `LOG_LEVEL` | `INFO` | no | Log level: `CP_LOG_LEVEL`. |
-| `LOG_RENDERER`, `CP_TIMEZONE` | — | no | Declared in `.env.example`, but not read by the `compose.yml` services. |
+| `LOG_RENDERER`, `CP_TIMEZONE` | — | no | Declared in `.env.example`, but not read by the `deploy/local/compose.yml` services. |
 | `IMAGE_PREFIX` | `taimen` | no | Image name prefix: `${IMAGE_PREFIX}/control-plane:${IMAGE_TAG}`. |
 | `IMAGE_TAG` | `local` | no | Image tag. |
 
@@ -112,6 +112,17 @@ missing from `.env`.
     `secrets/*.pem` files must be owned by that uid with mode `600`:
     otherwise the service gets a `PermissionError` when reading the key.
 
+### Secret store { #openbao }
+
+The `openbao` and `openbao-bootstrap` services of the `core` profile; see
+[Secret store](../operations/secret-store.md) for details.
+
+| Variable | Default | Required | Purpose |
+|---|---|---|---|
+| `OPENBAO_UNSEAL_KEY_FILE` | `./secrets/openbao-unseal.key` | no | The unseal key file (the `static` seal): 64 hex characters without a newline, `0600`, owned by uid 10001 on Linux. `make secrets` creates it if the file is missing and never overwrites it; it is mounted as the `openbao_unseal_key` docker secret. |
+| `OPENBAO_UNSEAL_KEY_ID` | `unseal-1` | no | Identifier of the unseal key (`BAO_STATIC_SEAL_CURRENT_KEY_ID`); changes only when the key is rotated. |
+| `OPENBAO_CORE_CIDRS` | empty | no | `token_bound_cidrs` of the core's `control-plane` role: where the core may log in to the store from. Empty means the compose network's subnet without its gateways (`openbao-bootstrap` determines it); a set value is taken as is. |
+
 ### LLM and memory
 
 
@@ -135,7 +146,6 @@ missing from `.env`.
 |---|---|---|---|
 | `CP_LEGACY_API_KEYS_ENABLED` | `false` | no | Whether to accept legacy `cp_…` keys (`CP_LEGACY_API_KEYS_ENABLED`). In the stack, IAM is always enabled (`CP_IAM_ENABLED: "true"`). |
 | `CP_CONTEXT_AUTH` | `auto` | no | How the core authenticates to memory: `auto`, `api_key`, `iam`. |
-| `CP_ENTITLEMENT_ENABLED` | `false` | no | License checks by an external service, if one is connected. |
 | `CP_AUTHZ_MODE` | `local` | no | Source of domain authorization: `local`, `shadow`, `policy` (CP-ADR-0055). |
 | `CP_CORS_ORIGINS` | `[]` | no | JSON list of allowed API CORS origins. |
 
@@ -150,7 +160,7 @@ missing from `.env`.
 
 ### Catalog package variables { #package-variables }
 
-`compose.yml` does not interpolate these variables: the package installer
+`deploy/local/compose.yml` does not interpolate these variables: the package installer
 `package-sdk` reads them (from `.env`, the `--env` flag, and the
 process environment) and substitutes them into `${NAME}` in package objects
 during `plan` and `apply`. The package itself declares which variables it
@@ -188,6 +198,7 @@ All services except `caddy` are published only on loopback. Details are in
 | `NOTIFY_MEM_LIMIT` | `256m` | `notification-service` |
 | `NOTIFY_DB_MEM_LIMIT` | `128m` | `notification-db` |
 | `MINIO_MEM_LIMIT` | `256m` | `minio` |
+| `OPENBAO_MEM_LIMIT` | `256m` | `openbao` (it also sets `memswap_limit`: the container gets no swap) |
 
 ### Build contexts
 
@@ -196,14 +207,14 @@ from a separate release clone).
 
 | Variable | Default |
 |---|---|
-| `IAM_BUILD_CONTEXT` | `./iam-service` |
-| `CP_BUILD_CONTEXT` | `.` (Dockerfile `control-plane/Dockerfile`) |
-| `MEMORY_BUILD_CONTEXT` | `.` for `memory-service` (Dockerfile `memory-service/Dockerfile`); `./memory-service` + `/infra/memory-db` for `memory-db` |
-| `NOTIFY_BUILD_CONTEXT` | `.` (Dockerfile `notification-service/Dockerfile`) |
+| `IAM_BUILD_CONTEXT` | `./services/iam-service` |
+| `CP_BUILD_CONTEXT` | `.` (Dockerfile `services/control-plane/Dockerfile`) |
+| `MEMORY_BUILD_CONTEXT` | `.` for `memory-service` (Dockerfile `services/memory-service/Dockerfile`); `./services/memory-service` + `/infra/memory-db` for `memory-db` |
+| `NOTIFY_BUILD_CONTEXT` | `.` (Dockerfile `services/notification-service/Dockerfile`) |
 
 !!! warning "One variable, two defaults"
     `MEMORY_BUILD_CONTEXT` is used both for `memory-db`
-    (`${MEMORY_BUILD_CONTEXT:-./memory-service}/infra/memory-db`) and for
+    (`${MEMORY_BUILD_CONTEXT:-./services/memory-service}/infra/memory-db`) and for
     `memory-service` (`${MEMORY_BUILD_CONTEXT:-.}`). If you set it explicitly,
     one of the two paths will be wrong; leave it empty.
 
@@ -216,13 +227,15 @@ example, when moving a deployment to the root compose).
 
 `VOLUME_IAM_DB`, `VOLUME_CONTROL_PLANE_DB`, `VOLUME_MEMORY_DB`,
 `VOLUME_NOTIFY_DB`, `VOLUME_PLATFORM_MINIO` (the MinIO volume with artifact content),
-`VOLUME_CADDY_DATA`, `VOLUME_CADDY_CONFIG`.
+`VOLUME_CADDY_DATA`, `VOLUME_CADDY_CONFIG`,
+`VOLUME_OPENBAO_DATA` and `VOLUME_OPENBAO_AUDIT` (the raft data and audit log
+volumes of the secret store).
 
 ## Control Plane (`CP_`)
 
 Read by the `control-plane-api`, `control-plane-worker`, and
 `context-adapter` processes (one image). The "In the stack" column is the
-value that `compose.yml` sets.
+value that `deploy/local/compose.yml` sets.
 
 ### General
 
@@ -257,6 +270,27 @@ value that `compose.yml` sets.
 | `CP_IDEMPOTENCY_TTL_SECONDS` | `86400` | How long the response for an `Idempotency-Key` is kept. |
 | `CP_IDEMPOTENCY_WAIT_TIMEOUT_SECONDS` | `10.0` | How long a concurrent duplicate waits for the first request to finish; after that, `409 idempotency_in_flight`. |
 | `CP_IDEMPOTENCY_PENDING_TTL_SECONDS` | `60` | Lifetime of a record without a stored response (protection against a "stuck" key after a process crash). |
+
+### Secret store and connections { #cp-secret-store }
+
+See [Connections](../control-plane/connections.md#configuration). `deploy/local/compose.yml`
+does not set these variables for the core processes: the store address and the
+OAuth addresses are set in `compose.override.yml` (see [Secret
+store](../operations/secret-store.md#env)).
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `CP_SECRET_STORE_URL` | empty | Address of the secret store in the network (`http://openbao:8200`). Empty means the routes that need the store answer `503 secret_store_unavailable`. |
+| `CP_SECRET_STORE_AUDIENCE` | `openbao` | Audience of the core's IAM token for logging in to the store. |
+| `CP_SECRET_STORE_ROLE` | `control-plane` | The core's `jwt` role in the store. |
+| `CP_SECRET_STORE_TIMEOUT_SECONDS` | `10.0` | Timeout of a request to the store. |
+| `CP_OAUTH_REDIRECT_URI` | empty | Public `https` address of the OAuth callback (`…/api/v1/connections:callback`). Empty means `:authorize` answers `409 oauth_not_configured`. |
+| `CP_CONNECTIONS_RETURN_URL` | empty | Where the callback returns the browser (`?connection=…&result=…`). Empty means `:authorize` answers `409`, and the callback answers `200 text/plain`. |
+| `CP_OAUTH_STATE_TTL_SECONDS` | `600` | Lifetime of the one-time OAuth state. |
+| `CP_CONNECTIONS_SYNC_SECONDS` | `300.0` | Period of the full pass of the `connections-policy-sync` worker. |
+
+Non-empty `CP_OAUTH_REDIRECT_URI` and `CP_CONNECTIONS_RETURN_URL` without
+`https` fail at startup.
 
 ### Worker and outbox
 
@@ -322,7 +356,7 @@ value that `compose.yml` sets.
 
 | Variable | Default | In the stack | Purpose |
 |---|---|---|---|
-| `CP_ENTITLEMENT_ENABLED` | `false` | `${CP_ENTITLEMENT_ENABLED}` (api) | Check licenses. When off, the audit trail shows the decision source `disabled`. |
+| `CP_ENTITLEMENT_ENABLED` | `false` | — | Check licenses. When off, the audit trail shows the decision source `disabled`. |
 | `CP_ENTITLEMENT_BASE_URL` | `http://localhost:8020` | — | Licensing service address. |
 | `CP_ENTITLEMENT_PRODUCT` | `control-plane` | — | Product in the license catalog. |
 | `CP_ENTITLEMENT_DEFAULT_FEATURE` | `api` | — | Feature, if it cannot be derived from the path (`/api/v1/<feature>/…`). |
@@ -379,7 +413,7 @@ value that `compose.yml` sets.
 
 ## memory-service (`CB_`)
 
-The "In the stack" column is the value from `compose.yml`.
+The "In the stack" column is the value from `deploy/local/compose.yml`.
 
 ### Storage and HTTP
 
@@ -532,7 +566,7 @@ configuration](../runner/configuration.md).
 | `IAM_CREDENTIAL_MODE` | — | `environment` or `ci`: allow a PAT from the variable. Without it, `iam_environment_mode_required`. |
 | `IAM_PRINCIPAL` | — | Which principal this process is, if the machine's store has several credentials for the same issuer+tenant. If not set when there are several, `iam_credential_ambiguous`. |
 | `IAM_NO_KEYCHAIN` | — | `1`: do not ask the macOS Keychain for the PAT. |
-| `XDG_CONFIG_HOME` | `~/.config` | Base of the paths `iam/credentials.json` (PAT file, mode `600`) and `control-plane/credentials.json` (legacy keys). |
+| `XDG_CONFIG_HOME` | `~/.config` | Base of the paths `iam/credentials.json` (PAT file, mode `600`) and `services/control-plane/credentials.json` (legacy keys). |
 | `CONTROL_PLANE_API_KEY` | — | Legacy `cp_…` key (only if legacy keys are enabled on the server). |
 | `CONTROL_PLANE_NO_KEYCHAIN` | — | `1`: do not look for a legacy key in the Keychain. |
 
@@ -637,22 +671,24 @@ configuration](../runner/configuration.md).
 | File | Variables | Read by |
 |---|---|---|
 | `secrets/control-plane-iam.env` | `CP_IAM_CLIENT_ID`, `CP_IAM_CLIENT_SECRET` | `control-plane-api`, `control-plane-worker`, `context-adapter` |
-| `secrets/memory-service-iam.env` | `CB_IAM_CLIENT_ID`, `CB_IAM_CLIENT_SECRET` | `memory-service` |
 | `secrets/notification-iam.env` | `NS_SERVICE_CLIENT_ID`, `NS_SERVICE_CLIENT_SECRET` | `notification-service` |
 
 Bootstrap does not write the `secrets/notification-telegram.env` file
 (`NS_TELEGRAM_BOT_TOKEN`, `NS_TELEGRAM_WEBHOOK_SECRET`,
 `NS_TELEGRAM_BOT_USERNAME`): the operator fills it in; see
-[Telegram](../notifications/telegram.md).
+[Telegram](../notifications/telegram.md). Nor does bootstrap write the optional
+`secrets/memory-service-iam.env` (`CB_IAM_CLIENT_ID`, `CB_IAM_CLIENT_SECRET`,
+the memory service identity for calling an external PDP): it is added together
+with an external PDP connection, which is not part of the delivery.
 
 After the file appears, recreate the corresponding container
-(`docker compose up -d <service>`): `env_file` is read when the container is
+(`tools/compose up -d <service>`): `env_file` is read when the container is
 created.
 
 
-## Summary: all `compose.yml` and `.env.example` variables
+## Summary: all `deploy/local/compose.yml` and `.env.example` variables
 
-A checklist for the tables above: every variable that `compose.yml`
+A checklist for the tables above: every variable that `deploy/local/compose.yml`
 interpolates or `.env.example` declares, with the services and profiles
 where it is used. The "Described above" column shows whether the variable
 has a row in the hand-written tables on this page; "**no**" is a reason to
@@ -661,7 +697,7 @@ add a description.
 <!-- generated:env-summary -->
 _This section is generated from code; do not edit it by hand._
 
-Total variables: 151 (in `compose.yml`: 121, in `.env.example`: 113). Not described in the tables above: 0.
+Total variables: 148 (in `deploy/local/compose.yml`: 123, in `.env.example`: 110). Not described in the tables above: 7.
 
 | Variable | Compose default | Services | Profiles | `.env.example` | Described above |
 |---|---|---|---|---|---|
@@ -673,7 +709,6 @@ Total variables: 151 (in `compose.yml`: 121, in `.env.example`: 113). Not descri
 | `CP_CONTEXT_AUTH` | `auto` | context-adapter, control-plane-api, control-plane-worker | core | yes | yes |
 | `CP_CONTEXT_TIMEOUT_SECONDS` | `3` | control-plane-api | core | — | yes |
 | `CP_CORS_ORIGINS` | `[]` | control-plane-api | core | yes | yes |
-| `CP_ENTITLEMENT_ENABLED` | `false` | control-plane-api | core | yes | yes |
 | `CP_HOST_PORT` | `18000` | control-plane-api | core | yes | yes |
 | `CP_KNOWLEDGE_PACK_ADMINS` | `[]` | control-plane-api | core | yes | yes |
 | `CP_LEGACY_API_KEYS_ENABLED` | `false` | control-plane-api | core | yes | yes |
@@ -720,23 +755,10 @@ Total variables: 151 (in `compose.yml`: 121, in `.env.example`: 113). Not descri
 | `NOTIFY_POSTGRES_PASSWORD` | — | notification-db, notification-service | notify | yes | yes |
 | `NOTIFY_SMTP_HOST` | `localhost` | notification-service | notify | — | yes |
 | `NOTIFY_SMTP_PORT` | `587` | notification-service | notify | — | yes |
-| `RUNTIME_CONSOLE_CONTROL_PLANE_URL` | — | — | — | yes | yes |
-| `RUNTIME_CONSOLE_COOKIE_SECRET_FILE` | `./secrets/runtime-console-cookie-secret` | (secrets) | — | yes | yes |
-| `RUNTIME_CONSOLE_CP_SCOPES` | `control-plane:read control-plane:write control-plane:admin` | console | core | yes | yes |
-| `RUNTIME_CONSOLE_FLEET_URL` | — | — | — | yes | yes |
-| `RUNTIME_CONSOLE_IAM_TENANT` | — | — | — | yes | yes |
-| `RUNTIME_CONSOLE_IAM_URL` | — | — | — | yes | yes |
-| `RUNTIME_CONSOLE_LAUNCHER_URL` | — | — | — | yes | yes |
-| `RUNTIME_CONSOLE_LOGO_TEXT` | empty | console | core | yes | yes |
-| `RUNTIME_CONSOLE_OIDC_CLIENT_ID` | `runtime-console` | console | core | yes | yes |
-| `RUNTIME_CONSOLE_OIDC_ISSUER` | `${TAIMEN_PUBLIC_URL` | console | core | yes | yes |
-| `RUNTIME_CONSOLE_OIDC_SCOPES` | `openid profile email` | console | core | yes | yes |
-| `RUNTIME_CONSOLE_OIDC_SECRET_FILE` | `./secrets/runtime-console-oidc-secret` | (secrets) | — | yes | yes |
-| `RUNTIME_CONSOLE_PORT` | — | — | — | yes | yes |
-| `RUNTIME_CONSOLE_PRODUCT_NAME` | empty | console | core | yes | yes |
-| `RUNTIME_CONSOLE_PUBLIC_URL` | — | — | — | yes | yes |
-| `RUNTIME_CONSOLE_SESSION_TTL_HOURS` | `12` | console | core | yes | yes |
-| `RUNTIME_CONSOLE_STATIC_DIR` | — | — | — | yes | yes |
+| `OPENBAO_CORE_CIDRS` | empty | openbao-bootstrap | core | yes | yes |
+| `OPENBAO_MEM_LIMIT` | `256m` | openbao | core | yes | yes |
+| `OPENBAO_UNSEAL_KEY_FILE` | `./secrets/openbao-unseal.key` | (secrets) | — | yes | yes |
+| `OPENBAO_UNSEAL_KEY_ID` | `unseal-1` | openbao | core | yes | yes |
 | `S3_ACCESS_KEY_ID` | — | minio, minio-bootstrap | core | yes | yes |
 | `S3_SECRET_ACCESS_KEY` | — | minio, minio-bootstrap | core | yes | yes |
 | `SELFDEV_CONTROL_PLANE_URL` | — | — | — | yes | yes |
@@ -747,6 +769,7 @@ Total variables: 151 (in `compose.yml`: 121, in `.env.example`: 113). Not descri
 | `SELFDEV_NOTIFICATION_SERVICE_URL` | — | — | — | yes | yes |
 | `SELFDEV_PACKAGE_SDK_URL` | — | — | — | yes | yes |
 | `SELFDEV_PLATFORM_AUTH_SDK_URL` | — | — | — | yes | yes |
+| `SELFDEV_PLATFORM_LLM_URL` | — | — | — | yes | yes |
 | `SELFDEV_REVIEWER_PRINCIPAL` | — | — | — | yes | yes |
 | `SELFDEV_SKILLS_EXECUTOR` | — | — | — | yes | yes |
 | `SELFDEV_SKILL_SDK_URL` | — | — | — | yes | yes |
@@ -758,12 +781,13 @@ Total variables: 151 (in `compose.yml`: 121, in `.env.example`: 113). Not descri
 | `VOLUME_CADDY_CONFIG` | `${COMPOSE_PROJECT_NAME:-taimen` | (volumes) | — | yes | yes |
 | `VOLUME_CADDY_DATA` | `${COMPOSE_PROJECT_NAME:-taimen` | (volumes) | — | yes | yes |
 | `VOLUME_CONTROL_PLANE_DB` | `${COMPOSE_PROJECT_NAME:-taimen` | (volumes) | — | yes | yes |
-| `VOLUME_ENTITLEMENT_DB` | `${COMPOSE_PROJECT_NAME:-taimen` | (volumes) | — | — | yes |
 | `VOLUME_FLEET_DATA` | `${COMPOSE_PROJECT_NAME:-taimen` | (volumes) | — | yes | yes |
 | `VOLUME_HARNESS_LAUNCHER` | `${COMPOSE_PROJECT_NAME:-taimen` | (volumes) | — | — | yes |
 | `VOLUME_IAM_DB` | `${COMPOSE_PROJECT_NAME:-taimen` | (volumes) | — | yes | yes |
 | `VOLUME_MEMORY_DB` | `${COMPOSE_PROJECT_NAME:-taimen` | (volumes) | — | yes | yes |
 | `VOLUME_NOTIFY_DB` | `${COMPOSE_PROJECT_NAME:-taimen` | (volumes) | — | — | yes |
+| `VOLUME_OPENBAO_AUDIT` | `${COMPOSE_PROJECT_NAME:-taimen` | (volumes) | — | yes | yes |
+| `VOLUME_OPENBAO_DATA` | `${COMPOSE_PROJECT_NAME:-taimen` | (volumes) | — | yes | yes |
 | `VOLUME_PLATFORM_MINIO` | `${COMPOSE_PROJECT_NAME:-taimen` | (volumes) | — | yes | yes |
 | `VOLUME_POLICY_DB` | `${COMPOSE_PROJECT_NAME:-taimen` | (volumes) | — | — | yes |
 | `VOLUME_REALM_IMPORT` | `${COMPOSE_PROJECT_NAME:-taimen` | (volumes) | — | yes | yes |

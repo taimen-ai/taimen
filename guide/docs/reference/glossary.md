@@ -264,7 +264,7 @@ The core mode is `CP_AUTHZ_MODE`.
 `human`, `agent`, `service_account`, `workload` in IAM. → [Tenants and principals](../iam/principals.md)
 
 
-**Profile (compose profile)**: a group of `compose.yml` services enabled with
+**Profile (compose profile)**: a group of `deploy/local/compose.yml` services enabled with
 the `--profile` flag (`core`, `edge`, `notify` …). →
 [Services and ports](services-and-ports.md)
 
@@ -391,7 +391,7 @@ approvals, and a projection into the knowledge base; the core executes it. →
 [Processes](../processes/index.md)
 
 **Superproject**: the top-level repository: components are attached as git
-submodules flat in the root, plus `compose.yml`, `.env.example`,
+submodules flat in the root, plus `deploy/local/compose.yml`, `.env.example`,
 `Makefile`, `deploy/`, `packages/`, `tools/`.
 
 ## See also

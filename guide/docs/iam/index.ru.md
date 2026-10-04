@@ -145,7 +145,7 @@ service accounts ядра и PAT. См. [Bootstrap](../getting-started/bootstrap
 
 ## Развёртывание
 
-В корневом `compose.yml` IAM входит в профиль `core`:
+В `deploy/local/compose.yml` IAM входит в профиль `core`:
 
 | Контейнер | Назначение |
 |---|---|

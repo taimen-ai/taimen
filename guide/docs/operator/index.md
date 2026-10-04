@@ -66,7 +66,6 @@ distinguishes an operator harness from an autonomous runner, which claims tasks 
 
 ## See also
 
-- [Console](console.md)
 - [Key concepts](../overview/concepts.md)
 - [Work model](../control-plane/work-model.md)
 - [Approvals](../control-plane/approvals.md)

@@ -18,30 +18,31 @@
 <!-- generated:cli-package-sdk -->
 _Раздел генерируется из кода — не правьте его руками._
 
-Команд: 16. Источник: `package-sdk/src/package_sdk` (парсеры argparse).
+Команд: 17. Источник: `sdk/package-sdk/src/package_sdk` (парсеры argparse).
 
 | Команда | Назначение |
 |---|---|
-| [`init`](#cli-init) | заготовка пакета: манифест, процесс с тестом, CI, README |
-| [`add`](#cli-add) | заготовка объекта любого вида каталога |
-| [`check`](#cli-check) | проверить пакеты: схема и ссылки; с --server — ещё и ядром |
-| [`test`](#cli-test) | пирамида тестов пакета одной командой: проверка, скиллы, интеграция, сценарии |
-| [`lock`](#cli-lock) | зафиксировать источники установки: коммит и хэш содержимого (packages.lock) |
-| [`cache`](#cli-cache) | кэш источников git (package-sdk cache prune) |
-| [`plan`](#cli-plan) | построить единый план установки (все виды) и сохранить его с хэшем |
-| [`apply`](#cli-apply) | применить ровно сохранённый план (после подтверждения человека) |
-| [`export`](#cli-export) | выгрузить объекты из Control Plane в пакет |
-| [`describe`](#cli-describe) | предпосылки установки пакета: переменные, узлы агентов, онтологии, зависимости |
-| [`docs`](#cli-docs) | сгенерированные разделы README пакета |
-| [`migrate-expr`](#cli-migrate-expr) | перевести прежние выражения пакета в CEL (diff; --write) |
-| [`edit`](#cli-edit) | правка файлов пакета с сохранением стиля файла |
-| [`sandbox`](#cli-sandbox) | тесты пакета кодом ядра в процессе, без стенда |
-| [`image`](#cli-image) | Dockerfile образа интеграции пакета: наблюдатель или хост скиллов |
-| [`mcp`](#cli-mcp) | MCP-сервер автора пакетов по stdio; стенды — PACKAGE_SDK_SERVERS, корень сессии — PACKAGE_SDK_ROOT, корни клиента или текущий каталог |
+| [`init`](#cli-init) | package scaffold: manifest, process with a test, CI, README |
+| [`add`](#cli-add) | scaffold of an object of any catalog kind |
+| [`workflow`](#cli-workflow) | regenerate the CI workflow of a package by the layout of this installation |
+| [`check`](#cli-check) | check packages: schema and references; with --server also by the core |
+| [`test`](#cli-test) | package test pyramid in one command: check, skills, integration, scenarios |
+| [`lock`](#cli-lock) | pin installation sources: commit and content hash (packages.lock) |
+| [`cache`](#cli-cache) | git source cache (package-sdk cache prune) |
+| [`plan`](#cli-plan) | build the one installation plan (all kinds) and save it with its hash |
+| [`apply`](#cli-apply) | apply exactly the saved plan (after a human confirms) |
+| [`export`](#cli-export) | export objects from Control Plane into a package |
+| [`describe`](#cli-describe) | package installation prerequisites: variables, settings, agent nodes, ontologies, dependencies |
+| [`docs`](#cli-docs) | generated README sections of a package |
+| [`migrate-expr`](#cli-migrate-expr) | migrate legacy package expressions to CEL (diff; --write) |
+| [`edit`](#cli-edit) | edit package files preserving the file style |
+| [`sandbox`](#cli-sandbox) | package tests by the core's code in-process, without a stand |
+| [`image`](#cli-image) | Dockerfile of a package integration image: observer or skill host |
+| [`mcp`](#cli-mcp) | package author MCP server over stdio; stands — PACKAGE_SDK_SERVERS, session root — PACKAGE_SDK_ROOT, the client roots or the current directory |
 
 ### `package-sdk init` { #cli-init }
 
-заготовка пакета: манифест, процесс с тестом, CI, README
+package scaffold: manifest, process with a test, CI, README
 
 ```text
 usage: package-sdk init [-h] [--key KEY] [--display-name DISPLAY_NAME] [--license LICENSE]
@@ -51,17 +52,17 @@ usage: package-sdk init [-h] [--key KEY] [--display-name DISPLAY_NAME] [--licens
 
 | Аргумент | Обязателен | По умолчанию | Описание |
 |---|---|---|---|
-| `dir` | да |  | каталог пакета (новый или пустой) |
-| `--key KEY` |  |  | ключ пакета; по умолчанию — имя каталога |
-| `--display-name DISPLAY_NAME` |  |  | название пакета для людей |
-| `--license LICENSE` |  |  | лицензия пакета (идентификатор SPDX) |
-| `--integration` |  |  | код интеграции: наблюдатель и описание агента |
-| `--image` |  |  | Dockerfile образа интеграции |
-| `--database` |  |  | сервис PostgreSQL в CI для сценариев правил и типов задач (по умолчанию — если они уже есть в каталоге) |
+| `dir` | да |  | package directory (new or empty) |
+| `--key KEY` |  |  | package key; default: the directory name |
+| `--display-name DISPLAY_NAME` |  |  | human-readable package name |
+| `--license LICENSE` |  |  | package license (SPDX identifier) |
+| `--integration` |  |  | integration code: observer and agent description |
+| `--image` |  |  | Dockerfile of the integration image |
+| `--database` |  |  | PostgreSQL service in CI for work rule and task type scenarios (default: if they already exist in the directory) |
 
 ### `package-sdk add` { #cli-add }
 
-заготовка объекта любого вида каталога
+scaffold of an object of any catalog kind
 
 ```text
 usage: package-sdk add [-h] [--package PACKAGE] kind key
@@ -69,13 +70,26 @@ usage: package-sdk add [-h] [--package PACKAGE] kind key
 
 | Аргумент | Обязателен | По умолчанию | Описание |
 |---|---|---|---|
-| `kind` | да |  | вид: TaskType, task-type, rule, process, … |
-| `key` | да |  | ключ объекта |
-| `--package PACKAGE` |  | `.` | каталог пакета (по умолчанию текущий) |
+| `kind` | да |  | kind: TaskType, task-type, rule, process, … |
+| `key` | да |  | object key |
+| `--package PACKAGE` |  | `.` | package directory (default: the current one) |
+
+### `package-sdk workflow` { #cli-workflow }
+
+regenerate the CI workflow of a package by the layout of this installation
+
+```text
+usage: package-sdk workflow [-h] [--check] [dir]
+```
+
+| Аргумент | Обязателен | По умолчанию | Описание |
+|---|---|---|---|
+| `dir` |  | `.` | package directory (default: .) |
+| `--check` |  |  | exit 1 if the workflow differs; write nothing |
 
 ### `package-sdk check` { #cli-check }
 
-проверить пакеты: схема и ссылки; с --server — ещё и ядром
+check packages: schema and references; with --server also by the core
 
 ```text
 usage: package-sdk check [-h] [--install INSTALL] [--package PACKAGE] [--server SERVER]
@@ -84,17 +98,17 @@ usage: package-sdk check [-h] [--install INSTALL] [--package PACKAGE] [--server 
 
 | Аргумент | Обязателен | По умолчанию | Описание |
 |---|---|---|---|
-| `--install INSTALL` |  |  | файл установки; без него — все пакеты packages/ |
-| `--package PACKAGE` |  |  | пакет (каталог или ключ); можно несколько |
-| `--server SERVER` |  |  | Control Plane: проверка процессов ядром (checkOnly), если оно умеет |
-| `--env ENV` |  |  | откуда брать ${ПЕРЕМЕННЫЕ} пакета (по умолчанию — окружение) |
-| `--workspace WORKSPACE` |  |  | workspace, чьи роли и календари читает проверка ядром |
-| `--json` |  |  | ошибки — JSON {code, severity, path, file, line, message, hint} |
-| `--schema-only` |  |  | без кода ядра: только схема и ссылки (иначе отсутствие ядра — ошибка) |
+| `--install INSTALL` |  |  | installation file; without it, all packages in packages/ |
+| `--package PACKAGE` |  |  | package (directory or key); may be repeated; можно несколько раз |
+| `--server SERVER` |  |  | Control Plane: check processes by the core (checkOnly) if it supports it |
+| `--env ENV` |  |  | where to take package ${VARIABLES} from (default: the environment) |
+| `--workspace WORKSPACE` |  |  | workspace whose roles and calendars the core check reads |
+| `--json` |  |  | errors as JSON {code, severity, path, file, line, message, hint} |
+| `--schema-only` |  |  | without the core's code: schema and references only (otherwise a missing core is an error) |
 
 ### `package-sdk test` { #cli-test }
 
-пирамида тестов пакета одной командой: проверка, скиллы, интеграция, сценарии
+package test pyramid in one command: check, skills, integration, scenarios
 
 ```text
 usage: package-sdk test [-h] [--package PACKAGE] [--install INSTALL] [--test TEST]
@@ -105,19 +119,19 @@ usage: package-sdk test [-h] [--package PACKAGE] [--install INSTALL] [--test TES
 
 | Аргумент | Обязателен | По умолчанию | Описание |
 |---|---|---|---|
-| `paths`… |  |  | пакеты: каталоги с package.yaml или ключи |
-| `--package PACKAGE` |  |  | пакет (каталог или ключ); можно несколько |
-| `--install INSTALL` |  |  | файл установки: все её пакеты |
-| `--test TEST` |  |  | только сценарий с этим именем или файлом |
-| `--server SERVER` |  |  | Control Plane: сценарии исполняет сервер; без него — песочница |
-| `--env ENV` |  | `.env` | переменные установки |
-| `--workspace WORKSPACE` |  |  | с --server: workspace, чьи роли, календари и экземпляры читает прогон |
-| `--database-url DATABASE_URL` |  |  | песочница: пустая база PostgreSQL для сценариев правил и типов задач (или PACKAGE_SDK_SANDBOX_DATABASE_URL) |
-| `--json` |  |  | отчёт пирамиды документом JSON |
+| `paths`… |  |  | packages: directories with package.yaml or keys |
+| `--package PACKAGE` |  |  | package (directory or key); may be repeated; можно несколько раз |
+| `--install INSTALL` |  |  | installation file: all of its packages |
+| `--test TEST` |  |  | only the scenario with this name or file |
+| `--server SERVER` |  |  | Control Plane: the server runs the scenarios; without it — the sandbox |
+| `--env ENV` |  | `.env` | installation variables |
+| `--workspace WORKSPACE` |  |  | with --server: the workspace whose roles, calendars and instances the run reads |
+| `--database-url DATABASE_URL` |  |  | sandbox: an empty PostgreSQL database for rule and task type scenarios (or PACKAGE_SDK_SANDBOX_DATABASE_URL) |
+| `--json` |  |  | pyramid report as a JSON document |
 
 ### `package-sdk lock` { #cli-lock }
 
-зафиксировать источники установки: коммит и хэш содержимого (packages.lock)
+pin installation sources: commit and content hash (packages.lock)
 
 ```text
 usage: package-sdk lock [-h] --install INSTALL
@@ -125,11 +139,11 @@ usage: package-sdk lock [-h] --install INSTALL
 
 | Аргумент | Обязателен | По умолчанию | Описание |
 |---|---|---|---|
-| `--install INSTALL` | да |  | файл установки |
+| `--install INSTALL` | да |  | installation file |
 
 ### `package-sdk cache` { #cli-cache }
 
-кэш источников git (package-sdk cache prune)
+git source cache (package-sdk cache prune)
 
 ```text
 usage: package-sdk cache [-h] {prune} ...
@@ -139,7 +153,7 @@ usage: package-sdk cache [-h] {prune} ...
 
 #### `package-sdk cache prune` { #cli-cache-prune }
 
-удалить выгрузки, на которые не ссылается ни один packages.lock текущего каталога
+remove checkouts not referenced by any packages.lock of the current directory
 
 ```text
 usage: package-sdk cache prune [-h] [--all] [--lock LOCK]
@@ -147,12 +161,12 @@ usage: package-sdk cache prune [-h] [--all] [--lock LOCK]
 
 | Аргумент | Обязателен | По умолчанию | Описание |
 |---|---|---|---|
-| `--all` |  |  | удалить весь кэш: выгрузки и зеркала источников |
-| `--lock LOCK` |  |  | учесть этот lock-файл (можно несколько); по умолчанию — все packages.lock под текущим каталогом |
+| `--all` |  |  | remove the whole cache: checkouts and source mirrors |
+| `--lock LOCK` |  |  | take this lock file into account (may be repeated); by default all packages.lock under the current directory; можно несколько раз |
 
 ### `package-sdk plan` { #cli-plan }
 
-построить единый план установки (все виды) и сохранить его с хэшем
+build the one installation plan (all kinds) and save it with its hash
 
 ```text
 usage: package-sdk plan [-h] --install INSTALL --server SERVER --out OUT [--env ENV]
@@ -162,18 +176,18 @@ usage: package-sdk plan [-h] --install INSTALL --server SERVER --out OUT [--env 
 
 | Аргумент | Обязателен | По умолчанию | Описание |
 |---|---|---|---|
-| `--install INSTALL` | да |  | файл установки |
+| `--install INSTALL` | да |  | installation file |
 | `--server SERVER` | да |  | — |
-| `--out OUT` | да |  | файл плана (package-sdk.plan/v1) для apply --plan |
-| `--env ENV` |  | `.env` | откуда брать ${ПЕРЕМЕННЫЕ} пакета |
-| `--workspace WORKSPACE` |  |  | workspace процессов пакета (workspaceId ядра) |
-| `--replay-limit REPLAY_LIMIT` |  | `50` | экземпляров на процесс для replay (0–200) |
-| `--overwrite-console` |  |  | перезаписать поля, которые человек правил в консоли после прошлого применения (по умолчанию они сохраняются); флаг хранится в плане под его хэшем |
-| `--json` |  |  | план документом JSON |
+| `--out OUT` | да |  | plan file (package-sdk.plan/v1) for apply --plan |
+| `--env ENV` |  | `.env` | where to take package ${VARIABLES} from |
+| `--workspace WORKSPACE` |  |  | workspace of the package processes (the core's workspaceId) |
+| `--replay-limit REPLAY_LIMIT` |  | `50` | instances per process for replay (0–200) |
+| `--overwrite-console` |  |  | overwrite fields a human edited in the console since the last apply (by default they are kept); the flag is stored in the plan under its hash |
+| `--json` |  |  | the plan as a JSON document |
 
 ### `package-sdk apply` { #cli-apply }
 
-применить ровно сохранённый план (после подтверждения человека)
+apply exactly the saved plan (after a human confirms)
 
 ```text
 usage: package-sdk apply [-h] --plan PLAN --server SERVER [--env ENV]
@@ -181,33 +195,33 @@ usage: package-sdk apply [-h] --plan PLAN --server SERVER [--env ENV]
 
 | Аргумент | Обязателен | По умолчанию | Описание |
 |---|---|---|---|
-| `--plan PLAN` | да |  | файл плана от plan --out |
-| `--server SERVER` | да |  | стенд; должен совпасть с тем, для которого построен план |
-| `--env ENV` |  | `.env` | откуда брать ${ПЕРЕМЕННЫЕ} пакета |
+| `--plan PLAN` | да |  | plan file from plan --out |
+| `--server SERVER` | да |  | stand; must match the one the plan was built for |
+| `--env ENV` |  | `.env` | where to take package ${VARIABLES} from |
 
 ### `package-sdk export` { #cli-export }
 
-выгрузить объекты из Control Plane в пакет
+export objects from Control Plane into a package
 
 ```text
 usage: package-sdk export [-h] [--server SERVER] [--env ENV] [--workspace WORKSPACE] --kind
-                          {KnowledgePack,WorkspaceType,Capability,Role,Skill,ArtifactType,TaskType,Agent,ProjectTemplate,Calendar,Process,WorkRule,NotificationRule}
+                          {KnowledgePack,WorkspaceType,Capability,ConnectionType,Role,Skill,ArtifactType,TaskType,Agent,ProjectTemplate,Calendar,Process,WorkRule,NotificationRule}
                           --key KEY [--version VERSION] --package PACKAGE
 ```
 
 | Аргумент | Обязателен | По умолчанию | Описание |
 |---|---|---|---|
-| `--server SERVER` |  |  | Control Plane; для NotificationRule не нужен |
-| `--env ENV` |  | `.env` | файл переменных установки: NOTIFICATION_SERVICE_URL для NotificationRule, значения ${…} — чтобы выгрузка Process и Calendar вернула их ссылками на переменные |
-| `--workspace WORKSPACE` |  |  | workspace плана ядра для полей консоли (Process и Calendar) |
-| `--kind KIND` | да |  | значения: `KnowledgePack`, `WorkspaceType`, `Capability`, `Role`, `Skill`, `ArtifactType`, `TaskType`, `Agent`, `ProjectTemplate`, `Calendar`, `Process`, `WorkRule`, `NotificationRule` |
+| `--server SERVER` |  |  | Control Plane; not needed for NotificationRule |
+| `--env ENV` |  | `.env` | installation variables file: NOTIFICATION_SERVICE_URL for NotificationRule, values ${…} — so that exporting Process and Calendar returns them as variable references |
+| `--workspace WORKSPACE` |  |  | workspace of the core plan for console fields (Process and Calendar) |
+| `--kind KIND` | да |  | значения: `KnowledgePack`, `WorkspaceType`, `Capability`, `ConnectionType`, `Role`, `Skill`, `ArtifactType`, `TaskType`, `Agent`, `ProjectTemplate`, `Calendar`, `Process`, `WorkRule`, `NotificationRule` |
 | `--key KEY` | да |  | можно несколько раз |
-| `--version VERSION` |  |  | версия (по умолчанию новейшая активная) |
-| `--package PACKAGE` | да |  | каталог пакета, например packages/&lt;пакет&gt; |
+| `--version VERSION` |  |  | version (default: the newest active) |
+| `--package PACKAGE` | да |  | package directory, e.g. packages/&lt;package&gt; |
 
 ### `package-sdk describe` { #cli-describe }
 
-предпосылки установки пакета: переменные, узлы агентов, онтологии, зависимости
+package installation prerequisites: variables, settings, agent nodes, ontologies, dependencies
 
 ```text
 usage: package-sdk describe [-h] [--env-example] [--json] path
@@ -215,13 +229,13 @@ usage: package-sdk describe [-h] [--env-example] [--json] path
 
 | Аргумент | Обязателен | По умолчанию | Описание |
 |---|---|---|---|
-| `path` | да |  | каталог пакета |
-| `--env-example` |  |  | заготовка файла переменных установки |
-| `--json` |  |  | то же в JSON |
+| `path` | да |  | package directory |
+| `--env-example` |  |  | template of the installation variables file |
+| `--json` |  |  | the same as JSON |
 
 ### `package-sdk docs` { #cli-docs }
 
-сгенерированные разделы README пакета
+generated README sections of a package
 
 ```text
 usage: package-sdk docs [-h] [--write | --check] path
@@ -229,13 +243,13 @@ usage: package-sdk docs [-h] [--write | --check] path
 
 | Аргумент | Обязателен | По умолчанию | Описание |
 |---|---|---|---|
-| `path` | да |  | каталог пакета |
-| `--write` |  |  | обновить раздел в README.md; не вместе с `--check` |
-| `--check` |  |  | 1, если раздел README устарел; не вместе с `--write` |
+| `path` | да |  | package directory |
+| `--write` |  |  | update the section in README.md; не вместе с `--check` |
+| `--check` |  |  | exit 1 if the README section is outdated; не вместе с `--write` |
 
 ### `package-sdk migrate-expr` { #cli-migrate-expr }
 
-перевести прежние выражения пакета в CEL (diff; --write)
+migrate legacy package expressions to CEL (diff; --write)
 
 ```text
 usage: package-sdk migrate-expr [-h] --package PACKAGE [--write]
@@ -243,12 +257,12 @@ usage: package-sdk migrate-expr [-h] --package PACKAGE [--write]
 
 | Аргумент | Обязателен | По умолчанию | Описание |
 |---|---|---|---|
-| `--package PACKAGE` | да |  | пакет (каталог или ключ) |
-| `--write` |  |  | записать с сохранением файла |
+| `--package PACKAGE` | да |  | package (directory or key) |
+| `--write` |  |  | write, preserving the file style |
 
 ### `package-sdk edit` { #cli-edit }
 
-правка файлов пакета с сохранением стиля файла
+edit package files preserving the file style
 
 ```text
 usage: package-sdk edit [-h] [--json] [--dry-run]
@@ -258,14 +272,14 @@ usage: package-sdk edit [-h] [--json] [--dry-run]
 
 | Аргумент | Обязателен | По умолчанию | Описание |
 |---|---|---|---|
-| `--json` |  |  | результат и ошибки — JSON |
-| `--dry-run` |  |  | показать diff, ничего не писать |
+| `--json` |  |  | result and errors as JSON |
+| `--dry-run` |  |  | show the diff, write nothing |
 
 Подкоманды: [`add-step`](#cli-edit-add-step), [`add-stage`](#cli-edit-add-stage), [`add-decision-row`](#cli-edit-add-decision-row), [`add-rule`](#cli-edit-add-rule), [`add-form-field`](#cli-edit-add-form-field), [`rename`](#cli-edit-rename), [`set`](#cli-edit-set).
 
 #### `package-sdk edit add-step` { #cli-edit-add-step }
 
-добавить шаг в стадию или блок шага
+add a step to a stage or a step block
 
 ```text
 usage: package-sdk edit add-step [-h] --file FILE [--json] [--dry-run] --in TARGET [--block BLOCK]
@@ -274,18 +288,18 @@ usage: package-sdk edit add-step [-h] --file FILE [--json] [--dry-run] --in TARG
 
 | Аргумент | Обязателен | По умолчанию | Описание |
 |---|---|---|---|
-| `--file FILE` | да |  | файл процесса (processes/&lt;ключ&gt;.yaml) |
+| `--file FILE` | да |  | process file (processes/&lt;key&gt;.yaml) |
 | `--json` |  |  | — |
 | `--dry-run` |  |  | — |
-| `--in TARGET` | да |  | id стадии, шага с do, ветви fork или таймера |
-| `--block BLOCK` |  |  | имя блока: steps\|discretionary у стадии, do\|onCompensate у шага |
-| `--step STEP` | да |  | YAML (flow или block); @файл — прочитать из файла |
+| `--in TARGET` | да |  | id of a stage, a step with do, a fork branch or a timer |
+| `--block BLOCK` |  |  | block name: steps\|discretionary for a stage, do\|onCompensate for a step |
+| `--step STEP` | да |  | YAML (flow or block); @file reads it from a file |
 | `--after AFTER` |  |  | — |
 | `--before BEFORE` |  |  | — |
 
 #### `package-sdk edit add-stage` { #cli-edit-add-stage }
 
-добавить стадию
+add a stage
 
 ```text
 usage: package-sdk edit add-stage [-h] --file FILE [--json] [--dry-run] --stage STAGE
@@ -294,16 +308,16 @@ usage: package-sdk edit add-stage [-h] --file FILE [--json] [--dry-run] --stage 
 
 | Аргумент | Обязателен | По умолчанию | Описание |
 |---|---|---|---|
-| `--file FILE` | да |  | файл процесса (processes/&lt;ключ&gt;.yaml) |
+| `--file FILE` | да |  | process file (processes/&lt;key&gt;.yaml) |
 | `--json` |  |  | — |
 | `--dry-run` |  |  | — |
-| `--stage STAGE` | да |  | YAML (flow или block); @файл — прочитать из файла |
+| `--stage STAGE` | да |  | YAML (flow or block); @file reads it from a file |
 | `--after AFTER` |  |  | — |
 | `--before BEFORE` |  |  | — |
 
 #### `package-sdk edit add-decision-row` { #cli-edit-add-decision-row }
 
-добавить строку таблицы решений
+add a decision table row
 
 ```text
 usage: package-sdk edit add-decision-row [-h] --file FILE [--json] [--dry-run] --table TABLE --row
@@ -312,16 +326,16 @@ usage: package-sdk edit add-decision-row [-h] --file FILE [--json] [--dry-run] -
 
 | Аргумент | Обязателен | По умолчанию | Описание |
 |---|---|---|---|
-| `--file FILE` | да |  | файл процесса (processes/&lt;ключ&gt;.yaml) |
+| `--file FILE` | да |  | process file (processes/&lt;key&gt;.yaml) |
 | `--json` |  |  | — |
 | `--dry-run` |  |  | — |
 | `--table TABLE` | да |  | — |
-| `--row ROW` | да |  | YAML (flow или block); @файл — прочитать из файла |
-| `--index INDEX` |  |  | позиция строки (по умолчанию — в конец) |
+| `--row ROW` | да |  | YAML (flow or block); @file reads it from a file |
+| `--index INDEX` |  |  | row position (default: at the end) |
 
 #### `package-sdk edit add-rule` { #cli-edit-add-rule }
 
-добавить правило: строку таблицы (--table) или реакцию на событие (--on-event)
+add a rule: a table row (--table) or an event reaction (--on-event)
 
 ```text
 usage: package-sdk edit add-rule [-h] --file FILE [--json] [--dry-run] [--table TABLE] [--row ROW]
@@ -330,17 +344,17 @@ usage: package-sdk edit add-rule [-h] --file FILE [--json] [--dry-run] [--table 
 
 | Аргумент | Обязателен | По умолчанию | Описание |
 |---|---|---|---|
-| `--file FILE` | да |  | файл процесса (processes/&lt;ключ&gt;.yaml) |
+| `--file FILE` | да |  | process file (processes/&lt;key&gt;.yaml) |
 | `--json` |  |  | — |
 | `--dry-run` |  |  | — |
 | `--table TABLE` |  |  | — |
-| `--row ROW` |  |  | YAML (flow или block); @файл — прочитать из файла |
-| `--on-event ON_EVENT` |  |  | YAML (flow или block); @файл — прочитать из файла |
+| `--row ROW` |  |  | YAML (flow or block); @file reads it from a file |
+| `--on-event ON_EVENT` |  |  | YAML (flow or block); @file reads it from a file |
 | `--index INDEX` |  |  | — |
 
 #### `package-sdk edit add-form-field` { #cli-edit-add-form-field }
 
-добавить поле в форму человеческого шага
+add a field to the form of a human step
 
 ```text
 usage: package-sdk edit add-form-field [-h] --file FILE [--json] [--dry-run] --step STEP_ID --name
@@ -349,18 +363,18 @@ usage: package-sdk edit add-form-field [-h] --file FILE [--json] [--dry-run] --s
 
 | Аргумент | Обязателен | По умолчанию | Описание |
 |---|---|---|---|
-| `--file FILE` | да |  | файл процесса (processes/&lt;ключ&gt;.yaml) |
+| `--file FILE` | да |  | process file (processes/&lt;key&gt;.yaml) |
 | `--json` |  |  | — |
 | `--dry-run` |  |  | — |
 | `--step STEP_ID` | да |  | — |
 | `--name NAME` | да |  | — |
-| `--schema SCHEMA` | да |  | YAML (flow или block); @файл — прочитать из файла |
+| `--schema SCHEMA` | да |  | YAML (flow or block); @file reads it from a file |
 | `--required` |  |  | — |
-| `--label LABEL` |  |  | подпись в uischema, если у формы есть uischema.elements |
+| `--label LABEL` |  |  | label in uischema, if the form has uischema.elements |
 
 #### `package-sdk edit rename` { #cli-edit-rename }
 
-переименовать элемент процесса или объект пакета
+rename a process element or a package object
 
 ```text
 usage: package-sdk edit rename [-h] [--file FILE] [--json] [--dry-run] [--package PACKAGE]
@@ -369,18 +383,18 @@ usage: package-sdk edit rename [-h] [--file FILE] [--json] [--dry-run] [--packag
 
 | Аргумент | Обязателен | По умолчанию | Описание |
 |---|---|---|---|
-| `--file FILE` |  |  | файл процесса (processes/&lt;ключ&gt;.yaml) |
+| `--file FILE` |  |  | process file (processes/&lt;key&gt;.yaml) |
 | `--json` |  |  | — |
 | `--dry-run` |  |  | — |
-| `--package PACKAGE` |  |  | каталог пакета — переименовать объект (renames в package.yaml) |
-| `--kind KIND` |  |  | вид объекта для --package (по умолчанию Process) |
+| `--package PACKAGE` |  |  | package directory — rename an object (renames in package.yaml) |
+| `--kind KIND` |  |  | object kind for --package (default: Process) |
 | `--from OLD` | да |  | — |
 | `--to NEW` | да |  | — |
-| `--no-migration` |  |  | не дописывать migrations (процесс ещё не опубликован) |
+| `--no-migration` |  |  | do not append migrations (the process is not published yet) |
 
 #### `package-sdk edit set` { #cli-edit-set }
 
-записать значение по пути
+write a value at a path
 
 ```text
 usage: package-sdk edit set [-h] --file FILE [--json] [--dry-run] --path PATH --value VALUE
@@ -389,16 +403,16 @@ usage: package-sdk edit set [-h] --file FILE [--json] [--dry-run] --path PATH --
 
 | Аргумент | Обязателен | По умолчанию | Описание |
 |---|---|---|---|
-| `--file FILE` | да |  | файл процесса (processes/&lt;ключ&gt;.yaml) |
+| `--file FILE` | да |  | process file (processes/&lt;key&gt;.yaml) |
 | `--json` |  |  | — |
 | `--dry-run` |  |  | — |
-| `--path PATH` | да |  | spec.stages[go-no-go].exit; в скобках индекс или id |
-| `--value VALUE` | да |  | значение YAML |
-| `--string` |  |  | значение — строка как есть, без разбора YAML |
+| `--path PATH` | да |  | spec.stages[go-no-go].exit; an index or an id in brackets |
+| `--value VALUE` | да |  | YAML value |
+| `--string` |  |  | the value is a string as is, without YAML parsing |
 
 ### `package-sdk sandbox` { #cli-sandbox }
 
-тесты пакета кодом ядра в процессе, без стенда
+package tests by the core's code in-process, without a stand
 
 ```text
 usage: package-sdk sandbox [-h] [--test TEST] [--json] [--env ENV] [--database-url DATABASE_URL]
@@ -407,15 +421,15 @@ usage: package-sdk sandbox [-h] [--test TEST] [--json] [--env ENV] [--database-u
 
 | Аргумент | Обязателен | По умолчанию | Описание |
 |---|---|---|---|
-| `packages`… |  |  | ключи пакетов или каталоги с package.yaml; по умолчанию — все пакеты с тестами |
-| `--test TEST` |  |  | путь файла теста в пакете (tests/&lt;имя&gt;.test.yaml); можно несколько раз |
-| `--json` |  |  | ответы PackageTestOut в JSON |
-| `--env ENV` |  | `.env` | файл переменных установки |
-| `--database-url DATABASE_URL` |  |  | пустая база PostgreSQL для тестов правил и типов задач (или PACKAGE_SDK_SANDBOX_DATABASE_URL) |
+| `packages`… |  |  | package keys or directories with package.yaml; by default all packages with tests |
+| `--test TEST` |  |  | path of a test file in the package (tests/&lt;name&gt;.test.yaml); можно несколько раз |
+| `--json` |  |  | PackageTestOut responses as JSON |
+| `--env ENV` |  | `.env` | installation variables file |
+| `--database-url DATABASE_URL` |  |  | an empty PostgreSQL database for work rule and task type tests (or PACKAGE_SDK_SANDBOX_DATABASE_URL) |
 
 ### `package-sdk image` { #cli-image }
 
-Dockerfile образа интеграции пакета: наблюдатель или хост скиллов
+Dockerfile of a package integration image: observer or skill host
 
 ```text
 usage: package-sdk image [-h] {observer,skills} ...
@@ -425,7 +439,7 @@ usage: package-sdk image [-h] {observer,skills} ...
 
 #### `package-sdk image observer` { #cli-image-observer }
 
-Dockerfile образа observer
+Dockerfile of the observer image
 
 ```text
 usage: package-sdk image observer [-h] [--package PACKAGE] [--source SOURCE] [--base BASE]
@@ -434,15 +448,15 @@ usage: package-sdk image observer [-h] [--package PACKAGE] [--source SOURCE] [--
 
 | Аргумент | Обязателен | По умолчанию | Описание |
 |---|---|---|---|
-| `--package PACKAGE` |  | `.` | каталог пакета |
-| `--source SOURCE` |  |  | python-проект интеграции в пакете (по умолчанию integration/) |
-| `--base BASE` |  |  | базовый образ поставки (иначе --build-arg при сборке); наблюдателя |
-| `--out OUT` |  |  | куда записать; рядом, в каталоге пакета, пишется .dockerignore |
-| `--entrypoint ENTRYPOINT` |  |  | наблюдатель модуль:функция — проверка при сборке |
+| `--package PACKAGE` |  | `.` | package directory |
+| `--source SOURCE` |  |  | python project of the integration in the package (default integration/) |
+| `--base BASE` |  |  | base image of the delivery (otherwise --build-arg at build time); observer |
+| `--out OUT` |  |  | where to write; .dockerignore is written alongside, in the package directory |
+| `--entrypoint ENTRYPOINT` |  |  | observer module:function — checked at build time |
 
 #### `package-sdk image skills` { #cli-image-skills }
 
-Dockerfile образа skills
+Dockerfile of the skills image
 
 ```text
 usage: package-sdk image skills [-h] [--package PACKAGE] [--source SOURCE] [--base BASE]
@@ -451,15 +465,15 @@ usage: package-sdk image skills [-h] [--package PACKAGE] [--source SOURCE] [--ba
 
 | Аргумент | Обязателен | По умолчанию | Описание |
 |---|---|---|---|
-| `--package PACKAGE` |  | `.` | каталог пакета |
-| `--source SOURCE` |  |  | python-проект интеграции в пакете (по умолчанию integration/) |
-| `--base BASE` |  |  | базовый образ поставки (иначе --build-arg при сборке); раннера |
-| `--out OUT` |  |  | куда записать; рядом, в каталоге пакета, пишется .dockerignore |
-| `--modules MODULES` | да |  | модули или entrypoint'ы скиллов через запятую |
+| `--package PACKAGE` |  | `.` | package directory |
+| `--source SOURCE` |  |  | python project of the integration in the package (default integration/) |
+| `--base BASE` |  |  | base image of the delivery (otherwise --build-arg at build time); runner |
+| `--out OUT` |  |  | where to write; .dockerignore is written alongside, in the package directory |
+| `--modules MODULES` | да |  | comma-separated modules or skill entrypoints |
 
 ### `package-sdk mcp` { #cli-mcp }
 
-MCP-сервер автора пакетов по stdio; стенды — PACKAGE_SDK_SERVERS, корень сессии — PACKAGE_SDK_ROOT, корни клиента или текущий каталог
+package author MCP server over stdio; stands — PACKAGE_SDK_SERVERS, session root — PACKAGE_SDK_ROOT, the client roots or the current directory
 
 ```text
 usage: package-sdk mcp [-h]

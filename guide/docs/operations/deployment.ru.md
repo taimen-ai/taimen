@@ -12,7 +12,7 @@ bootstrap и вынос автономных исполнителей на от�
 
 | Узел | Что работает | Откуда код |
 |---|---|---|
-| Хост платформы | Один compose-проект на корневом `compose.yml`: ядро (`core`), периметр (`edge`) и по необходимости уведомления (`notify`) | Клон суперпроекта с сабмодулями; релиз = коммит суперпроекта |
+| Хост платформы | Один compose-проект на `deploy/local/compose.yml`: ядро (`core`), периметр (`edge`) и по необходимости уведомления (`notify`) | Клон суперпроекта с сабмодулями; релиз = коммит суперпроекта |
 | Runner-хост (необязательно) | Демон `control-plane-agent` с кодовым агентом, bare-зеркала репозиториев, рабочие копии | Пакет `control-plane` из суперпроекта: в контейнере или как systemd-сервис |
 | Рабочие места операторов | MCP-плагин / CLI `control-plane` | Пакет `control-plane` из суперпроекта |
 
@@ -33,7 +33,7 @@ runner обменивает свой PAT на access token в IAM и ходит 
 |---|---|---|
 | ОС | Linux x86_64 с systemd | Проверено на Ubuntu 24.04 LTS |
 | Docker Engine | 24+ | С плагином Compose v2 |
-| Docker Compose | v2.24+ | `env_file` с `required: false` используется в `compose.yml` |
+| Docker Compose | v2.24+ | `env_file` с `required: false` используется в `deploy/local/compose.yml` |
 | git | любой современный | Клон с сабмодулями |
 | python3 + PyYAML и jsonschema (или uv) | 3.10+ | На хосте запускаются `deploy/bootstrap.py` и `tools/smoke.py`. Установке каталога из пакетов (шаг 5b bootstrap) нужны PyYAML и jsonschema: `make bootstrap` при установленном uv подключает их сам; при прямом вызове скрипта (на хосте без `make`) — либо `uv run --no-project --with pyyaml --with jsonschema python3 deploy/bootstrap.py …`, либо системный `python3` с ними (на Ubuntu пакеты `python3-yaml`, `python3-jsonschema`) |
 | openssl, make | — | `make secrets` генерирует ключи подписи RSA 3072 |
@@ -49,7 +49,8 @@ runner обменивает свой PAT на access token в IAM и ходит 
 ```text
 /opt/taimen/
 ├── src/                         клон суперпроекта с сабмодулями (релиз = коммит)
-│   ├── compose.yml              единое описание всех сервисов
+│   ├── services/, sdk/          сабмодули компонентов (TAI-ADR-0064)
+│   ├── deploy/local/compose.yml единое описание всех сервисов (запуск из корня: tools/compose)
 │   ├── .env                     окружение установки, 0600
 │   ├── secrets/                 ключи подписи, PAT, env-файлы service accounts, 0600
 │   │   ├── iam-signing.pem      приватный ключ подписи IAM (владелец uid 10001)
@@ -173,7 +174,7 @@ dig +short platform.example.com
 
 
 ```bash
-make config PROFILES="core edge"   # docker compose ... config --quiet
+make config PROFILES="core edge"   # tools/compose ... config --quiet
 make build  PROFILES="core edge"
 ```
 
@@ -186,8 +187,8 @@ make build  PROFILES="core edge"
 
 
 ```bash
-make up PROFILES="core edge"     # docker compose --profile ... up -d --build
-docker compose --profile "*" ps
+make up PROFILES="core edge"     # tools/compose --profile ... up -d --build
+tools/compose --profile "*" ps
 ```
 
 
@@ -208,7 +209,7 @@ python3 deploy/bootstrap.py --env .env --name prod --operator "Platform Operator
 |---|---|---|
 | 1 | Ожидание `/health/ready` Control Plane и `/healthz` IAM на `127.0.0.1` | — |
 | 2 | IAM tenant, audiences с потолками scope, human principal оператора | `deploy/state/<env>.json` |
-| 2a | Service account ядра (память, entitlement, policy) | `secrets/control-plane-iam.env` |
+| 2a | Service account ядра (память, хранилище секретов) | `secrets/control-plane-iam.env` |
 | 3 | `POST /api/v1/bootstrap` Control Plane: tenant, admin principal и первый IAM binding | state |
 | 4 | Authentication context и PAT оператора (read/write/admin) | `secrets/harness-pat` |
 | 5 | Шаблон проекта, project и workspace | state |
@@ -223,14 +224,14 @@ python3 deploy/bootstrap.py --env .env --name prod --operator "Platform Operator
 sed -i "s/^IAM_TENANT_ID=.*/IAM_TENANT_ID=<tenant-id>/" .env
 
 # 2. Ядро должно подхватить env-файл service account (CP_CONTEXT_AUTH=auto)
-docker compose up -d control-plane-api control-plane-worker context-adapter
+tools/compose up -d control-plane-api control-plane-worker context-adapter
 ```
 
 Проверка, что ядро перешло с `MEMORY_API_KEY` на service account:
 
 ```bash
-docker compose exec context-adapter env | grep -c CP_IAM_CLIENT_ID   # 1
-docker compose logs --since 5m context-adapter | grep -E ' 40[13] ' || echo "нет 401/403"
+tools/compose exec context-adapter env | grep -c CP_IAM_CLIENT_ID   # 1
+tools/compose logs --since 5m context-adapter | grep -E ' 40[13] ' || echo "нет 401/403"
 ```
 
 ### 8. Проверка

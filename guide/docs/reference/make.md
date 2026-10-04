@@ -13,7 +13,7 @@ prints the list of targets with descriptions (`make help`).
 |---|---|---|
 | `help` | — | List of targets with descriptions (the default target). |
 | `secrets` | — | Creates `.env` from `.env.example` (if it does not exist), fills empty secrets, generates signing keys. |
-| `config` | `PROFILES` | Validates `compose.yml` after interpolation for the selected profiles. |
+| `config` | `PROFILES` | Validates `deploy/local/compose.yml` after interpolation for the selected profiles. |
 | `build` | `PROFILES` | Builds the images of the selected profiles. |
 | `up` | `PROFILES` | Builds and starts the selected profiles in the background. |
 | `down` | — | Stops and removes the containers of all profiles; volumes are kept. |
@@ -23,7 +23,6 @@ prints the list of targets with descriptions (`make help`).
 | `bootstrap` | `ARGS` | Initial setup: tenant, principals, PAT, bindings, catalog. |
 | `reset-state` | — | After a volume reset, moves the bootstrap state and the credentials it issued to `secrets/stale-<time>/`. |
 | `check` | — | Lint + unit tests of all core components (same as the required CI). |
-| `check-frozen` | — | The same for the frozen perimeter. |
 | `check-<component>` | — | Lint + tests of a single component. |
 | `lint-<component>` | — | Lint only, for a single component. |
 | `test-<component>` | — | Tests only, for a single component. |
@@ -38,7 +37,7 @@ prints the list of targets with descriptions (`make help`).
 
 | Variable | Default | Where it is used |
 |---|---|---|
-| `PROFILES` | `core edge` | `config`, `build`, `up`: expands to `docker compose --profile <p> …` for each profile. |
+| `PROFILES` | `core edge` | `config`, `build`, `up`: expands to `tools/compose --profile <p> …` for each profile. |
 | `svc` | empty (all services) | `logs`. |
 | `ARGS` | empty | `bootstrap`: extra arguments for `deploy/bootstrap.py`. |
 | `BOOTSTRAP_PY` | `uv run --no-project --quiet --with pyyaml --with jsonschema python3` if uv is installed; otherwise `python3` | `bootstrap`: the script interpreter. |
@@ -76,7 +75,7 @@ make secrets
 
 
 The target does not fill `IAM_TENANT_ID`: there is nothing to generate it
-from. In `compose.yml` it is empty by default, so `make up` for `core edge`
+from. In `deploy/local/compose.yml` it is empty by default, so `make up` for `core edge`
 works right after `make secrets`; see [Environment variables](environment.md).
 
 ### make config
@@ -87,8 +86,8 @@ make config
 make config PROFILES="core notify edge"
 ```
 
-`docker compose … config --quiet`; on success it prints
-`compose.yml is valid for profiles: …`. It catches empty required variables and interpolation errors before
+`tools/compose … config --quiet`; on success it prints
+`deploy/local/compose.yml is valid for profiles: …`. It catches empty required variables and interpolation errors before
 launch.
 
 ### make build / make up
@@ -101,7 +100,7 @@ make build PROFILES="core"
 ```
 
 
-`up` runs `docker compose --profile … up -d --build`: it rebuilds changed
+`up` runs `tools/compose --profile … up -d --build`: it rebuilds changed
 images and recreates containers.
 
 ### make down / ps / logs
@@ -159,7 +158,7 @@ and [Permissions and scopes](permissions.md#bootstrap-grants).
 ### make reset-state
 
 ```bash
-docker compose --profile "*" down -v   # reset volumes
+tools/compose --profile "*" down -v   # reset volumes
 make reset-state
 make up && make bootstrap
 ```
@@ -208,7 +207,7 @@ default. Some components have their own rules:
 
 | Target | What it does in addition |
 |---|---|
-| `test-control-plane` | Starts `db-test` from `control-plane/docker-compose.yml` (profile `test`, port 5434), runs `pytest tests/unit tests/client`, then stops the database. |
+| `test-control-plane` | Starts `db-test` from `services/control-plane/docker-compose.yml` (profile `test`, port 5434), runs `pytest tests/unit tests/client`, then stops the database. |
 | `test-skill-sdk` | `skill-sdk` tests with all extras, then an end-to-end executor test through `control-plane` (`tests/test_executor_e2e.py`). |
 | `test-memory-service` | `pytest` with the `mcp` extra, without `tests/integration`. |
 
@@ -261,7 +260,7 @@ See [Catalog packages](../control-plane/catalog-packages.md).
 === "Again after a volume reset"
 
     ```bash
-    docker compose --profile "*" down -v
+    tools/compose --profile "*" down -v
     make reset-state
     make up
     make bootstrap

@@ -2,7 +2,7 @@
 # IAM configuration
 
 A reference for configuring `iam-service`: the service's environment variables
-with their defaults, how they are set in the root `compose.yml`, local client
+with their defaults, how they are set in the `deploy/local/compose.yml`, local client
 variables, the bootstrap token, the signing key, migrations, and common
 configuration problems. It is for installation administrators.
 
@@ -36,9 +36,9 @@ The service reads its settings from the environment with the `IAM_` prefix
     of audiences and their scopes is data in the database (see
     [Tokens](tokens.md)).
 
-## How it is set in `compose.yml`
+## How it is set in `deploy/local/compose.yml`
 
-The root `compose.yml` (profile `core`) passes only some of the variables to
+The `deploy/local/compose.yml` (profile `core`) passes only some of the variables to
 the `iam-service` container; the rest use their defaults:
 
 ```yaml
@@ -69,17 +69,17 @@ iam-service:
 | `IAM_TENANT_ID` | empty | IAM tenant for services and executors that need it for credential exchange; fill in after `make bootstrap` |
 | `IAM_HOST_PORT` | `18010` | IAM port on the host's `127.0.0.1` |
 | `IAM_MEM_LIMIT` | `256m` | container memory limit |
-| `IAM_BUILD_CONTEXT` | `./iam-service` | image build context |
+| `IAM_BUILD_CONTEXT` | `./services/iam-service` | image build context |
 | `PG_MEM_LIMIT` | `256m` | memory limit of `iam-db` (shared by the databases) |
 | `VOLUME_IAM_DB` | `${COMPOSE_PROJECT_NAME}_iam_db` | name of the database volume |
 
 `make secrets` creates `.env` from `.env.example`, fills empty secrets with
 random values, and generates `secrets/iam-signing.pem` (RSA 3072, `0600`).
 
-### Changing parameters not present in `compose.yml`
+### Changing parameters not present in `deploy/local/compose.yml`
 
 To change, for example, the access token or PAT lifetime, add the variables to
-a compose override file instead of editing the shipped `compose.yml`:
+a compose override file instead of editing the shipped `deploy/local/compose.yml`:
 
 ```yaml
 # compose.override.yml
@@ -91,7 +91,7 @@ services:
 ```
 
 ```bash
-docker compose up -d iam-service
+tools/compose up -d iam-service
 ```
 
 !!! warning "Do not increase the access token TTL without need"
@@ -121,7 +121,7 @@ Recommendations:
 3. Restrict the IAM administrative paths at the edge (see [API](api.md) and
    [Edge and TLS](../operations/edge-and-tls.md)).
 4. If you suspect compromise, change the value in `.env`, recreate
-   `iam-service` (`docker compose up -d iam-service`), and check the
+   `iam-service` (`tools/compose up -d iam-service`), and check the
    `GET /api/v1/events` log for unexpected `principal.created`,
    `platform_access_token.issued`, `service_account.created`.
 
@@ -151,7 +151,7 @@ The key change procedure is in [Tokens, audiences, scopes](tokens.md).
 
 `IAM_ISSUER` defines the `iss` of every token and must **exactly** match the
 issuer configured in services (`CP_IAM_ISSUER`, `CB_IAM_ISSUER`,
-`NS_IAM_ISSUER`, …). In `compose.yml`, all of them are derived from a single
+`NS_IAM_ISSUER`, …). In `deploy/local/compose.yml`, all of them are derived from a single
 `TAIMEN_PUBLIC_URL`, so they match automatically.
 
 !!! danger "Changing `TAIMEN_PUBLIC_URL` changes the issuer"
@@ -171,7 +171,7 @@ issuer configured in services (`CP_IAM_ISSUER`, `CB_IAM_ISSUER`,
   the host):
 
     ```bash
-    cd iam-service
+    cd services/iam-service
     IAM_DATABASE_URL=postgresql+psycopg://iam:<password>@127.0.0.1:5435/iam \
       uv run alembic upgrade head
     ```
@@ -210,7 +210,7 @@ plugin, runner). Details are in [Credentials and PAT](credentials.md).
 
 | Symptom | Cause | What to do |
 |---|---|---|
-| `401 unauthorized` on administrative calls | wrong/empty `X-IAM-Bootstrap-Token`, empty `IAM_BOOTSTRAP_TOKEN` in the container, or `Authorization: Bearer` was used | pass exactly `X-IAM-Bootstrap-Token`; check the container variables: `docker compose exec iam-service env` (look for `IAM_BOOTSTRAP_TOKEN`) |
+| `401 unauthorized` on administrative calls | wrong/empty `X-IAM-Bootstrap-Token`, empty `IAM_BOOTSTRAP_TOKEN` in the container, or `Authorization: Bearer` was used | pass exactly `X-IAM-Bootstrap-Token`; check the container variables: `tools/compose exec iam-service env` (look for `IAM_BOOTSTRAP_TOKEN`) |
 | `500` on `/.well-known/jwks.json` and on any exchange | the signing key is not set or cannot be read | check `IAM_SIGNING_KEY_FILE`, that the file exists, and that its owner is uid 10001 |
 | `500` on exchange after a key change, `PermissionError` in the logs | the key file is `root:root 0600` | `chown 10001:10001` on the host, keep permissions at `0600` |
 | A service returns `401` for a fresh token | `iss` in the token does not equal the service's issuer | compare `IAM_ISSUER` and `*_IAM_ISSUER`; both must be derived from `TAIMEN_PUBLIC_URL` |

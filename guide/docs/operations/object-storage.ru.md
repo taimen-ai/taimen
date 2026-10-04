@@ -82,7 +82,7 @@ Caddy (профиль `edge`) нет. Клиенты не получают ад�
 | `CP_S3_ACCESS_KEY_ID`, `CP_S3_SECRET_ACCESS_KEY` | пользователь ядра: `minio-bootstrap` заводит его, процессы Control Plane ходят под ним |
 | `CP_S3_BUCKET` | бакет содержимого артефактов, по умолчанию `artifacts` |
 
-`CP_S3_ACCESS_KEY_ID` и `CP_S3_SECRET_ACCESS_KEY` в `compose.yml`
+`CP_S3_ACCESS_KEY_ID` и `CP_S3_SECRET_ACCESS_KEY` в `deploy/local/compose.yml`
 обязательны (`${VAR:?…}`): без них не поднимется ни MinIO-bootstrap, ни
 процессы ядра. Остальные настройки ядра (`CP_S3_ENDPOINT_URL`,
 `CP_S3_REGION`, таймауты, лимиты) — в [Конфигурации Control Plane](../control-plane/configuration.md#content-store).
@@ -95,12 +95,12 @@ Caddy (профиль `edge`) нет. Клиенты не получают ад�
 ## Внешний S3 вместо MinIO
 
 Содержимое артефактов можно держать у любого S3-совместимого провайдера.
-Файл `compose.s3.example.yml` в корне суперпроекта выводит `minio` и
+Файл `deploy/local/compose.s3.example.yml` в корне суперпроекта выводит `minio` и
 `minio-bootstrap` из профиля `core` (назначает им профиль, который установка
 не поднимает); подключайте его вторым файлом:
 
 ```bash
-docker compose -f compose.yml -f compose.s3.example.yml --profile core --profile edge up -d
+tools/compose -f deploy/local/compose.s3.example.yml --profile core --profile edge up -d
 ```
 
 В `.env`:
@@ -122,7 +122,7 @@ CP_S3_SECRET_ACCESS_KEY=<секрет пользователя>
     Если `CP_S3_ENDPOINT_URL` пуст, Control Plane работает без хранилища:
     артефакты-ссылки и JSON-артефакты создаются как обычно, а маршруты
     содержимого отвечают `503 content_store_unavailable`. В поставочном
-    `compose.yml` адрес по умолчанию — `http://minio:9000`.
+    `deploy/local/compose.yml` адрес по умолчанию — `http://minio:9000`.
 
 ## Резервное копирование { #backup }
 
@@ -160,9 +160,9 @@ CP_S3_SECRET_ACCESS_KEY=<секрет пользователя>
 | Симптом | Причина | Что делать |
 |---|---|---|
 | `503 content_store_unavailable` на `PUT /artifact-contents` при работающем MinIO | `CP_S3_ENDPOINT_URL` пуст — хранилище в ядре выключено | Задать адрес и пересоздать процессы Control Plane |
-| `503 content_store_unavailable`, в журнале API предупреждение `content store unavailable at start-up` | MinIO не поднят, неверные ключи или у пользователя нет `ListBucket` | `docker compose ps minio minio-bootstrap`, логи `minio-bootstrap`; проверить ключи в `.env` и политику |
+| `503 content_store_unavailable`, в журнале API предупреждение `content store unavailable at start-up` | MinIO не поднят, неверные ключи или у пользователя нет `ListBucket` | `tools/compose ps minio minio-bootstrap`, логи `minio-bootstrap`; проверить ключи в `.env` и политику |
 | `503 content_store_unavailable` только при чтении отдельных артефактов | Объекта нет в хранилище при записи `stored`: том восстановлен из более старой копии, чем база | Восстановить том MinIO из копии, согласованной с базой |
-| `docker compose up` падает на `set CP_S3_ACCESS_KEY_ID` | Ключей ядра нет в `.env` | `make secrets` — допишет недостающие ключи |
+| `tools/compose up` падает на `set CP_S3_ACCESS_KEY_ID` | Ключей ядра нет в `.env` | `make secrets` — допишет недостающие ключи |
 | `413 request_too_large` на загрузке | Файл больше `CP_ARTIFACT_MAX_BYTES` | Уменьшить файл или поднять лимит установки |
 | `422 artifact_too_large` при создании артефакта | Файл больше `maxBytes` зарегистрированного типа артефакта | Выпустить версию типа с большим `maxBytes` (не выше `CP_ARTIFACT_MAX_BYTES`) |
 

@@ -66,7 +66,7 @@ spec:
 | `profiles[]` | attributes of a kind of this or another ontology; with `when: {attr, equals}`, only for entities where the attribute equals the value |
 | `expiry[]` | to whom (`role`) and how many days ahead (`leadDays`, 1–365) to create a task about the expiry of the kind's `validUntil` |
 
-The full form is `package-sdk/schema/v1/knowledge-pack.schema.json`.
+The full form is `sdk/package-sdk/schema/v1/knowledge-pack.schema.json`.
 
 - **Validity periods** are, by convention, the `validFrom` and `validUntil`
   attributes (`format: date`).
@@ -173,7 +173,7 @@ description is also the template:
 
 The form for refining how a template is presented (headers, order, hints,
 examples, additional forbidden columns) is
-`package-sdk/schema/v1/knowledge-template.schema.json`; a refinement does not add
+`sdk/package-sdk/schema/v1/knowledge-template.schema.json`; a refinement does not add
 columns that are not in the kind's schema.
 
 ## Personal data

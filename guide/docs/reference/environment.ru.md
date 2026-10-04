@@ -1,7 +1,7 @@
 # Переменные окружения
 
 Полный перечень переменных окружения поставки Taimen: корневой `.env`
-(контракт `.env.example`), переменные, которые `compose.yml` передаёт в
+(контракт `.env.example`), переменные, которые `deploy/local/compose.yml` передаёт в
 контейнеры, настройки каждого сервиса (pydantic-settings с префиксом) и
 переменные процессов вне compose — runner-агента, CLI, MCP-сервера, коннектора
 и SDK. Статья для инженера, который настраивает стенд или разбирается, откуда
@@ -11,7 +11,7 @@
 
 ```mermaid
 flowchart LR
-    ENV[".env<br/>(из .env.example)"] -->|интерполяция ${VAR}| COMPOSE["compose.yml"]
+    ENV[".env<br/>(из .env.example)"] -->|интерполяция ${VAR}| COMPOSE["deploy/local/compose.yml"]
     COMPOSE -->|environment:| SVC["контейнер<br/>CP_* / IAM_* / CB_* / ..."]
     SECRETS["secrets/*.env<br/>(пишет bootstrap)"] -->|env_file| SVC
     PEM["secrets/*.pem"] -->|docker secret| SVC
@@ -21,7 +21,7 @@ flowchart LR
 1. Оператор заполняет **один** файл `.env` в корне суперпроекта. В нём одно
    понятие — одно имя (`MEMORY_API_KEY`, `TAIMEN_PUBLIC_URL`, `LLM_MODEL`).
    `make secrets` создаёт его из `.env.example` и генерирует случайные секреты.
-2. `compose.yml` раскладывает значения по префиксам сервисов: например,
+2. `deploy/local/compose.yml` раскладывает значения по префиксам сервисов: например,
    `MEMORY_API_KEY` превращается в `CB_SERVER_API_KEY` у memory-service и
    `CP_CONTEXT_API_KEY` у Control Plane.
    Часть переменных сервиса compose задаёт жёстко (адреса внутри сети,
@@ -42,7 +42,7 @@ flowchart LR
 | `CONTROL_PLANE_*`, `IAM_*` (клиентские) | runner, CLI, MCP-сервер, SDK-клиент | `control_plane_agent`, `control_plane_client` |
 
 !!! warning "Обязательные переменные проверяются для всех профилей"
-    Переменные вида `${VAR:?…}` в `compose.yml` обязательны **при любом
+    Переменные вида `${VAR:?…}` в `deploy/local/compose.yml` обязательны **при любом
     наборе профилей**: Docker Compose интерполирует весь файл до фильтрации
     по профилям. Поэтому обязательными (`:?`) объявлены только значения,
     которые генерирует `make secrets`; идентификаторы, которые генерировать
@@ -53,7 +53,7 @@ flowchart LR
 ## Корневой `.env`
 
 Переменные контракта `.env.example` и прочие переменные интерполяции
-`compose.yml`. Колонка «По умолчанию» — значение подстановки в `compose.yml`
+`deploy/local/compose.yml`. Колонка «По умолчанию» — значение подстановки в `deploy/local/compose.yml`
 (`${VAR:-…}`); «обязательна» — подстановка `${VAR:?…}`.
 
 ### Окружение и периметр
@@ -69,7 +69,7 @@ flowchart LR
 | `EDGE_HTTP_PORT` | `80` | нет | Публикуемый порт HTTP контейнера `caddy`. |
 | `EDGE_HTTPS_PORT` | `443` | нет | Публикуемый порт HTTPS контейнера `caddy`. |
 | `LOG_LEVEL` | `INFO` | нет | Уровень логов: `CP_LOG_LEVEL`. |
-| `LOG_RENDERER`, `CP_TIMEZONE` | — | нет | Объявлены в `.env.example`, но сервисами `compose.yml` не читаются. |
+| `LOG_RENDERER`, `CP_TIMEZONE` | — | нет | Объявлены в `.env.example`, но сервисами `deploy/local/compose.yml` не читаются. |
 | `IMAGE_PREFIX` | `taimen` | нет | Префикс имён образов: `${IMAGE_PREFIX}/control-plane:${IMAGE_TAG}`. |
 | `IMAGE_TAG` | `local` | нет | Тег образов. |
 
@@ -109,6 +109,17 @@ flowchart LR
     `secrets/*.pem` должны принадлежать этому uid при
     правах `600`: иначе сервис получает `PermissionError` при чтении ключа.
 
+### Хранилище секретов { #openbao }
+
+Сервисы `openbao` и `openbao-bootstrap` профиля `core`; подробно — [Хранилище
+секретов](../operations/secret-store.md).
+
+| Переменная | По умолчанию | Обязательна | Назначение |
+|---|---|---|---|
+| `OPENBAO_UNSEAL_KEY_FILE` | `./secrets/openbao-unseal.key` | нет | Файл ключа распечатывания (seal `static`): 64 hex-символа без перевода строки, `0600`, на Linux владелец uid 10001. `make secrets` создаёт его, если файла нет, и никогда не перезаписывает; монтируется docker-секретом `openbao_unseal_key`. |
+| `OPENBAO_UNSEAL_KEY_ID` | `unseal-1` | нет | Идентификатор ключа распечатывания (`BAO_STATIC_SEAL_CURRENT_KEY_ID`); меняется только при ротации ключа. |
+| `OPENBAO_CORE_CIDRS` | пусто | нет | `token_bound_cidrs` роли ядра `control-plane`: откуда ядру можно входить в хранилище. Пусто — подсеть сети compose без её шлюзов (её определяет `openbao-bootstrap`); задано — берётся как есть. |
+
 ### LLM и память
 
 
@@ -132,7 +143,6 @@ flowchart LR
 |---|---|---|---|
 | `CP_LEGACY_API_KEYS_ENABLED` | `false` | нет | Принимать ли legacy-ключи `cp_…` (`CP_LEGACY_API_KEYS_ENABLED`). В стеке IAM включён всегда (`CP_IAM_ENABLED: "true"`). |
 | `CP_CONTEXT_AUTH` | `auto` | нет | Как ядро аутентифицируется в памяти: `auto`, `api_key`, `iam`. |
-| `CP_ENTITLEMENT_ENABLED` | `false` | нет | Проверка лицензий внешним сервисом, если он подключён. |
 | `CP_AUTHZ_MODE` | `local` | нет | Источник доменной авторизации: `local`, `shadow`, `policy` (CP-ADR-0055). |
 | `CP_CORS_ORIGINS` | `[]` | нет | JSON-список разрешённых CORS-источников API. |
 
@@ -147,7 +157,7 @@ flowchart LR
 
 ### Переменные пакетов каталога { #package-variables }
 
-Эти переменные не интерполирует `compose.yml`: их читает установщик пакетов
+Эти переменные не интерполирует `deploy/local/compose.yml`: их читает установщик пакетов
 `package-sdk` (из `.env`, флаг `--env`, и окружения процесса) и
 подставляет в `${ИМЯ}` объектов пакета при `plan` и `apply`. Какие переменные
 нужны, объявляет сам пакет; незаданная переменная, которая нужна пакету
@@ -184,6 +194,7 @@ Control Plane (см. [Пакеты каталога](../control-plane/catalog-pa
 | `NOTIFY_MEM_LIMIT` | `256m` | `notification-service` |
 | `NOTIFY_DB_MEM_LIMIT` | `128m` | `notification-db` |
 | `MINIO_MEM_LIMIT` | `256m` | `minio` |
+| `OPENBAO_MEM_LIMIT` | `256m` | `openbao` (им же задаётся `memswap_limit`: swap контейнеру закрыт) |
 
 ### Контексты сборки
 
@@ -192,14 +203,14 @@ Control Plane (см. [Пакеты каталога](../control-plane/catalog-pa
 
 | Переменная | По умолчанию |
 |---|---|
-| `IAM_BUILD_CONTEXT` | `./iam-service` |
-| `CP_BUILD_CONTEXT` | `.` (Dockerfile `control-plane/Dockerfile`) |
-| `MEMORY_BUILD_CONTEXT` | `.` для `memory-service` (Dockerfile `memory-service/Dockerfile`); `./memory-service` + `/infra/memory-db` для `memory-db` |
-| `NOTIFY_BUILD_CONTEXT` | `.` (Dockerfile `notification-service/Dockerfile`) |
+| `IAM_BUILD_CONTEXT` | `./services/iam-service` |
+| `CP_BUILD_CONTEXT` | `.` (Dockerfile `services/control-plane/Dockerfile`) |
+| `MEMORY_BUILD_CONTEXT` | `.` для `memory-service` (Dockerfile `services/memory-service/Dockerfile`); `./services/memory-service` + `/infra/memory-db` для `memory-db` |
+| `NOTIFY_BUILD_CONTEXT` | `.` (Dockerfile `services/notification-service/Dockerfile`) |
 
 !!! warning "Одна переменная — два значения по умолчанию"
     `MEMORY_BUILD_CONTEXT` используется и для `memory-db`
-    (`${MEMORY_BUILD_CONTEXT:-./memory-service}/infra/memory-db`), и для
+    (`${MEMORY_BUILD_CONTEXT:-./services/memory-service}/infra/memory-db`), и для
     `memory-service` (`${MEMORY_BUILD_CONTEXT:-.}`). Если задать её явно,
     одно из двух путей окажется неверным; оставляйте её пустой.
 
@@ -212,13 +223,15 @@ Control Plane (см. [Пакеты каталога](../control-plane/catalog-pa
 
 `VOLUME_IAM_DB`, `VOLUME_CONTROL_PLANE_DB`, `VOLUME_MEMORY_DB`,
 `VOLUME_NOTIFY_DB`, `VOLUME_PLATFORM_MINIO` (том MinIO с содержимым артефактов),
-`VOLUME_CADDY_DATA`, `VOLUME_CADDY_CONFIG`.
+`VOLUME_CADDY_DATA`, `VOLUME_CADDY_CONFIG`,
+`VOLUME_OPENBAO_DATA` и `VOLUME_OPENBAO_AUDIT` (тома данных raft и журнала аудита
+хранилища секретов).
 
 ## Control Plane (`CP_`)
 
 Читаются процессами `control-plane-api`, `control-plane-worker` и
 `context-adapter` (один образ). Колонка «В стеке» — значение, которое
-задаёт `compose.yml`.
+задаёт `deploy/local/compose.yml`.
 
 ### Основное
 
@@ -253,6 +266,26 @@ Control Plane (см. [Пакеты каталога](../control-plane/catalog-pa
 | `CP_IDEMPOTENCY_TTL_SECONDS` | `86400` | Сколько хранится ответ по `Idempotency-Key`. |
 | `CP_IDEMPOTENCY_WAIT_TIMEOUT_SECONDS` | `10.0` | Сколько параллельный дубль ждёт завершения первого запроса; дальше — `409 idempotency_in_flight`. |
 | `CP_IDEMPOTENCY_PENDING_TTL_SECONDS` | `60` | Время жизни записи без сохранённого ответа (защита от «залипшего» ключа после падения процесса). |
+
+### Хранилище секретов и подключения { #cp-secret-store }
+
+См. [Подключения](../control-plane/connections.md#configuration). В `deploy/local/compose.yml`
+процессам ядра эти переменные не заданы: адрес хранилища и адреса OAuth задаются
+в `compose.override.yml` (см. [Хранилище секретов](../operations/secret-store.md#env)).
+
+| Переменная | По умолчанию | Назначение |
+|---|---|---|
+| `CP_SECRET_STORE_URL` | пусто | Адрес хранилища секретов в сети (`http://openbao:8200`). Пусто — маршруты, которым нужно хранилище, отвечают `503 secret_store_unavailable`. |
+| `CP_SECRET_STORE_AUDIENCE` | `openbao` | Audience токена IAM ядра для входа в хранилище. |
+| `CP_SECRET_STORE_ROLE` | `control-plane` | Роль `jwt` ядра в хранилище. |
+| `CP_SECRET_STORE_TIMEOUT_SECONDS` | `10.0` | Таймаут запроса к хранилищу. |
+| `CP_OAUTH_REDIRECT_URI` | пусто | Публичный `https`-адрес OAuth callback (`…/api/v1/connections:callback`). Пусто — `:authorize` отвечает `409 oauth_not_configured`. |
+| `CP_CONNECTIONS_RETURN_URL` | пусто | Куда callback возвращает браузер (`?connection=…&result=…`). Пусто — `:authorize` отвечает `409`, callback — `200 text/plain`. |
+| `CP_OAUTH_STATE_TTL_SECONDS` | `600` | Срок одноразового state OAuth. |
+| `CP_CONNECTIONS_SYNC_SECONDS` | `300.0` | Период полного прохода воркера `connections-policy-sync`. |
+
+Непустые `CP_OAUTH_REDIRECT_URI` и `CP_CONNECTIONS_RETURN_URL` без `https` — отказ
+при старте.
 
 ### Worker и outbox
 
@@ -315,10 +348,9 @@ Control Plane (см. [Пакеты каталога](../control-plane/catalog-pa
 
 ### Entitlement
 
-
 | Переменная | По умолчанию | В стеке | Назначение |
 |---|---|---|---|
-| `CP_ENTITLEMENT_ENABLED` | `false` | `${CP_ENTITLEMENT_ENABLED}` (api) | Проверять лицензии. Выключено — в audit источник решения `disabled`. |
+| `CP_ENTITLEMENT_ENABLED` | `false` | — | Проверять лицензии. Выключено — в audit источник решения `disabled`. |
 | `CP_ENTITLEMENT_BASE_URL` | `http://localhost:8020` | — | Адрес сервиса лицензий. |
 | `CP_ENTITLEMENT_PRODUCT` | `control-plane` | — | Продукт в каталоге лицензий. |
 | `CP_ENTITLEMENT_DEFAULT_FEATURE` | `api` | — | Feature, если не выводится из пути (`/api/v1/<feature>/…`). |
@@ -375,7 +407,7 @@ Control Plane (см. [Пакеты каталога](../control-plane/catalog-pa
 
 ## memory-service (`CB_`)
 
-Колонка «В стеке» — значение из `compose.yml`.
+Колонка «В стеке» — значение из `deploy/local/compose.yml`.
 
 ### Хранилище и HTTP
 
@@ -528,7 +560,7 @@ OpenCode, CLI `control-plane`, MCP-сервер `control-plane-mcp` и библ�
 | `IAM_CREDENTIAL_MODE` | — | `environment` или `ci` — разрешить PAT из переменной. Без него — `iam_environment_mode_required`. |
 | `IAM_PRINCIPAL` | — | Какой principal этот процесс, если на машине в хранилище несколько credential одного issuer+tenant. Не задан при нескольких — `iam_credential_ambiguous`. |
 | `IAM_NO_KEYCHAIN` | — | `1` — не обращаться к Keychain macOS за PAT. |
-| `XDG_CONFIG_HOME` | `~/.config` | База путей `iam/credentials.json` (файл PAT, права `600`) и `control-plane/credentials.json` (legacy-ключи). |
+| `XDG_CONFIG_HOME` | `~/.config` | База путей `iam/credentials.json` (файл PAT, права `600`) и `services/control-plane/credentials.json` (legacy-ключи). |
 | `CONTROL_PLANE_API_KEY` | — | Legacy-ключ `cp_…` (только если на сервере включены legacy-ключи). |
 | `CONTROL_PLANE_NO_KEYCHAIN` | — | `1` — не искать legacy-ключ в Keychain. |
 
@@ -633,41 +665,44 @@ OpenCode, CLI `control-plane`, MCP-сервер `control-plane-mcp` и библ�
 | Файл | Переменные | Кто читает |
 |---|---|---|
 | `secrets/control-plane-iam.env` | `CP_IAM_CLIENT_ID`, `CP_IAM_CLIENT_SECRET` | `control-plane-api`, `control-plane-worker`, `context-adapter` |
-| `secrets/memory-service-iam.env` | `CB_IAM_CLIENT_ID`, `CB_IAM_CLIENT_SECRET` | `memory-service` |
 | `secrets/notification-iam.env` | `NS_SERVICE_CLIENT_ID`, `NS_SERVICE_CLIENT_SECRET` | `notification-service` |
 
 Файл `secrets/notification-telegram.env` (`NS_TELEGRAM_BOT_TOKEN`,
 `NS_TELEGRAM_WEBHOOK_SECRET`, `NS_TELEGRAM_BOT_USERNAME`) bootstrap не пишет —
 его заполняет оператор, см. [Telegram](../notifications/telegram.md).
+Необязательный `secrets/memory-service-iam.env` (`CB_IAM_CLIENT_ID`,
+`CB_IAM_CLIENT_SECRET`, service identity памяти для вызова внешнего PDP) bootstrap
+тоже не пишет — он кладётся вместе с подключением внешнего PDP, который в поставку
+не входит.
 
 После появления файла соответствующий контейнер нужно пересоздать
-(`docker compose up -d <сервис>`): `env_file` читается при создании
+(`tools/compose up -d <сервис>`): `env_file` читается при создании
 контейнера.
 
 
-## Сводка: все переменные `compose.yml` и `.env.example`
+## Сводка: все переменные `deploy/local/compose.yml` и `.env.example`
 
 Проверочный перечень к таблицам выше: каждая переменная, которую интерполирует
-`compose.yml` или объявляет `.env.example`, с сервисами и профилями, где она
+`deploy/local/compose.yml` или объявляет `.env.example`, с сервисами и профилями, где она
 используется. Колонка «Описана выше» — есть ли у переменной строка в
 рукописных таблицах этой страницы; «**нет**» — повод дописать описание.
 
 <!-- generated:env-summary -->
 _Раздел генерируется из кода — не правьте его руками._
 
-Всего переменных: 151 (в `compose.yml` — 121, в `.env.example` — 113). Не описаны в таблицах выше: 0.
+Всего переменных: 148 (в `deploy/local/compose.yml` — 123, в `.env.example` — 110). Не описаны в таблицах выше: 7.
 
 | Переменная | По умолчанию в compose | Сервисы | Профили | `.env.example` | Описана выше |
 |---|---|---|---|---|---|
 | `ACCOUNTING_ROLE_ID` | — | — | — | да | да |
 | `CADDYFILE` | `./deploy/caddy/Caddyfile.local` | caddy | edge | да | да |
+| `COMPOSE_PROJECT_NAME` | `taimen` | (volumes) | — | да | да |
 | `CP_AUTHZ_MODE` | `local` | context-adapter, control-plane-api, control-plane-worker | core | да | да |
 | `CP_BOOTSTRAP_TOKEN` | — | control-plane-api | core | да | да |
 | `CP_BUILD_CONTEXT` | `.` | control-plane-api | core | — | да |
 | `CP_CONTEXT_AUTH` | `auto` | context-adapter, control-plane-api, control-plane-worker | core | да | да |
 | `CP_CONTEXT_TIMEOUT_SECONDS` | `3` | control-plane-api | core | — | да |
 | `CP_CORS_ORIGINS` | `[]` | control-plane-api | core | да | да |
-| `CP_ENTITLEMENT_ENABLED` | `false` | control-plane-api | core | да | да |
 | `CP_HOST_PORT` | `18000` | control-plane-api | core | да | да |
 | `CP_KNOWLEDGE_PACK_ADMINS` | `[]` | control-plane-api | core | да | да |
 | `CP_LEGACY_API_KEYS_ENABLED` | `false` | control-plane-api | core | да | да |
@@ -682,8 +717,10 @@ _Раздел генерируется из кода — не правьте е�
 | `CP_WORKER_MEM_LIMIT` | `256m` | context-adapter, control-plane-worker | core | — | да |
 | `EDGE_HTTPS_PORT` | `443` | caddy | edge | да | да |
 | `EDGE_HTTP_PORT` | `80` | caddy | edge | да | да |
+| `HARNESS_CONTROL_NETWORK` | `${COMPOSE_PROJECT_NAME:-taimen` | (networks) | — | — | да |
 | `HARNESS_COOKIE_SECRET_FILE` | `./secrets/harness/cookie-secret` | (secrets) | — | — | да |
-| `IAM_BUILD_CONTEXT` | `./iam-service` | iam-service | core | — | да |
+| `IAM_BOOTSTRAP_TOKEN` | — | iam-service | core | да | да |
+| `IAM_BUILD_CONTEXT` | `./services/iam-service` | iam-service | core | — | да |
 | `IAM_HOST_PORT` | `18010` | iam-service | core | да | да |
 | `IAM_MEM_LIMIT` | `256m` | iam-service | core | — | да |
 | `IAM_POSTGRES_PASSWORD` | — | iam-db, iam-service | core | да | да |
@@ -691,6 +728,7 @@ _Раздел генерируется из кода — не правьте е�
 | `IAM_SIGNING_KEY_ID` | `local-dev` | iam-service | core | да | да |
 | `INVOICE_WORKSPACE_ID` | — | — | — | да | да |
 | `KNOWLEDGE_WORKSPACE_ID` | — | — | — | да | да |
+| `LOG_LEVEL` | `INFO` | context-adapter, control-plane-api, control-plane-worker | core | да | да |
 | `LOG_RENDERER` | — | — | — | да | да |
 | `MEMORY_BUILD_CONTEXT` | `.` | memory-db, memory-service | core | — | да |
 | `MEMORY_CONSOLE_ENABLED` | `false` | memory-service | core | да | да |
@@ -714,23 +752,10 @@ _Раздел генерируется из кода — не правьте е�
 | `NOTIFY_POSTGRES_PASSWORD` | — | notification-db, notification-service | notify | да | да |
 | `NOTIFY_SMTP_HOST` | `localhost` | notification-service | notify | — | да |
 | `NOTIFY_SMTP_PORT` | `587` | notification-service | notify | — | да |
-| `RUNTIME_CONSOLE_CONTROL_PLANE_URL` | — | — | — | да | да |
-| `RUNTIME_CONSOLE_COOKIE_SECRET_FILE` | `./secrets/runtime-console-cookie-secret` | (secrets) | — | да | да |
-| `RUNTIME_CONSOLE_CP_SCOPES` | `control-plane:read control-plane:write control-plane:admin` | console | core | да | да |
-| `RUNTIME_CONSOLE_FLEET_URL` | — | — | — | да | да |
-| `RUNTIME_CONSOLE_IAM_TENANT` | — | — | — | да | да |
-| `RUNTIME_CONSOLE_IAM_URL` | — | — | — | да | да |
-| `RUNTIME_CONSOLE_LAUNCHER_URL` | — | — | — | да | да |
-| `RUNTIME_CONSOLE_LOGO_TEXT` | пусто | console | core | да | да |
-| `RUNTIME_CONSOLE_OIDC_CLIENT_ID` | `runtime-console` | console | core | да | да |
-| `RUNTIME_CONSOLE_OIDC_ISSUER` | `${TAIMEN_PUBLIC_URL` | console | core | да | да |
-| `RUNTIME_CONSOLE_OIDC_SCOPES` | `openid profile email` | console | core | да | да |
-| `RUNTIME_CONSOLE_OIDC_SECRET_FILE` | `./secrets/runtime-console-oidc-secret` | (secrets) | — | да | да |
-| `RUNTIME_CONSOLE_PORT` | — | — | — | да | да |
-| `RUNTIME_CONSOLE_PRODUCT_NAME` | пусто | console | core | да | да |
-| `RUNTIME_CONSOLE_PUBLIC_URL` | — | — | — | да | да |
-| `RUNTIME_CONSOLE_SESSION_TTL_HOURS` | `12` | console | core | да | да |
-| `RUNTIME_CONSOLE_STATIC_DIR` | — | — | — | да | да |
+| `OPENBAO_CORE_CIDRS` | пусто | openbao-bootstrap | core | да | да |
+| `OPENBAO_MEM_LIMIT` | `256m` | openbao | core | да | да |
+| `OPENBAO_UNSEAL_KEY_FILE` | `./secrets/openbao-unseal.key` | (secrets) | — | да | да |
+| `OPENBAO_UNSEAL_KEY_ID` | `unseal-1` | openbao | core | да | да |
 | `S3_ACCESS_KEY_ID` | — | minio, minio-bootstrap | core | да | да |
 | `S3_SECRET_ACCESS_KEY` | — | minio, minio-bootstrap | core | да | да |
 | `SELFDEV_CONTROL_PLANE_URL` | — | — | — | да | да |
@@ -741,26 +766,30 @@ _Раздел генерируется из кода — не правьте е�
 | `SELFDEV_NOTIFICATION_SERVICE_URL` | — | — | — | да | да |
 | `SELFDEV_PACKAGE_SDK_URL` | — | — | — | да | да |
 | `SELFDEV_PLATFORM_AUTH_SDK_URL` | — | — | — | да | да |
+| `SELFDEV_PLATFORM_LLM_URL` | — | — | — | да | да |
 | `SELFDEV_REVIEWER_PRINCIPAL` | — | — | — | да | да |
 | `SELFDEV_SKILLS_EXECUTOR` | — | — | — | да | да |
 | `SELFDEV_SKILL_SDK_URL` | — | — | — | да | да |
 | `SELFDEV_SUPERPROJECT_URL` | — | — | — | да | да |
 | `SELFDEV_WORKSPACE_ID` | — | — | — | да | да |
+| `TAIMEN_NETWORK` | `taimen_default` | (networks) | — | да | да |
 | `TASK_URL_BASE` | — | — | — | да | да |
 | `TENDERS_COMPANY_INN` | — | — | — | да | да |
 | `TENDERS_WORKSPACE_ID` | — | — | — | да | да |
 | `VOLUME_CADDY_CONFIG` | `${COMPOSE_PROJECT_NAME:-taimen` | (volumes) | — | да | да |
 | `VOLUME_CADDY_DATA` | `${COMPOSE_PROJECT_NAME:-taimen` | (volumes) | — | да | да |
+| `VOLUME_CONSOLE_SESSIONS` | `${COMPOSE_PROJECT_NAME:-taimen` | (volumes) | — | — | **нет** |
 | `VOLUME_CONTROL_PLANE_DB` | `${COMPOSE_PROJECT_NAME:-taimen` | (volumes) | — | да | да |
-| `VOLUME_ENTITLEMENT_DB` | `${COMPOSE_PROJECT_NAME:-taimen` | (volumes) | — | — | да |
 | `VOLUME_FLEET_DATA` | `${COMPOSE_PROJECT_NAME:-taimen` | (volumes) | — | да | да |
 | `VOLUME_HARNESS_LAUNCHER` | `${COMPOSE_PROJECT_NAME:-taimen` | (volumes) | — | — | да |
 | `VOLUME_IAM_DB` | `${COMPOSE_PROJECT_NAME:-taimen` | (volumes) | — | да | да |
 | `VOLUME_MEMORY_DB` | `${COMPOSE_PROJECT_NAME:-taimen` | (volumes) | — | да | да |
 | `VOLUME_NOTIFY_DB` | `${COMPOSE_PROJECT_NAME:-taimen` | (volumes) | — | — | да |
+| `VOLUME_OPENBAO_AUDIT` | `${COMPOSE_PROJECT_NAME:-taimen` | (volumes) | — | да | да |
+| `VOLUME_OPENBAO_DATA` | `${COMPOSE_PROJECT_NAME:-taimen` | (volumes) | — | да | да |
 | `VOLUME_PLATFORM_MINIO` | `${COMPOSE_PROJECT_NAME:-taimen` | (volumes) | — | да | да |
-| `VOLUME_POLICY_DB` | `${COMPOSE_PROJECT_NAME:-taimen` | (volumes) | — | — | да |
 | `VOLUME_REALM_IMPORT` | `${COMPOSE_PROJECT_NAME:-taimen` | (volumes) | — | да | да |
+| `VOLUME_SITE_FORMS_DATA` | `${COMPOSE_PROJECT_NAME:-taimen` | (volumes) | — | — | **нет** |
 | `VOLUME_SUPPORT_DATA` | `${COMPOSE_PROJECT_NAME:-taimen` | (volumes) | — | да | да |
 <!-- /generated:env-summary -->
 

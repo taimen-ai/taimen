@@ -37,8 +37,8 @@ resource service, исполнителя (агента), скилл или ко�
 | Прочитать или записать память из приложения со своим грантом на namespace | `platform_memory_client` | ходить в базу памяти напрямую |
 | Вызвать LLM | `platform_llm.OpenAICompatibleClient` | копировать ретраи и разбор JSON в каждый сервис |
 
-Клиенты лежат рядом с сервером в его репозитории (`control-plane/client`,
-`memory-service/client`) и версионируются вместе с серверным контрактом.
+Клиенты лежат рядом с сервером в его репозитории (`services/control-plane/client`,
+`services/memory-service/client`) и версионируются вместе с серверным контрактом.
 
 ### Память — только через ядро { #memory-through-core }
 

@@ -88,8 +88,8 @@ real search, specify an OpenAI-compatible endpoint; see
 ## Step 4. Start the core
 
 ```bash
-make config       # check compose.yml after interpolation
-make up           # docker compose --profile core --profile edge up -d --build
+make config       # check deploy/local/compose.yml after interpolation
+make up           # tools/compose --profile core --profile edge up -d --build
 ```
 
 The first build takes several minutes. The startup order is defined by
@@ -144,7 +144,7 @@ own. Expected output (IDs and paths shortened; the lines of step 5b come from
    !! add to .env: IAM_TENANT_ID=<tenant-id> (needed by clients and runners)
 2a. Control Plane service account in IAM
    issued → secrets/control-plane-iam.env client <client-id>
-   !! restart the core so that it picks up the env file: docker compose up -d control-plane-api control-plane-worker context-adapter
+   !! restart the core so that it picks up the env file: tools/compose up -d control-plane-api control-plane-worker context-adapter
 3. Control Plane bootstrap with the operator binding
    tenant <tenant-id> operator <cp-principal-id> binding <binding-id>
 4. operator PAT
@@ -156,7 +156,7 @@ own. Expected output (IDs and paths shortened; the lines of step 5b come from
    …
 5c. notification-service: IAM service account, identity in the core, env file
    issued → secrets/notification-iam.env client <client-id>
-   !! restart the service: docker compose --profile notify up -d notification-service
+   !! restart the service: tools/compose --profile notify up -d notification-service
    revision 1 principal <principal-id>
    legacy admin api-key revoked
 done: deploy/state/taimen.json
@@ -179,7 +179,7 @@ What happens at each step is described in [Bootstrap](bootstrap.md).
    with an IAM token instead of a static key:
 
     ```bash
-    docker compose up -d control-plane-api control-plane-worker context-adapter
+    tools/compose up -d control-plane-api control-plane-worker context-adapter
     ```
 
 The state file is named `deploy/state/<COMPOSE_PROJECT_NAME>.json` (by default
@@ -234,7 +234,7 @@ Next: [First task](first-task.md).
 |---|---|---|
 | Stop | `make down` | kept in volumes |
 | Start again | `make up` | same data; no need to repeat bootstrap |
-| Rebuild one service | `docker compose build control-plane-api && docker compose up -d control-plane-api control-plane-worker context-adapter` | kept |
+| Rebuild one service | `tools/compose build control-plane-api && tools/compose up -d control-plane-api control-plane-worker context-adapter` | kept |
 | Full reset | see below | **deleted** |
 
 !!! danger "Full deployment reset"
@@ -243,7 +243,7 @@ Next: [First task](first-task.md).
     the state check (the IAM tenant from the file is not found):
 
     ```bash
-    docker compose --profile "*" down -v
+    tools/compose --profile "*" down -v
     make reset-state
     make up && make bootstrap
     ```

@@ -213,7 +213,7 @@ from the submodule (`platform-auth-sdk` must sit next to it as a path
 dependency):
 
 ```bash
-uv tool install ./control-plane
+uv tool install ./services/control-plane
 control-plane --version
 ```
 
@@ -290,7 +290,7 @@ run. You complete the run through the API (`:succeed`) or MCP
 ## Method 3. MCP server in Claude Code
 
 The `control-plane-mcp` MCP server is installed by the same
-`uv tool install ./control-plane` and runs over stdio. It maintains the
+`uv tool install ./services/control-plane` and runs over stdio. It maintains the
 session and the claim heartbeat itself, and its permissions are those of the
 operator's PAT.
 

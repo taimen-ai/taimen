@@ -35,26 +35,30 @@ CONTROL_PLANE_AGENT_WORKTREE_ROOT=/opt/runner/worktrees # где живут ко
 <WORKTREE_ROOT>/
 ├── .locks/
 │   └── <publicId>.lock              эксклюзивная блокировка копии (flock)
-└── <publicId>/                      контейнер задачи
-    ├── <REPO_DIR>/                  рабочая копия, ветка task/<publicId>
-    ├── platform-auth-sdk/           сосед на ревизии, закреплённой суперпроектом
-    └── memory-service/              ещё один сосед (например сервис-контракт)
+└── <publicId>/                      контейнер задачи — раскладка суперпроекта
+    ├── services/
+    │   ├── control-plane/           <REPO_DIR>: рабочая копия, ветка task/<publicId>
+    │   └── memory-service/          ещё один сосед (например сервис-контракт)
+    └── sdk/
+        └── platform-auth-sdk/       сосед на ревизии, закреплённой суперпроектом
 ```
 
 Зачем соседи. Репозиторий, который собирается против соседа path-зависимостью
-(`../platform-auth-sdk`), не соберётся из копии самого себя. А сосед должен стоять **на той
+(`../../sdk/platform-auth-sdk`), не соберётся из копии самого себя. А сосед должен стоять **на той
 ревизии, которую закрепляет суперпроект**, а не на вершине своей ветки: иначе зелёный прогон
 тестов проверил комбинацию ревизий, которой нет ни в одном коммите.
 
-Имя каталога соседа совпадает с путём сабмодуля в суперпроекте — ровно то, что называет
-path-зависимость `../<neighbour>`. Поэтому плоская раскладка сабмодулей суперпроекта
-обязательна.
+Путь каталога соседа в контейнере совпадает с путём сабмодуля в суперпроекте — ровно то,
+что называет path-зависимость (`../../sdk/<neighbour>` из `services/<repository>`). Путь
+`REPO_DIR` и соседей может состоять из нескольких сегментов (`services/control-plane`);
+контейнер задачи — каталог на столько уровней выше копии, сколько сегментов в `REPO_DIR`.
+Поэтому соседи раскладываются по тем же путям, что в суперпроекте.
 
 ## Настройка соседей
 
 ```bash
-CONTROL_PLANE_AGENT_REPO_DIR=control-plane
-CONTROL_PLANE_AGENT_NEIGHBOURS=platform-auth-sdk=/opt/runner/platform-auth-sdk.git,memory-service=/opt/runner/memory-service.git
+CONTROL_PLANE_AGENT_REPO_DIR=services/control-plane
+CONTROL_PLANE_AGENT_NEIGHBOURS=sdk/platform-auth-sdk=/opt/runner/platform-auth-sdk.git,services/memory-service=/opt/runner/memory-service.git
 CONTROL_PLANE_AGENT_SUPERPROJECT=/opt/runner/superproject.git
 CONTROL_PLANE_AGENT_SUPERPROJECT_REF=HEAD
 CONTROL_PLANE_AGENT_SUPERPROJECT_REMOTE=origin
@@ -62,8 +66,8 @@ CONTROL_PLANE_AGENT_SUPERPROJECT_REMOTE=origin
 
 | Переменная | Смысл |
 |---|---|
-| `CONTROL_PLANE_AGENT_REPO_DIR` | имя каталога рабочей копии внутри контейнера; по умолчанию — имя репозитория без `.git`. Важно, когда соседи ссылаются на него относительным путём |
-| `CONTROL_PLANE_AGENT_NEIGHBOURS` | пары `имя=путь-к-зеркалу` через запятую или пробел; имя — путь сабмодуля в суперпроекте |
+| `CONTROL_PLANE_AGENT_REPO_DIR` | путь рабочей копии внутри контейнера (один или несколько сегментов, например `services/control-plane`); по умолчанию — имя репозитория без `.git`. Важно, когда соседи ссылаются на него относительным путём |
+| `CONTROL_PLANE_AGENT_NEIGHBOURS` | пары `путь=путь-к-зеркалу` через запятую или пробел; путь — путь сабмодуля в суперпроекте (`sdk/platform-auth-sdk`) |
 | `CONTROL_PLANE_AGENT_SUPERPROJECT` | зеркало суперпроекта: ревизии соседей читаются из его дерева (`git ls-tree`, gitlink `160000`) |
 | `CONTROL_PLANE_AGENT_SUPERPROJECT_REF` | ref суперпроекта, из которого берутся ревизии; по умолчанию `HEAD` |
 | `CONTROL_PLANE_AGENT_SUPERPROJECT_REMOTE` | remote, из которого суперпроект обновляется перед раскладкой; пусто — используется то, что лежит на диске |

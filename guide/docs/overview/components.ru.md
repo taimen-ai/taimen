@@ -1,36 +1,41 @@
 # Состав поставки
 
 Статья перечисляет компоненты платформы Taimen, показывает, как они
-раскладываются по профилям корневого `compose.yml`, и фиксирует статус каждого
+раскладываются по профилям `deploy/local/compose.yml`, и фиксирует статус каждого
 профиля: что входит в набор по умолчанию, что экспериментально, что заморожено.
 Она нужна при планировании стенда и при выборе, какие профили включать.
 
 ## Устройство репозитория
 
 Платформа собирается в **суперпроекте** — репозитории-зонтике, к которому
-компоненты подключены git-сабмодулями **плоско в корне**:
+компоненты подключены git-сабмодулями: сервисы — в `services/`, библиотеки — в `sdk/`:
 
 ```text
 <суперпроект>/
-├── control-plane/          # сабмодуль
-├── iam-service/            # сабмодуль
-├── memory-service/         # сабмодуль
-├── notification-service/   # сабмодуль (профиль notify)
-├── platform-auth-sdk/      # сабмодуль (библиотека)
-├── skill-sdk/              # сабмодуль (библиотека)
-├── platform-llm/           # сабмодуль (библиотека)
-├── package-sdk/            # сабмодуль (инструменты автора пакетов)
-├── compose.yml  .env.example  Makefile
-├── deploy/                 # bootstrap.py, Caddyfile
-├── tools/                  # smoke, fill_secrets, docs_gen, …
-└── docs/                   # архитектура и ADR
+├── services/
+│   ├── control-plane/          # сабмодуль
+│   ├── iam-service/            # сабмодуль
+│   ├── memory-service/         # сабмодуль
+│   └── notification-service/   # сабмодуль (профиль notify)
+├── sdk/
+│   ├── platform-auth-sdk/      # сабмодуль (библиотека)
+│   ├── skill-sdk/              # сабмодуль (библиотека)
+│   ├── platform-llm/           # сабмодуль (библиотека)
+│   └── package-sdk/            # сабмодуль (инструменты автора пакетов)
+├── deploy/
+│   ├── local/compose.yml       # единое описание сервисов, запуск из корня
+│   └── bootstrap.py, caddy/    # инициализация, Caddyfile
+├── .env.example  Makefile
+├── tools/                      # compose (обёртка), smoke, fill_secrets, docs_gen, …
+└── docs/                       # архитектура и ADR
 ```
 
-!!! warning "Плоская раскладка обязательна"
+!!! warning "Раскладка `services/`, `sdk/` обязательна"
     `control-plane`, `memory-service` и другие сервисы подключают
-    `platform-auth-sdk` **path-зависимостью соседней папкой**
-    (`../platform-auth-sdk`), поэтому их образы собираются с контекстом — корнем
-    суперпроекта. Переносить сабмодули в подкаталоги нельзя: сборка сломается.
+    `platform-auth-sdk` **path-зависимостью** `../../sdk/platform-auth-sdk`,
+    поэтому их образы собираются с контекстом — корнем суперпроекта. Переносить
+    сабмодули в другие каталоги нельзя: сборка сломается. Compose запускается из
+    корня — целями `make` или обёрткой `tools/compose`.
 
 Изменение в компоненте коммитится в его репозитории, а указатель сабмодуля в
 суперпроекте обновляется отдельным коммитом. `make submodules` поднимает
@@ -44,7 +49,6 @@
 |---|---|---|---|
 | **control-plane** | Авторитетное операционное состояние: задачи, типы, claims, runs, approvals, артефакты, цели, журнал событий, харнесс-протокол; CLI `control-plane`, MCP-сервер `control-plane-mcp`, демон исполнителя `control-plane-agent` | `control-plane-api`, `control-plane-worker`, `context-adapter` (один образ) | PostgreSQL 16 (`control-plane-db`) |
 | **iam-service** | Tenants, principals, audiences, PAT, service accounts, федерация внешних IdP, SCIM, выпуск RS256-токенов, JWKS | `iam-service` | PostgreSQL 16 (`iam-db`) |
-| **console** | Веб-консоль работающей организации: пульс, происхождение работы, процессы, правила, агенты, управляющие действия, пакеты, люди и роли. Код суперпроекта (`web/console`), своей базы нет; см. [Консоль](../operator/console.md) | `console` | нет (сессии в памяти) |
 | **memory-service** | Граф знаний с временными фактами и provenance, документы, гибридный поиск (векторный + лексический + графовый), Context Compiler; HTTP API, MCP-сервер, CLI | `memory-service` | PostgreSQL 16 с Apache AGE и pgvector (`memory-db`, свой образ) |
 
 ### Библиотеки
@@ -55,7 +59,7 @@
 | **skill-sdk** | Скилл пишется один раз в коде; SDK даёт контракт, контекст вызова, хостинг по протоколам `local`, `http`, `mcp` и экспорт YAML в пакет каталога |
 | **platform-llm** | Общий LLM-клиент: любой OpenAI-совместимый `/chat/completions`, ответы по JSON-схеме, ретраи и переключение моделей |
 | **package-sdk** | Инструменты автора пакетов каталога: CLI `package-sdk` (`check`, `test`, `lock`, `plan`, `apply`), схемы формата, среда наблюдателя `package_sdk.connector` и плагин Claude Code `package-author`. См. [Пакеты](../packages/index.md) |
-| **control-plane-client** | Клиент Control Plane (дистрибутив в `control-plane/client`): обмен PAT на токен, ретраи, типизированные вызовы. См. [Клиенты сервисов](../sdk/clients.md) |
+| **control-plane-client** | Клиент Control Plane (дистрибутив в `services/control-plane/client`): обмен PAT на токен, ретраи, типизированные вызовы. См. [Клиенты сервисов](../sdk/clients.md) |
 
 ### Периферия
 
@@ -66,7 +70,7 @@
 
 ## Профили compose
 
-Корневой `compose.yml` — один файл, одна сеть (`${TAIMEN_NETWORK}`), одинаковые
+Корневой `deploy/local/compose.yml` — один файл, одна сеть (`${TAIMEN_NETWORK}`), одинаковые
 DNS-имена сервисов локально и на промышленном стенде. Набор сервисов выбирается
 профилями.
 
@@ -85,7 +89,7 @@ flowchart LR
 
 | Профиль | Сервисы | Статус | Когда включать |
 |---|---|---|---|
-| `core` | `iam-db`, `iam-service`, `control-plane-db`, `control-plane-api`, `control-plane-worker`, `context-adapter`, `memory-db`, `memory-service`, `minio`, `minio-bootstrap`, `console` | **стабильное ядро** | всегда (MinIO — содержимое артефактов ядра) |
+| `core` | `iam-db`, `iam-service`, `control-plane-db`, `control-plane-api`, `control-plane-worker`, `context-adapter`, `memory-db`, `memory-service`, `minio`, `minio-bootstrap` | **стабильное ядро** | всегда (MinIO — содержимое артефактов ядра) |
 | `edge` | `caddy` | стабильный | всегда, кроме случаев, когда периметр обеспечен иначе |
 | `notify` | `notification-db`, `notification-service` | опционально | уведомления людей по событиям Control Plane; учётку сервиса заводит bootstrap |
 
@@ -94,14 +98,14 @@ flowchart LR
 ```bash
 make up                                     # core edge (по умолчанию)
 make up PROFILES="core notify edge"         # с уведомлениями
-docker compose --profile core --profile edge up -d   # то же без make
+tools/compose --profile core --profile edge up -d   # то же без make
 ```
 
 `make down` останавливает все профили (`--profile "*"`), данные в volumes
 сохраняются.
 
 !!! warning "Интерполяция идёт по всему файлу"
-    Docker Compose подставляет переменные во **весь** `compose.yml`, а не только
+    Docker Compose подставляет переменные во **весь** `deploy/local/compose.yml`, а не только
     в сервисы включённых профилей. Поэтому обязательными (`${VAR:?…}`)
     объявлены только значения, которые генерирует `make secrets`.
     Идентификаторы опциональных профилей (например, `IAM_TENANT_ID`) по
@@ -113,11 +117,11 @@ docker compose --profile core --profile edge up -d   # то же без make
 
 | Образ | Контекст сборки | Dockerfile |
 |---|---|---|
-| `${IMAGE_PREFIX}/control-plane` | корень суперпроекта (`CP_BUILD_CONTEXT`) | `control-plane/Dockerfile` |
-| `${IMAGE_PREFIX}/iam-service` | `./iam-service` (`IAM_BUILD_CONTEXT`) | `iam-service/Dockerfile` |
-| `${IMAGE_PREFIX}/memory-service` | корень (`MEMORY_BUILD_CONTEXT`) | `memory-service/Dockerfile` |
-| `${IMAGE_PREFIX}/memory-db` | `memory-service/infra/memory-db` | PostgreSQL + AGE + pgvector |
-| `${IMAGE_PREFIX}/notification-service` | корень (`NOTIFY_BUILD_CONTEXT`) | `notification-service/Dockerfile` |
+| `${IMAGE_PREFIX}/control-plane` | корень суперпроекта (`CP_BUILD_CONTEXT`) | `services/control-plane/Dockerfile` |
+| `${IMAGE_PREFIX}/iam-service` | `./services/iam-service` (`IAM_BUILD_CONTEXT`) | `services/iam-service/Dockerfile` |
+| `${IMAGE_PREFIX}/memory-service` | корень (`MEMORY_BUILD_CONTEXT`) | `services/memory-service/Dockerfile` |
+| `${IMAGE_PREFIX}/memory-db` | `services/memory-service/infra/memory-db` | PostgreSQL + AGE + pgvector |
+| `${IMAGE_PREFIX}/notification-service` | корень (`NOTIFY_BUILD_CONTEXT`) | `services/notification-service/Dockerfile` |
 
 `IMAGE_PREFIX` по умолчанию `taimen`, `IMAGE_TAG` — `local`. Контейнеры сервисов
 на Python работают под непривилегированным пользователем (у Control Plane и IAM

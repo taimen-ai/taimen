@@ -35,8 +35,8 @@ flowchart LR
 curl -s http://127.0.0.1:18001/healthz
 curl -s http://127.0.0.1:18000/metrics | grep -E '^context_'
 control-plane ops adapter status
-docker compose logs --since 30m context-adapter | tail -50
-docker compose logs --since 30m memory-service | grep -iE 'error|timeout|401|403'
+tools/compose logs --since 30m context-adapter | tail -50
+tools/compose logs --since 30m memory-service | grep -iE 'error|timeout|401|403'
 
 # проверить статический ключ памяти (эндпоинт требует авторизации)
 curl -s -H "Authorization: Bearer $MEMORY_API_KEY" http://127.0.0.1:18001/api/brain/health
@@ -52,7 +52,7 @@ curl -s -H "Authorization: Bearer $MEMORY_API_KEY" http://127.0.0.1:18001/api/br
 | `parkedReason` про неизвестный вид или схему наблюдения | Версии ядра и памяти рассинхронизированы | Выровнять сабмодули на ревизиях суперпроекта, пересобрать, redrive |
 | `context_adapter_lag` растёт, парковки нет | Память медленно принимает (провайдер эмбеддингов), адаптер отстаёт | Проверить задержки провайдера; `CB_EMBEDDING_TIMEOUT` (в compose — 60 с) |
 | `context_adapter_lag_capped = 1` | Отставание больше 1000 событий | То же; после устранения адаптер догонит сам |
-| Ядро продолжает ходить статическим ключом после bootstrap | `CP_CONTEXT_AUTH=auto` выбирает IAM, только если при создании контейнера был `secrets/control-plane-iam.env` | `docker compose up -d control-plane-api control-plane-worker context-adapter`; проверка: в выводе `docker compose exec context-adapter env` есть `CP_IAM_CLIENT_ID` |
+| Ядро продолжает ходить статическим ключом после bootstrap | `CP_CONTEXT_AUTH=auto` выбирает IAM, только если при создании контейнера был `secrets/control-plane-iam.env` | `tools/compose up -d control-plane-api control-plane-worker context-adapter`; проверка: в выводе `tools/compose exec context-adapter env` есть `CP_IAM_CLIENT_ID` |
 | Память восстановлена из старого бэкапа, контекст неполный | Курсор адаптера в базе Control Plane впереди содержимого памяти | `POST /api/v1/operations/context-adapter/<tenant-id>:rebuild`; память дедуплицирует повторы |
 | Наблюдения приняты, но в графе их нет | Проекция наблюдения не удалась (сырые записи не теряются) | `GET /api/memory/observations?status=failed&namespace=…`, затем идемпотентный redrive `POST /api/memory/consolidate` |
 
@@ -79,7 +79,7 @@ Memory Service отвечает `{"detail": "<текст>"}`; ниже — те�
 | `403 Нет прав на namespace: <ns> (…)` | Грант credential не покрывает namespace | IAM-токен даёт доступ к `tenant:<tenant_id>` и его поддереву; ключам реестра — гранты по префиксу |
 | `403 Маршрут доступен только identity ядра (memory:service / CB_CORE_IDENTITIES)` | Маршрут ядра (reconcile, пакеты видов, виды namespace) вызван не ядром | Вызывать через Control Plane; service account ядра имеет scope `memory:service` |
 | `403 Нужен service scope (регистрация пакетов видов)` | Регистрация пакета видов без service scope | То же: через ядро |
-| `503 БД недоступна: …` на `/healthz` | `memory-db` не отвечает | `docker compose logs memory-db`, диск, память контейнера |
+| `503 БД недоступна: …` на `/healthz` | `memory-db` не отвечает | `tools/compose logs memory-db`, диск, память контейнера |
 | Ошибка `graph with oid … does not exist` | База восстановлена логическим дампом в новый кластер | Исправление каталога AGE, см. [Резервное копирование](../operations/backup.md) |
 | `404` на `/console` | Консоль памяти выключена (`MEMORY_CONSOLE_ENABLED=false`) | Включать только вместе с аутентификацией на прокси; наружу в промышленной раскладке память не публикуется |
 

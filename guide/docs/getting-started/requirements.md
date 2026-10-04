@@ -3,12 +3,12 @@
 
 This page lists what the machine that runs the Taimen platform needs:
 resources, software, free ports, and network access. The figures apply to the
-`compose.yml` profiles; for a production deployment, also see
+`deploy/local/compose.yml` profiles; for a production deployment, also see
 [Capacity and scaling](../operations/capacity.md).
 
 ## Hardware resources
 
-Container memory limits are set in `compose.yml` (`mem_limit`, overridden by
+Container memory limits are set in `deploy/local/compose.yml` (`mem_limit`, overridden by
 the `*_MEM_LIMIT` variables). The sum of the limits is an upper bound; actual
 usage is lower.
 
@@ -37,7 +37,7 @@ Plan for **at least 20 GB** of free space for Docker for `core edge`.
 | Tool | Version | Purpose |
 |---|---|---|
 | **Docker Engine** or Docker Desktop | current | containers for all services |
-| **Docker Compose** | v2.24 or later | `compose.yml` uses `env_file` with `required: false` and `--profile "*"` |
+| **Docker Compose** | v2.24 or later | `deploy/local/compose.yml` uses `env_file` with `required: false` and `--profile "*"` |
 | **git** | any recent | superproject and submodules |
 | **make** | GNU make or BSD make | `Makefile` targets |
 | **Python 3** | 3.10+ | `tools/fill_secrets.py`, `tools/smoke.py`, `deploy/bootstrap.py` |

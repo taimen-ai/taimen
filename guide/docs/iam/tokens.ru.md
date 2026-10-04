@@ -223,7 +223,7 @@ Payload токена, полученного обменом PAT человека
 | Revocation | локальная политика сервиса (см. ниже) |
 
 Сервис настраивается тремя значениями. Пример для Control Plane из
-`compose.yml`:
+`deploy/local/compose.yml`:
 
 ```yaml
 CP_IAM_ISSUER: ${TAIMEN_PUBLIC_URL}/iam
@@ -307,7 +307,7 @@ access token (не старше `IAM_TOKEN_TTL_SECONDS`) перестают пр
     IAM_SIGNING_KEY_ID=iam-2026-02
     ```
 
-3. Пересоздайте контейнер: `docker compose up -d iam-service`.
+3. Пересоздайте контейнер: `tools/compose up -d iam-service`.
 4. Проверьте JWKS (новый `kid`) и пробный обмен PAT.
 5. В течение `IAM_TOKEN_TTL_SECONDS` клиенты получат `401` на старые токены
    и перевыпустят их; клиенты `control-plane-client` и `ServiceTokenProvider`

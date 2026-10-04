@@ -37,26 +37,31 @@ it, the neighbours it is built against.
 <WORKTREE_ROOT>/
 ├── .locks/
 │   └── <publicId>.lock              exclusive lock of the copy (flock)
-└── <publicId>/                      task container
-    ├── <REPO_DIR>/                  working copy, branch task/<publicId>
-    ├── platform-auth-sdk/           neighbour at the revision pinned by the superproject
-    └── memory-service/              another neighbour (for example a contract service)
+└── <publicId>/                      task container, laid out like the superproject
+    ├── services/
+    │   ├── control-plane/           <REPO_DIR>: working copy, branch task/<publicId>
+    │   └── memory-service/          another neighbour (for example a contract service)
+    └── sdk/
+        └── platform-auth-sdk/       neighbour at the revision pinned by the superproject
 ```
 
 Why neighbours. A repository that is built against a neighbour through a path dependency
-(`../platform-auth-sdk`) does not build from a copy of itself alone. And the neighbour must be
+(`../../sdk/platform-auth-sdk`) does not build from a copy of itself alone. And the neighbour must be
 **at the revision pinned by the superproject**, not at the tip of its branch: otherwise a
 green test run checks a combination of revisions that exists in no commit.
 
-The neighbour directory name matches the submodule path in the superproject — exactly what
-the path dependency `../<neighbour>` names. That is why a flat submodule layout in the
-superproject is mandatory.
+The neighbour directory path in the container matches the submodule path in the
+superproject — exactly what the path dependency names (`../../sdk/<neighbour>` from
+`services/<repository>`). The paths of `REPO_DIR` and of the neighbours may have several
+segments (`services/control-plane`); the task container is the directory as many levels
+above the copy as `REPO_DIR` has segments. That is why neighbours are laid out at the same
+paths as in the superproject.
 
 ## Configuring neighbours
 
 ```bash
-CONTROL_PLANE_AGENT_REPO_DIR=control-plane
-CONTROL_PLANE_AGENT_NEIGHBOURS=platform-auth-sdk=/opt/runner/platform-auth-sdk.git,memory-service=/opt/runner/memory-service.git
+CONTROL_PLANE_AGENT_REPO_DIR=services/control-plane
+CONTROL_PLANE_AGENT_NEIGHBOURS=sdk/platform-auth-sdk=/opt/runner/platform-auth-sdk.git,services/memory-service=/opt/runner/memory-service.git
 CONTROL_PLANE_AGENT_SUPERPROJECT=/opt/runner/superproject.git
 CONTROL_PLANE_AGENT_SUPERPROJECT_REF=HEAD
 CONTROL_PLANE_AGENT_SUPERPROJECT_REMOTE=origin
@@ -64,8 +69,8 @@ CONTROL_PLANE_AGENT_SUPERPROJECT_REMOTE=origin
 
 | Variable | Meaning |
 |---|---|
-| `CONTROL_PLANE_AGENT_REPO_DIR` | name of the working copy directory inside the container; defaults to the repository name without `.git`. Matters when neighbours refer to it by a relative path |
-| `CONTROL_PLANE_AGENT_NEIGHBOURS` | `name=mirror-path` pairs separated by commas or spaces; the name is the submodule path in the superproject |
+| `CONTROL_PLANE_AGENT_REPO_DIR` | path of the working copy inside the container (one or several segments, for example `services/control-plane`); defaults to the repository name without `.git`. Matters when neighbours refer to it by a relative path |
+| `CONTROL_PLANE_AGENT_NEIGHBOURS` | `path=mirror-path` pairs separated by commas or spaces; the path is the submodule path in the superproject (`sdk/platform-auth-sdk`) |
 | `CONTROL_PLANE_AGENT_SUPERPROJECT` | superproject mirror: neighbour revisions are read from its tree (`git ls-tree`, gitlink `160000`) |
 | `CONTROL_PLANE_AGENT_SUPERPROJECT_REF` | superproject ref from which revisions are taken; default `HEAD` |
 | `CONTROL_PLANE_AGENT_SUPERPROJECT_REMOTE` | remote from which the superproject is updated before the layout; empty — whatever is on disk is used |

@@ -1,7 +1,7 @@
 # Конфигурация
 
 Справочник настроек Control Plane: все переменные `CP_*` сервера с
-умолчаниями из `control_plane/config.py`, переменные уровня `compose.yml` и
+умолчаниями из `control_plane/config.py`, переменные уровня `deploy/local/compose.yml` и
 переменные `CONTROL_PLANE_*` клиентских инструментов (CLI, MCP-сервер, SDK).
 Статья для тех, кто разворачивает и сопровождает Control Plane.
 
@@ -16,7 +16,7 @@
   не распарсится.
 - Одни и те же настройки читают три процесса из одного образа:
 
-| Процесс | Команда | Сервис в `compose.yml` |
+| Процесс | Команда | Сервис в `deploy/local/compose.yml` |
 |---|---|---|
 | API | `alembic upgrade head && uvicorn control_plane.main:app --host 0.0.0.0 --port 8000` | `control-plane-api` |
 | Worker | `python -m control_plane.worker` | `control-plane-worker` |
@@ -194,9 +194,9 @@ PDP. Bootstrap создаёт его и пишет `CP_IAM_CLIENT_ID` и `CP_IAM
 !!! note "Точка расширения"
     `shadow` и `policy` требуют внешнего PDP, который в поставку не входит.
 
-## Переменные уровня `compose.yml`
+## Переменные уровня `deploy/local/compose.yml`
 
-Этих переменных Control Plane сам не читает. Их подставляет `compose.yml` из
+Этих переменных Control Plane сам не читает. Их подставляет `deploy/local/compose.yml` из
 `.env` суперпроекта.
 
 | Переменная `.env` | По умолчанию | Куда уходит |
@@ -209,7 +209,6 @@ PDP. Bootstrap создаёт его и пишет `CP_IAM_CLIENT_ID` и `CP_IAM
 | `CP_CONTEXT_AUTH` | `auto` | как есть |
 | `CP_AUTHZ_MODE` | `local` | как есть |
 | `CP_LEGACY_API_KEYS_ENABLED` | `false` | как есть |
-| `CP_ENTITLEMENT_ENABLED` | `false` | как есть |
 | `CP_CORS_ORIGINS` | `[]` | как есть |
 | `CP_S3_ACCESS_KEY_ID`, `CP_S3_SECRET_ACCESS_KEY` | обязательны | ключи пользователя ядра в хранилище; для MinIO контура их же заводит `minio-bootstrap` |
 | `CP_S3_BUCKET` | `artifacts` | как есть; бакет создаёт `minio-bootstrap` |
@@ -220,7 +219,7 @@ PDP. Bootstrap создаёт его и пишет `CP_IAM_CLIENT_ID` и `CP_IAM
 | `CP_WORKER_MEM_LIMIT` | `256m` | лимит памяти worker и context-adapter |
 | `CP_BUILD_CONTEXT` | `.` | контекст сборки образа (корень суперпроекта: SDK подключён соседним каталогом) |
 
-Значения, которые `compose.yml` фиксирует для процессов Control Plane:
+Значения, которые `deploy/local/compose.yml` фиксирует для процессов Control Plane:
 
 ```yaml
 CP_CONTEXT_PROVIDER: http

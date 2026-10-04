@@ -98,7 +98,7 @@ flowchart TD
 | `CB_SERVER_API_KEYS_PII` | Полный допуск, каждая выдача ПДн журналируется `pii_access` |
 | `CB_SERVER_API_KEY` | Маскированная выдача (`[ПДн:phone]` и т. п.) |
 
-В корневом `compose.yml` платформы `CB_SERVER_API_KEY` равен `MEMORY_API_KEY`,
+В `deploy/local/compose.yml` платформы `CB_SERVER_API_KEY` равен `MEMORY_API_KEY`,
 `CB_SERVER_API_KEYS_PII` пуст, а `CB_PII_PROTECTION=true` — то есть статический ключ
 платформы получает маскированную выдачу.
 
@@ -193,7 +193,7 @@ namespace — любой запрос к данным получит `403`. Гр
 
 !!! tip "JWKS — по внутреннему адресу"
     Указывайте `CB_IAM_JWKS_URL` на внутренний адрес IAM в сети контура
-    (`http://iam-service:8010/.well-known/jwks.json` в `compose.yml`), а не на внешний
+    (`http://iam-service:8010/.well-known/jwks.json` в `deploy/local/compose.yml`), а не на внешний
     прокси: проверка подписи не должна зависеть от внешнего TLS. Ключи кэшируются с
     учётом ротации.
 

@@ -51,7 +51,7 @@ NS_TELEGRAM_WEBHOOK_SECRET=$(openssl rand -hex 32)
 NS_TELEGRAM_BOT_USERNAME=<имя бота без @>
 EOF
 chmod 600 secrets/notification-telegram.env
-docker compose --profile notify up -d notification-service
+tools/compose --profile notify up -d notification-service
 ```
 
 | Переменная | По умолчанию | Смысл |

@@ -56,16 +56,17 @@ flowchart LR
 ### 1. MCP-сервер
 
 ```bash
-git clone <control-plane-repo-url> control-plane
-git clone <platform-auth-sdk-repo-url> platform-auth-sdk   # соседней папкой
-cd control-plane
+git clone <control-plane-repo-url> services/control-plane
+git clone <platform-auth-sdk-repo-url> sdk/platform-auth-sdk   # раскладка поставки
+cd services/control-plane
 uv tool install --reinstall .
 which control-plane-mcp
 ```
 
 Пакет ставит `control-plane`, `control-plane-mcp`, `control-plane-agent`,
-`control-plane-opencode`. `platform-auth-sdk` подключён path-зависимостью и должен лежать
-рядом.
+`control-plane-opencode`. `platform-auth-sdk` подключён path-зависимостью
+`../../sdk/platform-auth-sdk` и должен лежать в раскладке поставки (`services/`, `sdk/`) —
+так же, как в клоне корневого репозитория с сабмодулями.
 
 ### 2. PAT оператора
 
@@ -308,9 +309,9 @@ MCP-плагин запускает **локально установленны�
 не переустановлен пакет:
 
 ```bash
-cd control-plane && git pull --ff-only
-cd ../platform-auth-sdk && git pull --ff-only
-cd ../control-plane && uv tool install --reinstall .
+cd services/control-plane && git pull --ff-only
+cd ../../sdk/platform-auth-sdk && git pull --ff-only
+cd ../../services/control-plane && uv tool install --reinstall .
 ```
 
 Новые инструменты появляются только в **новой** сессии Claude Code.

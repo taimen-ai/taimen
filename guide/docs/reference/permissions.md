@@ -73,9 +73,15 @@ The `admin` permission covers any other.
 | `processes.operate` | Explicit instance start, `:suspend`, `:resume`, `:cancel` (on the instance workspace). |
 | `packages.test` | Checking and testing a package in the core sandbox, process replay (`/packages:test`, `:replay`). |
 | `packages.plan` | Planning and applying a package (`/packages:plan`, `/packages:apply`) and recording the link of objects to their package (`/packages:record`); applying and recording also require the kind permissions. |
+| `packages.settings.read` | Reading [package settings](../packages/settings.md): the list of packages with settings, the settings of a package, and their history. |
+| `packages.settings.manage` | Saving the settings of a package (`PUT /packages/{key}/settings`); independent of `packages.plan`. |
 | `calendars.write` | Publishing a business calendar. |
 | `goals.read` | Reading goals (Goals). |
 | `goals.write` | Creating and changing goals. |
+| `connections.read` | Reading connection types, connections, and the state of a type's OAuth application. See [Connections](../control-plane/connections.md#permissions). |
+| `connections.manage` | Publishing connection types, a type's OAuth application, creating, changing, connecting, and revoking connections; publishing an agent with a non-empty `spec.connections`. |
+| `connections.status.write` | Reporting lost access (`PUT /connections/{key}/status`), only for a connector whose description names the connection. |
+| `agents.secrets.manage` | Setting and deleting agent secrets (`PUT`, `DELETE /agents/{key}/secrets/{name}`); the names are read with `agents.read`. |
 | `admin` | All permissions. Humans only, and only under the `control-plane:admin` scope. |
 
 !!! note "Humans only"
@@ -129,7 +135,7 @@ One IAM identity can be linked to only one Control Plane tenant
 
 With `CP_AUTHZ_MODE=policy`, the decision on a request with an IAM subject is
 made by an external PDP using the action catalog
-`control-plane/authz/catalog.yaml` (action names match permissions). In
+`services/control-plane/authz/catalog.yaml` (action names match permissions). In
 `shadow` mode, the local check decides, the PDP is queried in parallel, and
 discrepancies are logged. Legacy keys are always checked locally. An
 unavailable PDP returns `503 decision_unavailable`, and the request is not
@@ -162,9 +168,8 @@ allowed scopes of an audience are set by the IAM registry (`allowedScopes`);
 | | `memory:tenants` | The whole `tenant:*` subtree regardless of the token's tenant. Core service account only. |
 | | `memory:on-behalf` | The service reads memory on behalf of a principal with the passed visibility (with `CB_POLICY_ENABLED`). |
 | | `memory:service` | Core service scope: registry of kind domain packages, reconcile, namespace kinds. Core service account only. |
-| | `policy:check-on-behalf` | Checks on behalf of the end principal (resource services). |
-| | `policy:admin` | Tenant roles and bindings. |
 | `iam-scim` | `scim:write` (configured by `IAM_SCIM_AUDIENCE`, `IAM_SCIM_SCOPE`) | SCIM provisioning; confidential service identity only. |
+| `openbao` | `secrets:read` | Login to the [secret store](../operations/secret-store.md) with the `jwt` method. The store does not check the scope; its policies set the permissions. |
 
 Memory namespaces available to an IAM token without `memory:tenants`:
 `tenant:<tenant_id>` and the subtree `tenant:<tenant_id>:*`, plus the
@@ -224,11 +229,14 @@ An agent cannot have `admin` or `approvals.decide`.
 
 | Service account | Audiences | Scope ceiling | Control Plane permissions | Where the secret is |
 |---|---|---|---|---|
-| Control Plane (core) | `memory-service` | `memory:read`, `memory:write`, `memory:tenants`, `memory:on-behalf`, `memory:service` | — | `secrets/control-plane-iam.env` |
+| Control Plane (core) | `memory-service`, `openbao` | `memory:read`, `memory:write`, `memory:tenants`, `memory:on-behalf`, `memory:service`, `secrets:read` | — | `secrets/control-plane-iam.env` |
 
-When the ceiling of the core service account changes, bootstrap issues a new
-service account and revokes the previous one; after that, restart
-`control-plane-api`, `control-plane-worker`, `context-adapter`.
+When the ceiling of the core service account changes, bootstrap changes it in
+place (`PATCH …/service-accounts/{clientId}`, see [Service
+accounts](../iam/service-accounts.md#update)): the principal and the
+`clientId` stay the same, and the env file does not change. The core gets the
+new scopes with its next client credentials exchange; to avoid waiting,
+restart `control-plane-api`, `control-plane-worker`, `context-adapter`.
 
 ## Common questions
 

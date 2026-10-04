@@ -1,7 +1,7 @@
 
 # Services and ports
 
-All services of the root `compose.yml`: profile, image or build context,
+All services of the `deploy/local/compose.yml`: profile, image or build context,
 internal and published port, dependencies, volumes, healthcheck, memory
 limit, and route at the edge (Caddy). This page is for an engineer who
 deploys the stack, opens ports on the host, or looks for the container that
@@ -38,13 +38,12 @@ flowchart LR
 
 By default, `make up` brings up `core edge`. The other profiles are enabled
 explicitly: `make up PROFILES="core notify edge"` or
-`docker compose --profile core --profile edge up -d`.
+`tools/compose --profile core --profile edge up -d`.
 
 | Profile | Status | Services |
 |---|---|---|
-| `core` | core | `iam-db`, `iam-service`, `control-plane-db`, `control-plane-api`, `control-plane-worker`, `context-adapter`, `memory-db`, `memory-service`, `minio`, `minio-bootstrap`, `console` |
+| `core` | core | `iam-db`, `iam-service`, `control-plane-db`, `control-plane-api`, `control-plane-worker`, `context-adapter`, `memory-db`, `memory-service`, `minio`, `minio-bootstrap` |
 | `edge` | core | `caddy`, `guide` |
-| `idp-dex` | tests only | `dex-render`, `dex`: a different OIDC IdP for the console compose test |
 
 
 !!! note "Dependencies between profiles"
@@ -88,7 +87,7 @@ explicitly: `make up PROFILES="core notify edge"` or
 
 | Parameter | Value |
 |---|---|
-| Image / build | `${IMAGE_PREFIX}/iam-service:${IMAGE_TAG}`, context `${IAM_BUILD_CONTEXT:-./iam-service}` |
+| Image / build | `${IMAGE_PREFIX}/iam-service:${IMAGE_TAG}`, context `${IAM_BUILD_CONTEXT:-./services/iam-service}` |
 | Command | `alembic upgrade head && uvicorn iam_service.app:app --host 0.0.0.0 --port 8010` |
 | Port | 8010 → `127.0.0.1:${IAM_HOST_PORT:-18010}` |
 | Depends on | `iam-db` (healthy) |
@@ -111,7 +110,7 @@ explicitly: `make up PROFILES="core notify edge"` or
 
 | Parameter | Value |
 |---|---|
-| Image / build | `${IMAGE_PREFIX}/control-plane:${IMAGE_TAG}`, context `${CP_BUILD_CONTEXT:-.}` (superproject root), Dockerfile `control-plane/Dockerfile` |
+| Image / build | `${IMAGE_PREFIX}/control-plane:${IMAGE_TAG}`, context `${CP_BUILD_CONTEXT:-.}` (superproject root), Dockerfile `services/control-plane/Dockerfile` |
 | Command | `alembic upgrade head && uvicorn control_plane.main:app --host 0.0.0.0 --port 8000` |
 | Port | 8000 → `127.0.0.1:${CP_HOST_PORT:-18000}` |
 | Depends on | `control-plane-db`, `memory-service`, `iam-service` (all healthy) |
@@ -154,7 +153,7 @@ explicitly: `make up PROFILES="core notify edge"` or
 
 | Parameter | Value |
 |---|---|
-| Image / build | `${IMAGE_PREFIX}/memory-db:${IMAGE_TAG}`, context `${MEMORY_BUILD_CONTEXT:-./memory-service}/infra/memory-db` (PostgreSQL 16 + Apache AGE + pgvector) |
+| Image / build | `${IMAGE_PREFIX}/memory-db:${IMAGE_TAG}`, context `${MEMORY_BUILD_CONTEXT:-./services/memory-service}/infra/memory-db` (PostgreSQL 16 + Apache AGE + pgvector) |
 | Database / role | `company_brain` / `memory` |
 | Volume | `memory_db` |
 | Healthcheck | `pg_isready -U memory -d company_brain` |
@@ -164,7 +163,7 @@ explicitly: `make up PROFILES="core notify edge"` or
 
 | Parameter | Value |
 |---|---|
-| Image / build | `${IMAGE_PREFIX}/memory-service:${IMAGE_TAG}`, context `${MEMORY_BUILD_CONTEXT:-.}`, Dockerfile `memory-service/Dockerfile` |
+| Image / build | `${IMAGE_PREFIX}/memory-service:${IMAGE_TAG}`, context `${MEMORY_BUILD_CONTEXT:-.}`, Dockerfile `services/memory-service/Dockerfile` |
 | Port | 8077 → `127.0.0.1:${MEMORY_HOST_PORT:-18001}` |
 | Depends on | `memory-db` (healthy) |
 | env_file | `./secrets/memory-service-iam.env` (optional) |
@@ -180,25 +179,6 @@ explicitly: `make up PROFILES="core notify edge"` or
 
 It stores only the content of core artifacts; see
 [Object storage](../operations/object-storage.md).
-
-### console
-
-| Parameter | Value |
-|---|---|
-| Image | `${IMAGE_PREFIX:-taimen}/runtime-console`, built from `web/console/Dockerfile` (context `web/console`, `node:24-alpine`) |
-| User | `10001:10001` |
-| Port | 8090, not published; from outside, `/console/*` through Caddy |
-| Depends on | `iam-service`, `control-plane-api` (healthy) |
-| Secrets | `runtime_console_oidc_secret`, `runtime_console_cookie_secret` |
-| Healthcheck | `GET http://127.0.0.1:8090/console/healthz` |
-| Memory limit | `128m` |
-
-The console server and the built interface ship in one image; there is no
-database of its own, sessions live in process memory. Sign-in goes through the
-organization's OIDC IdP; calls to the core and IAM use internal names on behalf
-of the signed-in person.
-See [Console](../operator/console.md);
-the `RUNTIME_CONSOLE_*` variables are in the [reference](environment.md).
 
 ## Edge (`edge`)
 
@@ -222,7 +202,7 @@ variable and repeats the same path layout with TLS, but without the
 !!! warning "Editing the Caddyfile in place"
     The file is bind-mounted and holds its inode. If you replace the file with
     `mv`, `caddy reload` rereads the old version. Edit the file in place or
-    recreate the container: `docker compose up -d --force-recreate caddy`.
+    recreate the container: `tools/compose up -d --force-recreate caddy`.
 
 ## Healthchecks and smoke {#healthchecks}
 
@@ -262,8 +242,6 @@ Names are set by the `VOLUME_*` variables (see
 | Secret | Default file | Used by |
 |---|---|---|
 | `iam_signing_key` | `./secrets/iam-signing.pem` | `iam-service` |
-| `runtime_console_oidc_secret` | `./secrets/runtime-console-oidc-secret` (`RUNTIME_CONSOLE_OIDC_SECRET_FILE`) | `console`, `dex-render` |
-| `runtime_console_cookie_secret` | `./secrets/runtime-console-cookie-secret` (`RUNTIME_CONSOLE_COOKIE_SECRET_FILE`) | `console` |
 
 Containers read secrets under an unprivileged uid (10001 for the core
 services). On Linux, run `chown 10001` on the files in `secrets/`, and keep

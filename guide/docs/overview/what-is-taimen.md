@@ -116,7 +116,7 @@ How each link of the loop is expressed in the code today:
 
 Taimen is the name of the build. The components are separate product-neutral
 repositories, attached to the superproject as git submodules, and they run from
-a single `compose.yml` with profiles:
+a single `deploy/local/compose.yml` with profiles:
 
 - the core (`core`): IAM Service, Control Plane (API, worker, context adapter),
   Memory Service, and their PostgreSQL databases;

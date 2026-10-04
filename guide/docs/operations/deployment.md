@@ -13,7 +13,7 @@ what sets a production installation apart.
 
 | Node | What runs there | Where the code comes from |
 |---|---|---|
-| Platform host | One compose project on the root `compose.yml`: core (`core`), edge (`edge`), and notifications (`notify`) if needed | Superproject clone with submodules; a release is a superproject commit |
+| Platform host | One compose project on the `deploy/local/compose.yml`: core (`core`), edge (`edge`), and notifications (`notify`) if needed | Superproject clone with submodules; a release is a superproject commit |
 | Runner host (optional) | The `control-plane-agent` daemon with a coding agent, bare repository mirrors, working copies | The `control-plane` package from the superproject: in a container or as a systemd service |
 | Operator workstations | MCP plugin / `control-plane` CLI | The `control-plane` package from the superproject |
 
@@ -35,7 +35,7 @@ network access to the databases.
 |---|---|---|
 | OS | Linux x86_64 with systemd | Tested on Ubuntu 24.04 LTS |
 | Docker Engine | 24+ | With the Compose v2 plugin |
-| Docker Compose | v2.24+ | `compose.yml` uses `env_file` with `required: false` |
+| Docker Compose | v2.24+ | `deploy/local/compose.yml` uses `env_file` with `required: false` |
 | git | any recent version | Clone with submodules |
 | python3 + PyYAML and jsonschema (or uv) | 3.10+ | `deploy/bootstrap.py` and `tools/smoke.py` run on the host. Installing the catalog from packages (bootstrap step 5b) needs PyYAML and jsonschema: `make bootstrap` adds them itself when uv is installed; when you call the script directly (on a host without `make`), use either `uv run --no-project --with pyyaml --with jsonschema python3 deploy/bootstrap.py …` or a system `python3` that has them (on Ubuntu, the `python3-yaml` and `python3-jsonschema` packages) |
 | openssl, make | — | `make secrets` generates RSA 3072 signing keys |
@@ -51,7 +51,8 @@ The recommended layout on the platform host:
 ```text
 /opt/taimen/
 ├── src/                         superproject clone with submodules (release = commit)
-│   ├── compose.yml              single description of all services
+│   ├── services/, sdk/          component submodules (TAI-ADR-0064)
+│   ├── deploy/local/compose.yml single description of all services (run from the root: tools/compose)
 │   ├── .env                     installation environment, 0600
 │   ├── secrets/                 signing keys, PATs, service account env files, 0600
 │   │   ├── iam-signing.pem      IAM private signing key (owner uid 10001)
@@ -177,7 +178,7 @@ dig +short platform.example.com
 
 
 ```bash
-make config PROFILES="core edge"   # docker compose ... config --quiet
+make config PROFILES="core edge"   # tools/compose ... config --quiet
 make build  PROFILES="core edge"
 ```
 
@@ -190,8 +191,8 @@ If you want to keep previous images for a fast rollback, set `IMAGE_TAG` in
 
 
 ```bash
-make up PROFILES="core edge"     # docker compose --profile ... up -d --build
-docker compose --profile "*" ps
+make up PROFILES="core edge"     # tools/compose --profile ... up -d --build
+tools/compose --profile "*" ps
 ```
 
 
@@ -213,7 +214,7 @@ python3 deploy/bootstrap.py --env .env --name prod --operator "Platform Operator
 |---|---|---|
 | 1 | Wait for Control Plane `/health/ready` and IAM `/healthz` on `127.0.0.1` | — |
 | 2 | IAM tenant, audiences with scope ceilings, the operator's human principal | `deploy/state/<env>.json` |
-| 2a | The core service account (memory, entitlement, policy) | `secrets/control-plane-iam.env` |
+| 2a | The core service account (memory, secret storage) | `secrets/control-plane-iam.env` |
 | 3 | Control Plane `POST /api/v1/bootstrap`: tenant, admin principal, and the first IAM binding | state |
 | 4 | Authentication context and the operator PAT (read/write/admin) | `secrets/harness-pat` |
 | 5 | Project template, project, and workspace | state |
@@ -228,14 +229,14 @@ After the first run, do what the script prints marked with `!!`:
 sed -i "s/^IAM_TENANT_ID=.*/IAM_TENANT_ID=<tenant-id>/" .env
 
 # 2. The core must pick up the service account env file (CP_CONTEXT_AUTH=auto)
-docker compose up -d control-plane-api control-plane-worker context-adapter
+tools/compose up -d control-plane-api control-plane-worker context-adapter
 ```
 
 Check that the core switched from `MEMORY_API_KEY` to the service account:
 
 ```bash
-docker compose exec context-adapter env | grep -c CP_IAM_CLIENT_ID   # 1
-docker compose logs --since 5m context-adapter | grep -E ' 40[13] ' || echo "no 401/403"
+tools/compose exec context-adapter env | grep -c CP_IAM_CLIENT_ID   # 1
+tools/compose logs --since 5m context-adapter | grep -E ' 40[13] ' || echo "no 401/403"
 ```
 
 ### 8. Verification

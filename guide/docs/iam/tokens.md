@@ -228,7 +228,7 @@ Requirements that every service must follow:
 | Revocation | the service's local policy (see below) |
 
 A service is configured with three values. Example for Control Plane from
-`compose.yml`:
+`deploy/local/compose.yml`:
 
 ```yaml
 CP_IAM_ISSUER: ${TAIMEN_PUBLIC_URL}/iam
@@ -314,7 +314,7 @@ Procedure:
     IAM_SIGNING_KEY_ID=iam-2026-02
     ```
 
-3. Recreate the container: `docker compose up -d iam-service`.
+3. Recreate the container: `tools/compose up -d iam-service`.
 4. Check JWKS (new `kid`) and a trial PAT exchange.
 5. Within `IAM_TOKEN_TTL_SECONDS`, clients get `401` on old tokens and reissue
    them; `control-plane-client` and `ServiceTokenProvider` clients exchange

@@ -80,7 +80,7 @@ flowchart LR
 | HTTP-сервис | FastAPI: `/api/brain/*`, `/api/memory/*`, `/healthz` | `platform-memory-serve` |
 | MCP-сервер | Инструменты графа для агентов (stdio или streamable HTTP) | `platform-memory-mcp` |
 | CLI | Инициализация схемы, загрузка vault, запросы, трейсы | `cb` |
-| Клиент | `platform-memory-client`: `MemoryClient` / `AsyncMemoryClient` | каталог `memory-service/client` |
+| Клиент | `platform-memory-client`: `MemoryClient` / `AsyncMemoryClient` | каталог `services/memory-service/client` |
 | БД | PostgreSQL 16 + Apache AGE + pgvector + pg_trgm | образ `memory-db` |
 
 Дополнительные поверхности — административная консоль `/console` и публичная
@@ -101,11 +101,11 @@ flowchart LR
 
 ## Развёртывание в составе платформы
 
-В корневом `compose.yml` память входит в профиль `core` двумя сервисами:
+В `deploy/local/compose.yml` память входит в профиль `core` двумя сервисами:
 
 | Сервис | Образ | Порт | Назначение |
 |---|---|---|---|
-| `memory-db` | `memory-db` (сборка из `memory-service/infra/memory-db`) | только сеть compose | PostgreSQL 16 + AGE + pgvector, БД `company_brain` |
+| `memory-db` | `memory-db` (сборка из `services/memory-service/infra/memory-db`) | только сеть compose | PostgreSQL 16 + AGE + pgvector, БД `company_brain` |
 | `memory-service` | `memory-service` (контекст сборки — корень суперпроекта) | `127.0.0.1:${MEMORY_HOST_PORT:-18001}` → `8077` | HTTP API |
 
 Контекст сборки образа — корень суперпроекта, потому что сервис подключает соседний

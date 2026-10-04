@@ -57,15 +57,17 @@ determined at startup: `codex` in Codex, `claude-code` otherwise.
 ### 1. MCP server
 
 ```bash
-git clone <control-plane-repo-url> control-plane
-git clone <platform-auth-sdk-repo-url> platform-auth-sdk   # as a sibling directory
-cd control-plane
+git clone <control-plane-repo-url> services/control-plane
+git clone <platform-auth-sdk-repo-url> sdk/platform-auth-sdk   # the delivery layout
+cd services/control-plane
 uv tool install --reinstall .
 which control-plane-mcp
 ```
 
 The package installs `control-plane`, `control-plane-mcp`, `control-plane-agent`, and
-`control-plane-opencode`. `platform-auth-sdk` is a path dependency and must sit next to it.
+`control-plane-opencode`. `platform-auth-sdk` is the path dependency
+`../../sdk/platform-auth-sdk` and must sit in the delivery layout (`services/`, `sdk/`),
+the same as in a clone of the root repository with its submodules.
 
 ### 2. Operator PAT
 
@@ -317,9 +319,9 @@ After a Control Plane upgrade, new tools (`cp_*`) exist on the server but not in
 until you reinstall the package:
 
 ```bash
-cd control-plane && git pull --ff-only
-cd ../platform-auth-sdk && git pull --ff-only
-cd ../control-plane && uv tool install --reinstall .
+cd services/control-plane && git pull --ff-only
+cd ../../sdk/platform-auth-sdk && git pull --ff-only
+cd ../../services/control-plane && uv tool install --reinstall .
 ```
 
 New tools appear only in a **new** Claude Code session.

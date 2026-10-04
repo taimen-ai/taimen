@@ -17,6 +17,7 @@ few files on the host.
 | Control Plane database | volume `control_plane_db`, service `control-plane-db`, database `control_plane` | Tasks, claims, runs, artifacts, approvals, the event log and its archive, consumer cursors, IAM bindings | Critical |
 | Memory database | volume `memory_db`, service `memory-db`, database `company_brain` | Knowledge graph (Apache AGE), chunks and vectors (pgvector), observations, context traces | Critical; contains customer data, possibly personal data |
 | MinIO objects | volume `platform_minio` | Control Plane artifact content (the `CP_S3_BUCKET` bucket) | Critical: MinIO is part of the `core` profile; back it up together with `control-plane-db` |
+| Secret store | volume `openbao_data`, service `openbao` | Connection material, agent secrets, OAuth applications of connection types, agent policies and roles | Critical: without it, connections are connected again and agent secrets are set again. Do not copy the volume; take `bao operator raft snapshot` with the `backup` token, see [Secret store](secret-store.md#backup). Keep the unseal key `secrets/openbao-unseal.key` **apart** from the snapshots |
 | Certificates | volume `caddy_data` | Certificates, keys, ACME account | Recommended: without it, certificates are issued again |
 | Configuration | `.env`, `secrets/`, `deploy/state/<env>.json`, the installation's Caddyfile | Secrets, the IAM signing key, PATs, bootstrap identifiers | Critical; store separately and encrypt |
 
@@ -63,7 +64,7 @@ cd /opt/taimen/src
 STAMP=$(date -u +%Y%m%dT%H%MZ)
 OUT=/opt/taimen/backups/$STAMP
 mkdir -p "$OUT" && chmod 700 "$OUT"
-DC=(docker compose --profile "*")
+DC=(tools/compose --profile "*")
 
 dump() {  # dump <service> <user> <database>
   if "${DC[@]}" ps --status running --services | grep -qx "$1"; then
@@ -158,8 +159,8 @@ COMMIT;
 ```
 
 ```bash
-docker compose exec -T memory-db psql -U memory -d company_brain -v ON_ERROR_STOP=1 < fix-age-oids.sql
-docker compose restart memory-service
+tools/compose exec -T memory-db psql -U memory -d company_brain -v ON_ERROR_STOP=1 < fix-age-oids.sql
+tools/compose restart memory-service
 curl -fsS http://127.0.0.1:18001/healthz     # {"ok": true, "graph": ..., "nodes": N, "chunks": M}
 ```
 
@@ -167,7 +168,7 @@ The restored FK itself verifies that all labels reference an existing graph.
 
 !!! tip "A physical volume copy avoids the problem"
     A copy of the `memory_db` volume taken while `memory-db` is **stopped**
-    (`docker compose stop memory-db` and `tar` of the volume) keeps the OIDs
+    (`tools/compose stop memory-db` and `tar` of the volume) keeps the OIDs
     as they are and restores without catalog fixes. This is the most
     reliable way to move memory to a new host; keep logical dumps for daily
     copies.
@@ -180,12 +181,12 @@ After any memory restore, compare the `nodes` and `chunks` counters from
 ### The Control Plane database alone
 
 ```bash
-docker compose stop control-plane-worker context-adapter control-plane-api
-docker compose exec -T control-plane-db pg_restore -U control_plane -d control_plane \
+tools/compose stop control-plane-worker context-adapter control-plane-api
+tools/compose exec -T control-plane-db pg_restore -U control_plane -d control_plane \
   --clean --if-exists --no-owner < backups/<stamp>/control-plane-db-control_plane.dump
-docker compose up -d control-plane-api           # applies migrations if the dump is older
+tools/compose up -d control-plane-api           # applies migrations if the dump is older
 curl -fsS http://127.0.0.1:18000/health/ready    # 503 migrations_pending while the revision lags
-docker compose up -d control-plane-worker context-adapter
+tools/compose up -d control-plane-worker context-adapter
 ```
 
 Partial restore of individual Control Plane tables is not supported: the
@@ -204,10 +205,10 @@ curl -s -X POST http://127.0.0.1:18000/api/v1/operations/context-adapter/<tenant
 ### The IAM database
 
 ```bash
-docker compose stop iam-service
-docker compose exec -T iam-db pg_restore -U iam -d iam --clean --if-exists --no-owner \
+tools/compose stop iam-service
+tools/compose exec -T iam-db pg_restore -U iam -d iam --clean --if-exists --no-owner \
   < backups/<stamp>/iam-db-iam.dump
-docker compose up -d iam-service
+tools/compose up -d iam-service
 ```
 
 !!! danger "Revocations after the dump date are lost"
@@ -234,7 +235,7 @@ docker compose up -d iam-service
 4. Start only the databases and wait for `healthy`:
 
     ```bash
-    docker compose up -d iam-db control-plane-db memory-db    # + databases of other running profiles
+    tools/compose up -d iam-db control-plane-db memory-db    # + databases of other running profiles
     ```
 
 5. Restore each database with `pg_restore --clean --if-exists --no-owner`.
@@ -242,9 +243,9 @@ docker compose up -d iam-service
    and check `/healthz`.
 7. Restore the MinIO volume (`platform_minio`) the same way as
    `caddy_data`: it holds the core's artifact content.
-   If the core works with an external S3 (`compose.s3.example.yml`), restore
+   If the core works with an external S3 (`deploy/local/compose.s3.example.yml`), restore
    the bucket with the provider's tools.
-8. Start everything: `docker compose --profile core --profile edge … up -d`.
+8. Start everything: `tools/compose --profile core --profile edge … up -d`.
 9. Check `make smoke`, `/health/ready`, operator sign-in, and the
    `context_adapter_parked_tenants` metric.
 10. Switch DNS to the new host.
@@ -274,6 +275,7 @@ and [Control Plane events](../control-plane/events.md).
 
 ## See also
 
+- [Secret store](secret-store.md)
 - [Upgrades and migrations](upgrades.md)
 - [Object storage (MinIO)](object-storage.md)
 - [Emergency procedures](emergency.md)

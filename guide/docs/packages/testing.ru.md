@@ -57,7 +57,7 @@ flowchart LR
 всё, что им нужно:
 
 ```bash
-uv tool install "./package-sdk[all]" --with pytest
+uv tool install "./sdk/package-sdk[all]" --with pytest
 ```
 
 | Дополнение | Для какой ступени |
@@ -71,16 +71,17 @@ uv tool install "./package-sdk[all]" --with pytest
 - Сторонние зависимости кода интеграции (то, что перечислено в
   `integration/pyproject.toml`) тоже добавляются `--with`: ступень не ставит их
   сама.
-- Код ядра и SDK подключаются соседними каталогами, как описано в
-  [Пакете за 10 минут](quickstart.md#install). Какие соседи нужны дополнению:
+- Код ядра и SDK подключаются каталогами в раскладке установки (`services/`,
+  `sdk/`), как описано в [Пакете за 10 минут](quickstart.md#install). Какие
+  соседи нужны дополнению:
 
-| Дополнение | Соседние каталоги рядом с `package-sdk` |
+| Дополнение | Каталоги рядом с `sdk/package-sdk` |
 |---|---|
-| `sandbox` | `control-plane`, `platform-auth-sdk` |
-| `connector` | `control-plane` (клиент ядра из его `client/`) |
-| `skills` | `skill-sdk` |
-| `mcp` | `control-plane` |
-| `all` | `control-plane`, `platform-auth-sdk`, `skill-sdk` |
+| `sandbox` | `services/control-plane`, `sdk/platform-auth-sdk` |
+| `connector` | `services/control-plane` (клиент ядра из его `client/`) |
+| `skills` | `sdk/skill-sdk` |
+| `mcp` | `services/control-plane` |
+| `all` | `services/control-plane`, `sdk/platform-auth-sdk`, `sdk/skill-sdk` |
 
 Команды `skill-sdk` и `pytest`, поставленные так, живут в окружении
 инструмента, а не на `PATH`: наружу выставлена только `package-sdk`. Как
@@ -153,8 +154,8 @@ package-sdk test . --server https://platform.example.com --workspace <workspace-
 
 | `subject` | Ключ объекта | `given` | Шаги |
 |---|---|---|---|
-| `process` (по умолчанию) | `process` | `clock`, `data`, `stage`, `principals`, `calendar`, `fromInstance` | `emit`, `advance`, `complete`, `approve`, `expect` |
-| `rule` | `rule` | ровно одно из `observation`, `event`; `clock`, `variables` | только `expect`: `result`, `ensureWork`, `invokeSkill`, `noSideEffects` |
+| `process` (по умолчанию) | `process` | `clock`, `data`, `stage`, `principals`, `calendar`, `settings`, `fromInstance` | `emit`, `advance`, `complete`, `approve`, `settings`, `expect` |
+| `rule` | `rule` | ровно одно из `observation`, `event`; `clock`, `variables`, `settings` | только `expect`: `result`, `ensureWork`, `invokeSkill`, `noSideEffects` |
 | `taskType` | `taskType` | `task`, `artifacts`, `principals`, `clock`, `variables` | `approve`, `verify`, `complete`, `expect` |
 
 `check` проверяет, что субъект — объект того же пакета, а у процесса — что
@@ -261,6 +262,67 @@ package-sdk test . --server https://platform.example.com --workspace <workspace-
 Решение по согласованию в сценариях пишется разными словами: голос шага
 `approve` процесса — `decision: approve` или `reject`, решение гейта типа
 задачи — `decision: approved` или `rejected`.
+
+## Настройки в сценариях { #settings }
+
+Пакет с [настройками](settings.md) проверяет в сценариях и значения по
+умолчанию, и смену значения администратором. Песочница хранит версии
+настроек так же, как ядро: каждое значение проходит проверку `PUT` — схему
+пакета из присланных файлов, `x-ref` и признаки секрета.
+
+| Где | Что задаёт | Версия значений |
+|---|---|---|
+| нет `given.settings` | действуют `default` схемы | `0` |
+| `given.settings` (процесс, правило) | значения, сохранённые к началу сценария | `1` |
+| шаг `settings` (только процесс) | администратор сохранил новые значения посреди сценария | следующая; те же значения версии не дают |
+
+Значения в `given.settings` и шаге `settings` — сохранённый набор целиком,
+как тело `PUT`: поле, которого нет, берёт `default`, поэтому обязательное поле
+без `default` (`escalationRole` пакета `claims`) указывается в каждом наборе.
+Вычисления после шага `settings` читают новые значения, а решения, уже
+принятые делом, остаются при прочитанных. Состояние дела в `expect` (`data`,
+`stages`, `status`, `outcome`) читается у первого дела сценария, выбрать
+другое нельзя, поэтому старое и новое дело проверяют разные сценарии:
+
+```yaml
+process: claim
+name: a raised refund limit does not change the route already chosen
+given:
+  principals: {claims-officer: [alice], claims-manager: [bob]}
+  settings: {refundLimit: 500, escalationRole: 0c000000-0000-4000-8000-000000000001}
+steps:
+  - emit: {observation: helpdesk.ticket_created, payload: {data: {ticketId: T-1, amount: 800}}}
+  - expect: {data: {route: manager}}
+  - settings: {refundLimit: 1000, escalationRole: 0c000000-0000-4000-8000-000000000001}  # администратор поднял порог
+  - expect: {data: {route: manager}}   # маршрут дела уже выбран
+```
+
+```yaml
+process: claim
+name: a claim opened after the raise follows the new limit
+given:
+  principals: {claims-officer: [alice], claims-manager: [bob]}
+  settings: {refundLimit: 500, escalationRole: 0c000000-0000-4000-8000-000000000001}
+steps:
+  - settings: {refundLimit: 1000, escalationRole: 0c000000-0000-4000-8000-000000000001}  # администратор поднял порог до первого дела
+  - emit: {observation: helpdesk.ticket_created, payload: {data: {ticketId: T-2, amount: 800}}}
+  - expect: {data: {route: officer}}   # дело — по новому порогу
+```
+
+- Срок, вычисленный из настройки (`due: {workdays: {expr: settings.…}}`), считается
+  при входе в шаг: шаг `settings` уже открытый срок не сдвигает.
+- В сценарии правила `given.settings` — сохранённые значения на оценку;
+  без него и без ссылок правила на `settings` песочница настроек не трогает.
+- Значение не по схеме, ссылка `x-ref` на несуществующий объект или материал
+  секрета останавливают тест с кодом `settings_invalid`, `unknown_ref` или
+  `secret_material_rejected` — без значения в сообщении.
+- Пакет, который настроек не объявляет, а сценарий их задаёт, — тест
+  останавливается `settings_not_declared`.
+- `x-ref` на тип задачи или календарь должен называть объект пакета или его
+  `requires`. Id ролей, principal'ов и workspace песочница не проверяет; с
+  `--server` их проверяет ядро стенда по организации.
+- Код ядра рядом с `package-sdk`, который настроек ещё не знает, даёт ошибку
+  `sandbox_settings_unsupported`: обновите `control-plane`.
 
 ## Покрытие { #coverage }
 
@@ -415,7 +477,7 @@ jobs:
           clone control-plane "$CONTROL_PLANE_REF"
           clone platform-auth-sdk "$PLATFORM_AUTH_SDK_REF"
           clone skill-sdk "$SKILL_SDK_REF"
-          uv tool install "./package-sdk[sandbox,skills,connector]" --with pytest
+          uv tool install "./sdk/package-sdk[sandbox,skills,connector]" --with pytest
           echo "$(uv tool dir --bin)" >> "$GITHUB_PATH"
       - name: package-sdk test
         run: package-sdk test .
@@ -447,7 +509,7 @@ tests?, server?, workspace_id?, env_file?)` MCP-сервера `package-sdk mcp`
 | Симптом | Причина | Что делать |
 |---|---|---|
 | `ERR` на ступени контрактов: «сверке контрактов скиллов нужен skill-sdk» | нет `skill-sdk` в окружении инструмента | переустановить с `[skills]` или `[all]` |
-| `ERR` на ступени интеграции: «тестам кода интеграции нужен pytest» | нет `pytest` в окружении инструмента | `uv tool install --reinstall "./package-sdk[all]" --with pytest` |
+| `ERR` на ступени интеграции: «тестам кода интеграции нужен pytest» | нет `pytest` в окружении инструмента | `uv tool install --reinstall "./sdk/package-sdk[all]" --with pytest` |
 | `ModuleNotFoundError` в тестах интеграции | зависимость кода интеграции не в окружении инструмента | добавить её `--with` |
 | `ModuleNotFoundError: No module named '<модуль>'` при ручном `skill-sdk export` или `pytest` | код интеграции в `integration/src` не на `sys.path` | запускать из `integration/` с `PYTHONPATH=src` (см. [Код интеграции](#integration-code)) |
 | `skill-sdk: command not found` | команда живёт в окружении инструмента `package-sdk` | `"$(uv tool dir)/package-sdk/bin/skill-sdk"` |
@@ -467,6 +529,7 @@ tests?, server?, workspace_id?, env_file?)` MCP-сервера `package-sdk mcp`
 - [Правила в пакете](rules.md#tests)
 - [Работа: типы задач и роли](work.md#tests)
 - [Скиллы пакета](skills.md#tests)
+- [Настройки пакета](settings.md) — объявление, ссылки `settings`, права
 - [Интеграции](integrations.md#tests)
 - [Установка и выпуск](install-and-release.md)
 - [Чек-лист готовности пакета](checklist.md)

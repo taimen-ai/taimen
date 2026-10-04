@@ -15,7 +15,7 @@
 ```mermaid
 flowchart LR
     user([Люди и harness]) ==>|HTTPS 443| caddy
-    subgraph host["Хост платформы (корневой compose.yml)"]
+    subgraph host["Хост платформы (deploy/local/compose.yml)"]
         caddy[Caddy<br/>единственный периметр]
         caddy ==> iam[iam-service]
         caddy ==> cp[control-plane-api]
@@ -32,7 +32,7 @@ flowchart LR
 Ключевые принципы:
 
 
-- **Один файл описания** — корневой `compose.yml` суперпроекта с профилями
+- **Один файл описания** — `deploy/local/compose.yml` суперпроекта с профилями
   (`core`, `edge`, `notify`). Локальная установка и промышленная различаются
   только файлом `.env` и Caddyfile.
 - **Один периметр** — наружу публикует порты только контейнер `caddy` (80/443).
@@ -54,12 +54,12 @@ flowchart LR
 | [Секреты и ротация](secrets.md) | Инвентарь секретов, права файлов, ротация PAT, ключа подписи, паролей |
 | [Резервное копирование](backup.md) | Что бэкапить, `pg_dump` каждой БД, особенности Apache AGE, восстановление |
 | [Мониторинг и здоровье](monitoring.md) | Health-эндпоинты, `/metrics`, `make smoke`, логи, что алертить |
-| [Ресурсы и масштабирование](capacity.md) | Лимиты памяти из `compose.yml`, минимальные и рекомендуемые конфигурации |
+| [Ресурсы и масштабирование](capacity.md) | Лимиты памяти из `deploy/local/compose.yml`, минимальные и рекомендуемые конфигурации |
 | [Аварийные процедуры](emergency.md) | Отказ IAM, откат релиза, потеря runner-хоста, компрометация credentials |
 
 ## Чек-лист дежурного
 
-- [ ] `make smoke` зелёный, `docker compose --profile "*" ps` без `unhealthy`.
+- [ ] `make smoke` зелёный, `tools/compose --profile "*" ps` без `unhealthy`.
 - [ ] `GET /health/ready` Control Plane отвечает `200`, а не `503`.
 - [ ] `context_adapter_parked_tenants` равен `0`.
 - [ ] Свободно не меньше 20 % диска (журнал Control Plane и память растут).
@@ -69,7 +69,7 @@ flowchart LR
 
 !!! tip "Где команды"
     Все команды `docker compose` в разделе выполняются из корня клона
-    суперпроекта: там лежат `compose.yml` и `.env`. Цели `make` описаны в
+    суперпроекта: там лежат `deploy/local/compose.yml` и `.env`. Цели `make` описаны в
     справочнике [Цели make](../reference/make.md).
 
 ## См. также

@@ -1,8 +1,8 @@
 # Схема пакета
 
 Справочник полей всех файлов пакета: обёртка объекта, каждый вид каталога,
-тесты пакета, фиксация источников `packages.lock` и план установки. Таблицы
-построены из JSON Schema `package-sdk/schema/v1` и повторяют её поле в поле.
+тесты пакета, фиксация источников `packages.lock`, план установки и экраны. Таблицы
+построены из JSON Schema `sdk/package-sdk/schema/v1` и повторяют её поле в поле.
 Статья для авторов пакетов; как этим пользоваться, объясняют [Анатомия
 пакета](../packages/anatomy.md), [Процессы](../processes/index.md),
 [Выражения](../processes/expressions.md) и [Тесты пакета](../packages/testing.md).
@@ -30,16 +30,16 @@
 <!-- generated:schema-object -->
 _Раздел генерируется из кода — не правьте его руками._
 
-Источник: `package-sdk/schema/v1/object.schema.json`.
+Источник: `sdk/package-sdk/schema/v1/object.schema.json`.
 
 ### `object` { #schema-object }
 
-Одна обёртка для манифеста и всех видов каталога: apiVersion + kind + key + spec. spec — тело запроса API control-plane в camelCase без поля идентичности. Схема проверяет форму; окончательную проверку делает ядро (и package-sdk check его валидаторами).
+One wrapper for the manifest and every catalog kind: apiVersion + kind + key + spec. spec is the control-plane API request body in camelCase without the identity field. The schema checks the shape; the final check is done by the core (and by package-sdk check with its validators).
 
 | Поле | Тип | Обязательно | Описание |
 |---|---|---|---|
 | `apiVersion` | = `taimen.ai/v1` | да |  |
-| `kind` | `Package` \| `Installation` \| `ArtifactType` \| `TaskType` \| `ProjectTemplate` \| `WorkspaceType` \| `Role` \| `Capability` \| `Skill` \| `WorkRule` \| `Agent` \| `NotificationRule` \| `Process` \| `Calendar` \| `KnowledgePack` | да |  |
+| `kind` | `Package` \| `Installation` \| `ArtifactType` \| `TaskType` \| `ProjectTemplate` \| `WorkspaceType` \| `Role` \| `Capability` \| `ConnectionType` \| `Skill` \| `WorkRule` \| `Agent` \| `NotificationRule` \| `Process` \| `Calendar` \| `KnowledgePack` | да |  |
 | `key` | `string` | да |  |
 | `spec` | `object` | да |  |
 
@@ -55,6 +55,7 @@ _Раздел генерируется из кода — не правьте е�
 | `kind` = `WorkspaceType` | `key`: [`typeKey`](#schema-typekey); `spec`: [`workspaceTypeSpec`](#schema-workspacetypespec) |
 | `kind` = `Role` | `key`: [`slug`](#schema-slug); `spec`: [`roleSpec`](#schema-rolespec) |
 | `kind` = `Capability` | `spec`: [`capabilitySpec`](#schema-capabilityspec) |
+| `kind` = `ConnectionType` | `key`: [`connectionKey`](#schema-connectionkey); `spec`: [`connectionTypeSpec`](#schema-connectiontypespec) |
 | `kind` = `Skill` | `spec`: [`skillSpec`](#schema-skillspec) |
 | `kind` = `WorkRule` | `key`: [`ruleKey`](#schema-rulekey); `spec`: [`workRuleSpec`](#schema-workrulespec) |
 | `kind` = `Agent` | `key`: [`slug`](#schema-slug); `spec`: [`agentSpec`](#schema-agentspec) |
@@ -69,23 +70,24 @@ _Раздел генерируется из кода — не правьте е�
 <!-- generated:schema-package -->
 _Раздел генерируется из кода — не правьте его руками._
 
-Источник: `package-sdk/schema/v1/object.schema.json`.
+Источник: `sdk/package-sdk/schema/v1/object.schema.json`.
 
 ### `packageSpec` { #schema-packagespec }
 
 | Поле | Тип | Обязательно | Описание |
 |---|---|---|---|
-| `version` | `string` | да | SemVer пакета |
+| `version` | `string` | да | Package SemVer |
 | `displayName` | [`displayName`](#schema-displayname) | да |  |
 | `description` | `string` |  |  |
-| `requires` | array of [`typeKey`](#schema-typekey) или [объект `{package, version}`](#schema-packagespec-requires-item-2) |  | Пакеты, на объекты которых этот пакет ссылается: ключ (любая версия) или {package, version} с диапазоном SemVer |
-| `engines` | map → [`semverRange`](#schema-semverrange) |  | Диапазоны версий компонентов, против которых пакет проверен, например {control-plane: "&gt;=0.9,&lt;0.11"}; check и plan отвергают несовместимую версию до записи |
-| `variables` | map → [`packageVariable`](#schema-packagevariable) |  | Объявление каждой ${NAME} пакета. Использованная переменная обязана быть объявлена, объявленная — использована. Секретов в пакете нет: поля secret у переменной нет |
-| `knowledge` | array of `string` |  | Онтологии (имя@мажор), на которые опираются процессы и правила пакета; check сверяет с recall/remember/memory процессов |
-| `license` | `string` |  | Лицензия пакета (идентификатор SPDX) |
+| `requires` | array of [`typeKey`](#schema-typekey) или [объект `{package, version}`](#schema-packagespec-requires-item-2) |  | Packages whose objects this package refers to: a key (any version) or {package, version} with a SemVer range |
+| `engines` | map → [`semverRange`](#schema-semverrange) |  | Version ranges of the components the package is tested against, e.g. {control-plane: "&gt;=0.9,&lt;0.11"}; check and plan reject an incompatible version before writing |
+| `variables` | map → [`packageVariable`](#schema-packagevariable) |  | Declaration of every ${NAME} of the package. A used variable must be declared, a declared one must be used. There are no secrets in a package: a variable has no secret field |
+| `knowledge` | array of `string` |  | Ontologies (name@major) the package's processes and rules rely on; check matches them against recall/remember/memory of the processes |
+| `license` | `string` |  | Package license (SPDX identifier) |
 | `authors` | array of `string` |  |  |
 | `homepage` | `string` |  |  |
-| `renames` | array of [объект](#schema-packagespec-renames-item) |  | Явные переименования объектов (как moved в Terraform): план переносит объект, а не удаляет и создаёт |
+| `renames` | array of [объект](#schema-packagespec-renames-item) |  | Explicit object renames (like moved in Terraform): the plan moves the object instead of deleting and creating it |
+| `settings` | [`packageSettings`](#schema-packagesettings) |  |  |
 
 ### `packageSpec.requires[] (2)` { #schema-packagespec-requires-item-2 }
 
@@ -104,7 +106,7 @@ _Раздел генерируется из кода — не правьте е�
 
 ### `semverRange` { #schema-semverrange }
 
-Диапазон версий: условия через запятую, все выполняются (&gt;=0.9,&lt;0.11); операторы &gt;=, &gt;, &lt;=, &lt;, =, ^, ~; без оператора — версия или префикс (1.2 = 1.2.x); * — любая
+Version range: comma-separated conditions, all must hold (&gt;=0.9,&lt;0.11); operators &gt;=, &gt;, &lt;=, &lt;, =, ^, ~; without an operator, a version or prefix (1.2 = 1.2.x); * means any
 
 Значение: `string`.
 
@@ -113,10 +115,177 @@ _Раздел генерируется из кода — не правьте е�
 | Поле | Тип | Обязательно | Описание |
 |---|---|---|---|
 | `description` | `string` | да |  |
-| `kind` | `url` \| `workspace` \| `project` \| `principal` \| `role` \| `string` \| `integer` | да | Вид значения: url — абсолютный URL; workspace\|project\|principal\|role — UUID, существующий на стенде (проверяет plan); integer — целое; string — любое |
+| `kind` | `url` \| `workspace` \| `project` \| `principal` \| `role` \| `string` \| `integer` | да | Value kind: url is an absolute URL; workspace\|project\|principal\|role is a UUID existing on the environment (checked by plan); integer is an integer; string is anything |
 | `required` | `boolean` |  | По умолчанию `true`. |
-| `default` | `string` |  | Значение, если инсталляция не задала своё |
+| `default` | `string` |  | Value used if the installation did not set its own |
 | `example` | `string` |  |  |
+
+### `packageSettings` { #schema-packagesettings }
+
+Package settings: values an organization administrator changes in the live system without a new package version or an installation plan. Values live in the core; processes, work rules and views read them as settings.&lt;field&gt;
+
+| Поле | Тип | Обязательно | Описание |
+|---|---|---|---|
+| `schema` | [`settingsSchema`](#schema-settingsschema) | да |  |
+| `uischema` | [`settingsUiElement`](#schema-settingsuielement) |  | Form layout: the closed subset of JSON Forms the console renders — VerticalLayout, HorizontalLayout, Group, Control and Label with SHOW/HIDE/ENABLE/DISABLE rules; anything else, options of a Control included, is rejected. Labels are keys of the package dictionaries, not texts: label of a Group and of a Control, text of a Label. Unlike the uischema of process step forms, which is open and whose label is a text. Without it the console lays the fields out in schema order |
+
+### `settingsSchema` { #schema-settingsschema }
+
+Schema of the settings: a subset of JSON Schema, as for process data. The root is an object; objects nest at most 3 levels deep; at most 100 properties per object. Field labels are not in the schema: they are keys &lt;package&gt;.settings.&lt;path&gt; of the package dictionaries
+
+| Поле | Тип | Обязательно | Описание |
+|---|---|---|---|
+| `type` | = `object` | да |  |
+| `properties` | map → [`settingsField1`](#schema-settingsfield1) | да |  |
+| `required` | [`settingsRequired`](#schema-settingsrequired) |  |  |
+| `additionalProperties` | = `false` |  | Implied on every object: a value with an undeclared member is refused |
+
+### `settingsFieldName` { #schema-settingsfieldname }
+
+Field name: camelCase, as referenced in expressions (settings.&lt;field&gt;)
+
+Значение: `string`.
+
+### `settingsField1` { #schema-settingsfield1 }
+
+Включает [`settingsKeywords`](#schema-settingskeywords).
+
+| Поле | Тип | Обязательно | Описание |
+|---|---|---|---|
+| `properties` | любое |  |  |
+| `items` | [`settingsField2`](#schema-settingsfield2) |  |  |
+
+### `settingsKeywords` { #schema-settingskeywords }
+
+One settings field: only the keywords listed here; secret markers (writeOnly, format: password) and keywords outside the subset are rejected
+
+| Поле | Тип | Обязательно | Описание |
+|---|---|---|---|
+| `type` | `string` \| `integer` \| `number` \| `boolean` \| `array` \| `object` | да |  |
+| `properties` | `object` |  |  |
+| `required` | [`settingsRequired`](#schema-settingsrequired) |  |  |
+| `additionalProperties` | = `false` |  |  |
+| `enum` | array of [`settingsScalar`](#schema-settingsscalar) |  |  |
+| `minimum` | `number` |  |  |
+| `maximum` | `number` |  |  |
+| `minLength` | `integer` |  |  |
+| `maxLength` | `integer` |  |  |
+| `pattern` | `string` |  | ECMA-262 regular expression |
+| `format` | `date` \| `uri` \| `email` \| `uuid` |  |  |
+| `items` | `object` |  |  |
+| `minItems` | `integer` |  |  |
+| `maxItems` | `integer` |  |  |
+| `default` | любое |  | Value in effect until an administrator saves another; every optional field must have one (package-sdk check) |
+| `x-ref` | `role` \| `principal` \| `workspace` \| `calendar` \| `taskType` |  | The string references a platform object of this kind in the organization: the id of a role, principal or workspace, the key of a task type or calendar; the core rejects a value that references a missing object |
+
+Условия:
+
+| Условие | Следствие |
+|---|---|
+| `type` = `object` | обязательно `properties` |
+| иначе | `properties`: не допускается; `required`: не допускается; `additionalProperties`: не допускается |
+| `type` = `array` | обязательно `items` |
+| иначе | `items`: не допускается; `minItems`: не допускается; `maxItems`: не допускается |
+| иначе | `minLength`: не допускается; `maxLength`: не допускается; `pattern`: не допускается; `format`: не допускается; `x-ref`: не допускается |
+| иначе | `minimum`: не допускается; `maximum`: не допускается |
+
+### `settingsRequired` { #schema-settingsrequired }
+
+Fields that must always have a value
+
+Значение: array of [`settingsFieldName`](#schema-settingsfieldname).
+
+### `settingsScalar` { #schema-settingsscalar }
+
+Значение: `string` \| `integer` \| `number` \| `boolean`.
+
+### `settingsField2` { #schema-settingsfield2 }
+
+Включает [`settingsKeywords`](#schema-settingskeywords).
+
+| Поле | Тип | Обязательно | Описание |
+|---|---|---|---|
+| `properties` | любое |  |  |
+| `items` | [`settingsField3`](#schema-settingsfield3) |  |  |
+
+### `settingsField3` { #schema-settingsfield3 }
+
+The deepest level: a scalar field or an array of scalars, no nested objects
+
+Включает [`settingsKeywords`](#schema-settingskeywords).
+
+| Поле | Тип | Обязательно | Описание |
+|---|---|---|---|
+| `type` | `string` \| `integer` \| `number` \| `boolean` \| `array` |  |  |
+| `items` | [`settingsKeywords`](#schema-settingskeywords) |  |  |
+
+### `settingsUiElement` { #schema-settingsuielement }
+
+Element of the settings form: VerticalLayout, HorizontalLayout, Group, Control or Label. Other JSON Forms elements (Categorization, ListWithDetail, custom renderers) are not rendered by the console and are rejected
+
+| Поле | Тип | Обязательно | Описание |
+|---|---|---|---|
+| `type` | `VerticalLayout` \| `HorizontalLayout` \| `Group` \| `Control` \| `Label` | да |  |
+
+Условия:
+
+| Условие | Следствие |
+|---|---|
+| `type` ∈ `VerticalLayout`, `HorizontalLayout` | обязательно `elements`; `elements`: [`settingsUiElements`](#schema-settingsuielements); `rule`: [`settingsUiRule`](#schema-settingsuirule) |
+| `type` = `Group` | обязательно `label`, `elements`; `label`: [`settingsLabelKey`](#schema-settingslabelkey); `elements`: [`settingsUiElements`](#schema-settingsuielements); `rule`: [`settingsUiRule`](#schema-settingsuirule) |
+| `type` = `Control` | обязательно `scope`; `scope`: [`settingsScope`](#schema-settingsscope); `label`: [`settingsLabelKey`](#schema-settingslabelkey); `rule`: [`settingsUiRule`](#schema-settingsuirule) |
+| `type` = `Label` | обязательно `text`; `text`: [`settingsLabelKey`](#schema-settingslabelkey); `rule`: [`settingsUiRule`](#schema-settingsuirule) |
+
+### `settingsUiElements` { #schema-settingsuielements }
+
+Значение: array of [`settingsUiElement`](#schema-settingsuielement).
+
+### `settingsUiRule` { #schema-settingsuirule }
+
+JSON Forms rule: the effect applies while the value at condition.scope matches condition.schema
+
+| Поле | Тип | Обязательно | Описание |
+|---|---|---|---|
+| `effect` | `SHOW` \| `HIDE` \| `ENABLE` \| `DISABLE` | да |  |
+| `condition` | [объект](#schema-settingsuirule-condition) | да |  |
+
+### `settingsUiRule.condition` { #schema-settingsuirule-condition }
+
+| Поле | Тип | Обязательно | Описание |
+|---|---|---|---|
+| `scope` | [`settingsScope`](#schema-settingsscope) | да |  |
+| `schema` | [объект](#schema-settingsuirule-condition-schema) | да | Condition on the value: the keywords of a settings field without x-ref and default, and const |
+| `failWhenUndefined` | `boolean` |  |  |
+
+### `settingsUiRule.condition.schema` { #schema-settingsuirule-condition-schema }
+
+Condition on the value: the keywords of a settings field without x-ref and default, and const
+
+| Поле | Тип | Обязательно | Описание |
+|---|---|---|---|
+| `type` | `string` \| `integer` \| `number` \| `boolean` \| `array` \| `object` |  |  |
+| `const` | [`settingsScalar`](#schema-settingsscalar) |  |  |
+| `enum` | array of [`settingsScalar`](#schema-settingsscalar) |  |  |
+| `minimum` | `number` |  |  |
+| `maximum` | `number` |  |  |
+| `minLength` | `integer` |  |  |
+| `maxLength` | `integer` |  |  |
+| `pattern` | `string` |  |  |
+| `format` | `date` \| `uri` \| `email` \| `uuid` |  |  |
+| `minItems` | `integer` |  |  |
+| `maxItems` | `integer` |  |  |
+
+### `settingsScope` { #schema-settingsscope }
+
+JSON Pointer to a property of the settings schema: #/properties/&lt;field&gt;[/properties/&lt;field&gt;…]
+
+Значение: `string`.
+
+### `settingsLabelKey` { #schema-settingslabelkey }
+
+Key of the package dictionaries (&lt;package&gt;.settings.&lt;name&gt;), not the text: the console shows its string in the user's language
+
+Значение: `string`.
 <!-- /generated:schema-package -->
 
 ## Установка (`kind: Installation`) { #installation }
@@ -124,38 +293,39 @@ _Раздел генерируется из кода — не правьте е�
 <!-- generated:schema-installation -->
 _Раздел генерируется из кода — не правьте его руками._
 
-Источник: `package-sdk/schema/v1/object.schema.json`.
+Источник: `sdk/package-sdk/schema/v1/object.schema.json`.
 
 ### `installationSpec` { #schema-installationspec }
 
 | Поле | Тип | Обязательно | Описание |
 |---|---|---|---|
-| `packages` | array of [`packageSource`](#schema-packagesource) | да | Пакеты установки: ключ (каталог установки), {key, path} или {key, git, ref}; requires подтягиваются сами. Пусто — только системный тип task ядра |
-| `packagesDir` | `string` |  | Каталог пакетов установки относительно файла установки; по умолчанию packages/ рядом с ним |
-| `knowledge` | array of [объект](#schema-installationspec-knowledge-item) |  | Включение онтологий для пространств работы — топология, поэтому в установке; набор заменяет прежний целиком |
-| `retire` | [объект](#schema-installationspec-retire) |  | Ключи, которые окружение выводит из оборота (все активные версии → deprecated) |
+| `packages` | array of [`packageSource`](#schema-packagesource) | да | Installation packages: a key (installation catalog), {key, path} or {key, git, ref}; requires are pulled in automatically. Empty means only the core's system task type |
+| `packagesDir` | `string` |  | Installation packages directory relative to the installation file; defaults to packages/ next to it |
+| `knowledge` | array of [объект](#schema-installationspec-knowledge-item) |  | Ontology inclusion for work spaces is topology, hence in the installation; the set replaces the previous one entirely |
+| `retire` | [объект](#schema-installationspec-retire) |  | Keys the environment retires (all active versions → deprecated) |
 
 ### `installationSpec.knowledge[]` { #schema-installationspec-knowledge-item }
 
 | Поле | Тип | Обязательно | Описание |
 |---|---|---|---|
-| `workspace` | `string` | да | ${ПЕРЕМЕННАЯ} установки или UUID |
+| `workspace` | `string` | да | Installation ${VARIABLE} or UUID |
 | `packs` | array of `string` | да |  |
-| `strict` | `boolean` |  | Строгий режим памяти: записи вне включённых видов отвергаются, а не принимаются как есть. По умолчанию `false`. |
+| `strict` | `boolean` |  | Strict memory mode: records outside the included kinds are rejected rather than accepted as is. По умолчанию `false`. |
 
 ### `installationSpec.retire` { #schema-installationspec-retire }
 
-Ключи, которые окружение выводит из оборота (все активные версии → deprecated)
+Keys the environment retires (all active versions → deprecated)
 
 | Поле | Тип | Обязательно | Описание |
 |---|---|---|---|
 | `TaskType` | array of [`typeKey`](#schema-typekey) |  |  |
 | `ProjectTemplate` | array of [`typeKey`](#schema-typekey) |  |  |
-| `Agent` | array of [`slug`](#schema-slug) |  | Агент выводится из оборота: исполнитель остановлен, credential отозван, история сохранена |
-| `NotificationRule` | array of [`ruleKey`](#schema-rulekey) |  | Правило уведомления выводится из оборота в сервисе уведомлений (:retire); отправленные уведомления остаются |
-| `WorkRule` | array of [`ruleKey`](#schema-rulekey) |  | Правило вывода работы архивируется; заведённые им работы доживают |
-| `Process` | array of [`typeKey`](#schema-typekey) |  | Процесс выводится маршрутом ядра :retire: новые экземпляры не стартуют, живые доживают |
-| `Calendar` | array of [`typeKey`](#schema-typekey) |  | Календарь выводится, только если на него не ссылается активный процесс (calendar_in_use) |
+| `Agent` | array of [`slug`](#schema-slug) |  | The agent is retired: the executor is stopped, the credential revoked, the history kept |
+| `NotificationRule` | array of [`ruleKey`](#schema-rulekey) |  | The notification rule is retired in the notification service (:retire); sent notifications remain |
+| `WorkRule` | array of [`ruleKey`](#schema-rulekey) |  | The work rule is archived; work it created lives on |
+| `Process` | array of [`typeKey`](#schema-typekey) |  | The process is retired via the core's :retire route: new instances do not start, live ones run to completion |
+| `Calendar` | array of [`typeKey`](#schema-typekey) |  | A calendar is retired only if no active process refers to it (calendar_in_use) |
+| `ConnectionType` | array of [`connectionKey`](#schema-connectionkey) |  | Every active version of the connection type becomes deprecated: no new connections of the type, existing ones keep working |
 
 ### `packageSource` { #schema-packagesource }
 
@@ -166,16 +336,16 @@ _Раздел генерируется из кода — не правьте е�
 | Поле | Тип | Обязательно | Описание |
 |---|---|---|---|
 | `key` | [`typeKey`](#schema-typekey) | да |  |
-| `path` | `string` | да | Путь к каталогу пакета относительно файла установки |
+| `path` | `string` | да | Package directory path relative to the installation file |
 
 ### `packageSource (3)` { #schema-packagesource-3 }
 
 | Поле | Тип | Обязательно | Описание |
 |---|---|---|---|
 | `key` | [`typeKey`](#schema-typekey) | да |  |
-| `git` | `string` | да | https://хост/путь без учётных данных в адресе или git@хост:путь; доступ — credential helper git |
-| `ref` | `string` | да | Тег релиза пакета (refs/tags/&lt;ref&gt;; ветки и коммиты не принимаются); воспроизводимость держит packages.lock |
-| `path` | `string` |  | Подкаталог пакета в репозитории, если он не в корне: относительный путь без . и .. |
+| `git` | `string` | да | https://host/path without credentials in the address, or git@host:path; access through the git credential helper |
+| `ref` | `string` | да | Package release tag (refs/tags/&lt;ref&gt;; branches and commits are not accepted); packages.lock keeps it reproducible |
+| `path` | `string` |  | Package subdirectory in the repository if it is not at the root: a relative path without . and .. |
 <!-- /generated:schema-installation -->
 
 ## Тип артефакта (`kind: ArtifactType`) { #artifact-type }
@@ -183,19 +353,19 @@ _Раздел генерируется из кода — не правьте е�
 <!-- generated:schema-artifact-type -->
 _Раздел генерируется из кода — не правьте его руками._
 
-Источник: `package-sdk/schema/v1/object.schema.json`.
+Источник: `sdk/package-sdk/schema/v1/object.schema.json`.
 
 ### `artifactTypeSpec` { #schema-artifacttypespec }
 
-Тип артефакта: версионируемый неизменяемый объект каталога, как TaskType.
+Artifact type: a versioned immutable catalog object, like TaskType.
 
 | Поле | Тип | Обязательно | Описание |
 |---|---|---|---|
 | `displayName` | [`displayName`](#schema-displayname) | да |  |
 | `description` | `string` |  |  |
-| `metadataSchema` | [`jsonSchema`](#schema-jsonschema) |  | Схема metadata артефакта этого типа (≤ 16 KiB) |
-| `mediaTypes` | array of [`mediaType`](#schema-mediatype) |  | Допустимые media types содержимого; по умолчанию любой |
-| `maxBytes` | `integer` |  | Лимит размера содержимого; не больше глобального лимита установки (CP_ARTIFACT_MAX_BYTES) |
+| `metadataSchema` | [`jsonSchema`](#schema-jsonschema) |  | Metadata schema of artifacts of this type (≤ 16 KiB) |
+| `mediaTypes` | array of [`mediaType`](#schema-mediatype) |  | Allowed content media types; any by default |
+| `maxBytes` | `integer` |  | Content size limit; no more than the installation's global limit (CP_ARTIFACT_MAX_BYTES) |
 <!-- /generated:schema-artifact-type -->
 
 ## Тип задачи (`kind: TaskType`) { #task-type }
@@ -203,7 +373,7 @@ _Раздел генерируется из кода — не правьте е�
 <!-- generated:schema-task-type -->
 _Раздел генерируется из кода — не правьте его руками._
 
-Источник: `package-sdk/schema/v1/object.schema.json`.
+Источник: `sdk/package-sdk/schema/v1/object.schema.json`.
 
 ### `taskTypeSpec` { #schema-tasktypespec }
 
@@ -211,19 +381,20 @@ _Раздел генерируется из кода — не правьте е�
 |---|---|---|---|
 | `displayName` | [`displayName`](#schema-displayname) | да |  |
 | `description` | `string` |  |  |
-| `fieldSchema` | [`jsonSchema`](#schema-jsonschema) |  | Схема customFields задачи |
+| `fieldSchema` | [`jsonSchema`](#schema-jsonschema) |  | Task customFields schema |
 | `lifecycleSchema` | [`workItemLifecycle`](#schema-workitemlifecycle) | да |  |
 | `execution` | [`execution`](#schema-execution) |  |  |
 | `approvalSchema` | [`approvalSchema`](#schema-approvalschema) |  |  |
-| `completionSchema` | `object` |  | Работа после завершения задачи: {onComplete: {when?, actions}} — ensureWork (customFields, relation, requestApproval) и comment. Грамматику проверяет ядро. |
-| `instructions` | `string` |  | Инструкции исполнителю: Markdown ≤ 16 KiB, слой типа задачи после контракта платформы и проекта. Размер в байтах и отсутствие секретов проверяет ядро. |
+| `completionSchema` | `object` |  | Work after the task completes: {onComplete: {when?, actions}}: ensureWork (customFields, relation, requestApproval) and comment. The core checks the grammar. |
+| `instructions` | `string` |  | Instructions for the executor: Markdown ≤ 16 KiB, the task type layer after the platform and project contract. The core checks the size in bytes and the absence of secrets. |
 | `artifactSchema` | [`artifactSchema`](#schema-artifactschema) |  |  |
-| `acceptance` | array of [`acceptanceCriterion`](#schema-acceptancecriterion) |  | Критерии приёмки по умолчанию у всех задач типа: исполняются после обязательных выходов и до критериев самой задачи; задача не может заменить критерий типа — её критерий с тем же key отвергается (422). deterministic со скиллом external_write — только после human той же попытки. |
-| `contextSchema` | [объект](#schema-tasktypespec-contextschema) |  | Профиль контекста задачи: anchors, traverse, asOf, budgetTokens. Грамматику проверяет ядро. |
+| `executorRoles` | array of [`slug`](#schema-slug) |  | Keys of the roles a person needs to take work of this type: a Role of the package, its requires or the tenant. Absent or empty — people are not restricted. The core refuses a role the tenant does not have (422 unknown_role). |
+| `acceptance` | array of [`acceptanceCriterion`](#schema-acceptancecriterion) |  | Default acceptance criteria for all tasks of the type: run after the required outputs and before the task's own criteria; a task cannot replace a type criterion, its criterion with the same key is rejected (422). deterministic with an external_write skill only after human in the same attempt. |
+| `contextSchema` | [объект](#schema-tasktypespec-contextschema) |  | Task context profile: anchors, traverse, asOf, budgetTokens. The core checks the grammar. |
 
 ### `taskTypeSpec.contextSchema` { #schema-tasktypespec-contextschema }
 
-Профиль контекста задачи: anchors, traverse, asOf, budgetTokens. Грамматику проверяет ядро.
+Task context profile: anchors, traverse, asOf, budgetTokens. The core checks the grammar.
 
 | Поле | Тип | Обязательно | Описание |
 |---|---|---|---|
@@ -239,9 +410,9 @@ _Раздел генерируется из кода — не правьте е�
 | Поле | Тип | Обязательно | Описание |
 |---|---|---|---|
 | `statuses` | array of [объект](#schema-workitemlifecycle-statuses-item) |  |  |
-| `claimStatus` | [`statusKey`](#schema-statuskey) |  | Статус при claim; не терминальный |
-| `releaseStatus` | [`statusKey`](#schema-statuskey) |  | Статус при release; не терминальный |
-| `completionStatus` | [`statusKey`](#schema-statuskey) |  | Статус успешного завершения; категория terminal_success |
+| `claimStatus` | [`statusKey`](#schema-statuskey) |  | Status on claim; not terminal |
+| `releaseStatus` | [`statusKey`](#schema-statuskey) |  | Status on release; not terminal |
+| `completionStatus` | [`statusKey`](#schema-statuskey) |  | Successful completion status; category terminal_success |
 
 ### `workItemLifecycle.statuses[]` { #schema-workitemlifecycle-statuses-item }
 
@@ -255,19 +426,19 @@ _Раздел генерируется из кода — не правьте е�
 
 ### `execution` { #schema-execution }
 
-Задачу типа исполняет один вызов скилла
+A task of this type is executed by one skill call
 
 | Поле | Тип | Обязательно | Описание |
 |---|---|---|---|
 | `skill` | `string` | да |  |
 | `version` | `string` | да |  |
-| `inputs` | `string` или map → `string` |  | Путь $.… ко всему входу или объект {имяВхода: путь}; по умолчанию $.customFields |
+| `inputs` | `string` или map → `string` |  | $.… path to the whole input or an object {inputName: path}; defaults to $.customFields |
 
 ### `approvalSchema` { #schema-approvalschema }
 
 | Поле | Тип | Обязательно | Описание |
 |---|---|---|---|
-| `gates` | map → [объект](#schema-approvalschema-gates-value) |  | Пока поддерживается только gate default |
+| `gates` | map → [объект](#schema-approvalschema-gates-value) |  | Only the default gate is supported for now |
 
 ### `approvalSchema.gates.*` { #schema-approvalschema-gates-value }
 
@@ -284,7 +455,7 @@ _Раздел генерируется из кода — не правьте е�
 
 ### `outcomeAction` { #schema-outcomeaction }
 
-Одно действие исхода approval: объект ровно с одним ключом. В строках — выражения $.path, суффикс ! делает значение обязательным.
+One approval outcome action: an object with exactly one key. In strings, $.path expressions; the ! suffix makes the value required.
 
 | Поле | Тип | Обязательно | Описание |
 |---|---|---|---|
@@ -292,30 +463,30 @@ _Раздел генерируется из кода — не правьте е�
 | `completeTask` | [объект](#schema-outcomeaction-completetask) |  |  |
 | `comment` | [объект](#schema-outcomeaction-comment) |  |  |
 | `transition` | [объект](#schema-outcomeaction-transition) |  |  |
-| `invokeSkill` | [объект](#schema-outcomeaction-invokeskill) |  | Вызов скилла; реакции исполняются по итогу вызова |
+| `invokeSkill` | [объект](#schema-outcomeaction-invokeskill) |  | Skill call; reactions run on the call's outcome |
 
 ### `outcomeAction.ensureWork` { #schema-outcomeaction-ensurework }
 
 | Поле | Тип | Обязательно | Описание |
 |---|---|---|---|
-| `type` | `string` | да | Ключ типа задачи |
-| `key` | `string` | да | Ключ идемпотентности создаваемой работы |
+| `type` | `string` | да | Task type key |
+| `key` | `string` | да | Idempotency key of the created work |
 | `title` | `string` | да |  |
 | `description` | `string` |  |  |
 | `assignee` | `string` |  |  |
 | `priority` | `string` |  |  |
 | `workspace` | `string` |  |  |
 | `relation` | map → `string` |  |  |
-| `customFields` | map → `string` |  | Поля создаваемой задачи — выражения/шаблоны; проверяются по fieldSchema целевого типа при исполнении |
-| `requestApproval` | [объект](#schema-outcomeaction-ensurework-requestapproval) |  | Gate-approval на только что созданной задаче |
+| `customFields` | map → `string` |  | Fields of the created task: expressions/templates; checked against the target type's fieldSchema at execution |
+| `requestApproval` | [объект](#schema-outcomeaction-ensurework-requestapproval) |  | Gate approval on the task just created |
 
 ### `outcomeAction.ensureWork.requestApproval` { #schema-outcomeaction-ensurework-requestapproval }
 
-Gate-approval на только что созданной задаче
+Gate approval on the task just created
 
 | Поле | Тип | Обязательно | Описание |
 |---|---|---|---|
-| `assignee` | `string` | да |  |
+| `assignee` | `string` | да | Principal id or role:&lt;slug&gt;, a role declared by the package (its holder decides); an expression or template |
 | `comment` | `string` |  |  |
 
 ### `outcomeAction.completeTask` { #schema-outcomeaction-completetask }
@@ -340,19 +511,19 @@ Gate-approval на только что созданной задаче
 
 ### `outcomeAction.invokeSkill` { #schema-outcomeaction-invokeskill }
 
-Вызов скилла; реакции исполняются по итогу вызова
+Skill call; reactions run on the call's outcome
 
 | Поле | Тип | Обязательно | Описание |
 |---|---|---|---|
-| `skill` | `string` | да | name@version (для external_write — обязательно с версией) |
-| `inputs` | `object` |  | входы скилла; строки — выражения $.task…, $.spawnedBy…, $.approval… |
-| `expect` | `object` |  | ожидаемые поля outputs; расхождение — onFailure |
+| `skill` | `string` | да | name@version (required with a version for external_write) |
+| `inputs` | `object` |  | skill inputs; strings are $.task…, $.spawnedBy…, $.approval… expressions |
+| `expect` | `object` |  | expected outputs fields; a mismatch triggers onFailure |
 | `onSuccess` | array of [`outcomeAction`](#schema-outcomeaction) |  |  |
 | `onFailure` | array of [`outcomeAction`](#schema-outcomeaction) |  |  |
 
 ### `artifactSchema` { #schema-artifactschema }
 
-Входы и выходы типа задачи. Вход — head-ревизии артефактов нужного типа у задач по связи; без обязательного входа claim отвергается (409 input_missing). Обязательный выход — детерминированный критерий стадии проверки.
+Task type inputs and outputs. An input is the head revisions of artifacts of the required type on tasks via a relation; without a required input, claim is rejected (409 input_missing). A required output is a deterministic criterion of the verification stage.
 
 | Поле | Тип | Обязательно | Описание |
 |---|---|---|---|
@@ -368,7 +539,7 @@ Gate-approval на только что созданной задаче
 | `key` | любое | | |
 | `type` | любое | | |
 | `required` | любое | | |
-| `from` | `depends_on` \| `spawned_by` \| `parent` | да | Связь, по которой ищется задача-источник |
+| `from` | `depends_on` \| `spawned_by` \| `parent` | да | Relation used to find the source task |
 
 ### `artifactSchema.outputs[]` { #schema-artifactschema-outputs-item }
 
@@ -380,20 +551,20 @@ Gate-approval на только что созданной задаче
 | `type` | любое | | |
 | `required` | любое | | |
 | `mediaTypes` | любое | | |
-| `content` | `required` \| `optional` |  | Нужно ли содержимое в хранилище (иначе достаточно ссылки). По умолчанию `required`. |
+| `content` | `required` \| `optional` |  | Whether the content must be in storage (otherwise a reference is enough). По умолчанию `required`. |
 
 ### `artifactSlot` { #schema-artifactslot }
 
 | Поле | Тип | Обязательно | Описание |
 |---|---|---|---|
-| `key` | `string` | да | Имя входа или выхода; уникально внутри inputs и внутри outputs |
-| `type` | [`typeKey`](#schema-typekey) | да | Ключ типа артефакта (ArtifactType) |
+| `key` | `string` | да | Input or output name; unique within inputs and within outputs |
+| `type` | [`typeKey`](#schema-typekey) | да | Artifact type key (ArtifactType) |
 | `required` | `boolean` |  | По умолчанию `false`. |
-| `mediaTypes` | array of [`mediaType`](#schema-mediatype) |  | Сужение media types типа артефакта (подмножество его mediaTypes) |
+| `mediaTypes` | array of [`mediaType`](#schema-mediatype) |  | Narrowing of the artifact type's media types (a subset of its mediaTypes) |
 
 ### `acceptanceCriterion` { #schema-acceptancecriterion }
 
-Критерий приёмки: грамматику spec по виду проверяет ядро
+Acceptance criterion: the core checks the spec grammar per kind
 
 | Поле | Тип | Обязательно | Описание |
 |---|---|---|---|
@@ -401,7 +572,7 @@ Gate-approval на только что созданной задаче
 | `kind` | `deterministic` \| `external_state` \| `human` \| `llm_judge` | да |  |
 | `description` | `string` | да |  |
 | `spec` | `object` |  |  |
-| `when` | array of `string` |  | Пути $.task…; критерий исполняется, только если все непусты, иначе skipped |
+| `when` | array of `string` |  | $.task… paths; the criterion runs only if all are non-empty, otherwise skipped |
 <!-- /generated:schema-task-type -->
 
 ## Шаблон проекта (`kind: ProjectTemplate`) { #project-template }
@@ -409,7 +580,7 @@ Gate-approval на только что созданной задаче
 <!-- generated:schema-project-template -->
 _Раздел генерируется из кода — не правьте его руками._
 
-Источник: `package-sdk/schema/v1/object.schema.json`.
+Источник: `sdk/package-sdk/schema/v1/object.schema.json`.
 
 ### `projectTemplateSpec` { #schema-projecttemplatespec }
 
@@ -472,7 +643,7 @@ _Раздел генерируется из кода — не правьте е�
 <!-- generated:schema-workspace-type -->
 _Раздел генерируется из кода — не правьте его руками._
 
-Источник: `package-sdk/schema/v1/object.schema.json`.
+Источник: `sdk/package-sdk/schema/v1/object.schema.json`.
 
 ### `workspaceTypeSpec` { #schema-workspacetypespec }
 
@@ -489,7 +660,7 @@ _Раздел генерируется из кода — не правьте е�
 <!-- generated:schema-role -->
 _Раздел генерируется из кода — не правьте его руками._
 
-Источник: `package-sdk/schema/v1/object.schema.json`.
+Источник: `sdk/package-sdk/schema/v1/object.schema.json`.
 
 ### `roleSpec` { #schema-rolespec }
 
@@ -504,7 +675,7 @@ _Раздел генерируется из кода — не правьте е�
 <!-- generated:schema-capability -->
 _Раздел генерируется из кода — не правьте его руками._
 
-Источник: `package-sdk/schema/v1/object.schema.json`.
+Источник: `sdk/package-sdk/schema/v1/object.schema.json`.
 
 ### `capabilitySpec` { #schema-capabilityspec }
 
@@ -513,18 +684,79 @@ _Раздел генерируется из кода — не правьте е�
 | `description` | `string` |  |  |
 <!-- /generated:schema-capability -->
 
+## Тип подключения (`kind: ConnectionType`) { #connection-type }
+
+<!-- generated:schema-connection-type -->
+_Раздел генерируется из кода — не правьте его руками._
+
+Источник: `sdk/package-sdk/schema/v1/object.schema.json`.
+
+### `connectionTypeSpec` { #schema-connectiontypespec }
+
+Connection type: what it takes to connect a system of this kind. Versions work as for Skill: the package sets the version, and a published (key, version) pair is immutable. A type carries no secret values: an administrator enters them in the console.
+
+| Поле | Тип | Обязательно | Описание |
+|---|---|---|---|
+| `version` | `integer` | да | The package sets the version of the type; a published version is immutable |
+| `displayName` | [`displayName`](#schema-displayname) | да |  |
+| `description` | `string` |  |  |
+| `auth` | array of `oauth2` \| `token` | да | Ways to connect: oauth2 — a person consents at the provider, token — a long-lived key an administrator pastes |
+| `oauth2` | [объект](#schema-connectiontypespec-oauth2) |  |  |
+| `accountField` | [объект](#schema-connectiontypespec-accountfield) |  | Account field: its label in the key form and the account check; required with token or with {account} in tokenUrlTemplate |
+| `settingsSchema` | [объект](#schema-connectiontypespec-settingsschema) | да | JSON Schema (draft 2020-12) of the connection's non-secret settings, root type: object. Properties named like secrets (password, token, clientSecret…) are refused |
+| `defaultKey` | [`connectionKey`](#schema-connectionkey) | да | Key of the default connection — the agents of the package name it in Agent.spec.connections |
+
+Условия:
+
+| Условие | Следствие |
+|---|---|
+| всегда | обязательно `oauth2` |
+| всегда | обязательно `accountField` |
+| всегда | обязательно `accountField`; `oauth2`:  |
+
+### `connectionTypeSpec.oauth2` { #schema-connectiontypespec-oauth2 }
+
+| Поле | Тип | Обязательно | Описание |
+|---|---|---|---|
+| `authorizeUrl` | `string` (uri) | да | Where a person is sent to consent |
+| `tokenUrlTemplate` | `string` | да | Address of the code exchange and refresh; the only placeholder is {account}, the host is an external DNS name |
+| `accountParam` | `string` |  | Callback parameter that names the account; required when tokenUrlTemplate has {account} |
+| `authStyle` | `in_params` \| `in_header` | да | How the client id and secret go to the exchange address: in the request body or as Authorization: Basic |
+| `scopes` | array of `string` | да | Requested permissions |
+
+### `connectionTypeSpec.accountField` { #schema-connectiontypespec-accountfield }
+
+Account field: its label in the key form and the account check; required with token or with {account} in tokenUrlTemplate
+
+| Поле | Тип | Обязательно | Описание |
+|---|---|---|---|
+| `title` | `string` | да |  |
+| `description` | `string` |  |  |
+| `pattern` | `string` | да | Regular expression the whole account matches |
+
+### `connectionTypeSpec.settingsSchema` { #schema-connectiontypespec-settingsschema }
+
+JSON Schema (draft 2020-12) of the connection's non-secret settings, root type: object. Properties named like secrets (password, token, clientSecret…) are refused
+
+Включает [`jsonSchema`](#schema-jsonschema).
+
+| Поле | Тип | Обязательно | Описание |
+|---|---|---|---|
+| `type` | = `object` | да |  |
+<!-- /generated:schema-connection-type -->
+
 ## Скилл (`kind: Skill`) { #skill }
 
 <!-- generated:schema-skill -->
 _Раздел генерируется из кода — не правьте его руками._
 
-Источник: `package-sdk/schema/v1/object.schema.json`.
+Источник: `sdk/package-sdk/schema/v1/object.schema.json`.
 
 ### `skillSpec` { #schema-skillspec }
 
 | Поле | Тип | Обязательно | Описание |
 |---|---|---|---|
-| `version` | `string` | да | Версию скилла задаёт пакет |
+| `version` | `string` | да | The package sets the skill version |
 | `description` | `string` |  |  |
 | `protocol` | `mcp` \| `http` \| `local` \| `opencode` \| `custom` |  |  |
 | `config` | `object` |  |  |
@@ -536,7 +768,7 @@ _Раздел генерируется из кода — не правьте е�
 
 ### `skillContract` { #schema-skillcontract }
 
-Контракт Skill v1. Неизменяем в версии.
+Skill v1 contract. Immutable within a version.
 
 | Поле | Тип | Обязательно | Описание |
 |---|---|---|---|
@@ -570,9 +802,9 @@ _Раздел генерируется из кода — не правьте е�
 | Поле | Тип | Обязательно | Описание |
 |---|---|---|---|
 | `protocol` | `http` \| `local` \| `mcp` | да |  |
-| `endpoint` | `string` |  | http: адрес; допускает ${ПЕРЕМЕННУЮ} окружения |
-| `entrypoint` | `string` |  | local: module:function; mcp: имя инструмента |
-| `auth` | `object` |  | audience или secretRef; никаких секретов |
+| `endpoint` | `string` |  | http: address; allows an environment ${VARIABLE} |
+| `entrypoint` | `string` |  | local: module:function; mcp: tool name |
+| `auth` | `object` |  | audience or secretRef; no secrets |
 <!-- /generated:schema-skill -->
 
 ## Правило вывода работы (`kind: WorkRule`) { #work-rule }
@@ -580,11 +812,11 @@ _Раздел генерируется из кода — не правьте е�
 <!-- generated:schema-work-rule -->
 _Раздел генерируется из кода — не правьте его руками._
 
-Источник: `package-sdk/schema/v1/object.schema.json`.
+Источник: `sdk/package-sdk/schema/v1/object.schema.json`.
 
 ### `workRuleSpec` { #schema-workrulespec }
 
-Правило вывода работы: ровно тело POST /rules без key. Грамматику условий и шаблонов проверяет ядро (normalize_rule_spec). workspaceId — топология установки: только через ${ПЕРЕМЕННУЮ}, задаётся при создании и дальше не меняется.
+Work rule: exactly the POST /rules body without key. The core checks the grammar of conditions and templates (normalize_rule_spec). workspaceId is installation topology: only via a ${VARIABLE}, set on creation and not changed afterwards.
 
 | Поле | Тип | Обязательно | Описание |
 |---|---|---|---|
@@ -594,14 +826,15 @@ _Раздел генерируется из кода — не правьте е�
 | `condition` | `object` \| `boolean` |  |  |
 | `interpretation` | [объект](#schema-workrulespec-interpretation) |  |  |
 | `action` | [объект](#schema-workrulespec-action) | да |  |
-| `identity` | [объект](#schema-workrulespec-identity) |  | От чьего имени действует правило: описание агента вида service или agent; без identity — полномочиями того, кто применил правило |
-| `status` | `enabled` \| `disabled` |  | По умолчанию enabled |
+| `identity` | [объект](#schema-workrulespec-identity) |  | On whose behalf the rule acts: an agent description of kind service or agent; without identity, with the authority of whoever applied the rule |
+| `status` | `enabled` \| `disabled` |  | enabled by default |
 
 ### `workRuleSpec.trigger` { #schema-workrulespec-trigger }
 
 | Поле | Тип | Обязательно | Описание |
 |---|---|---|---|
 | `kind` | `observation` \| `event` \| `schedule` | да |  |
+| `agent` | `string` |  | Only with observation: the observation matches when its author is the principal of this agent. An agent key or an installation ${VARIABLE} — a neutral package does not know the provider's agent |
 
 ### `workRuleSpec.interpretation` { #schema-workrulespec-interpretation }
 
@@ -615,20 +848,21 @@ _Раздел генерируется из кода — не правьте е�
 | Поле | Тип | Обязательно | Описание |
 |---|---|---|---|
 | `kind` | `ensure_work` \| `update_work` \| `cancel_work` \| `complete_work` \| `request_decision` | да |  |
-| `taskType` | `string` |  | Ключ типа или шаблон {{item.…}} — шаблон только при непустом taskTypes |
-| `taskTypes` | array of [`typeKey`](#schema-typekey) |  | Допустимые типы для шаблонного taskType |
+| `taskType` | `string` |  | Type key or a {{item.…}} template; a template only with non-empty taskTypes |
+| `taskTypes` | array of [`typeKey`](#schema-typekey) |  | Allowed types for a templated taskType; with complete_work and cancel_work with target: task — the types the rule may close |
+| `target` | `dedup` \| `task` |  | Only with complete_work and cancel_work: dedup — the work under the rule's key (the default), task — the task the triggering observation is bound to; needs taskTypes and an author filter trigger.agent or trigger.actorId |
 | `fields` | [объект](#schema-workrulespec-action-fields) |  |  |
 
 ### `workRuleSpec.action.fields` { #schema-workrulespec-action-fields }
 
 | Поле | Тип | Обязательно | Описание |
 |---|---|---|---|
-| `workspaceId` | `string` |  | Шаблон id workspace заводимой работы; по умолчанию — workspace правила |
-| `relations` | [объект](#schema-workrulespec-action-fields-relations) |  | Связи заводимой работы: spawnedBy — шаблон id задачи; dependsOn — ключи дедупликации работы этого правила (той же оценки или заведённой раньше) |
+| `workspaceId` | `string` |  | Template of the workspace id of the created work; defaults to the rule's workspace |
+| `relations` | [объект](#schema-workrulespec-action-fields-relations) |  | Relations of the created work: spawnedBy is a task id template; dependsOn are deduplication keys of this rule's work (from the same evaluation or created earlier) |
 
 ### `workRuleSpec.action.fields.relations` { #schema-workrulespec-action-fields-relations }
 
-Связи заводимой работы: spawnedBy — шаблон id задачи; dependsOn — ключи дедупликации работы этого правила (той же оценки или заведённой раньше)
+Relations of the created work: spawnedBy is a task id template; dependsOn are deduplication keys of this rule's work (from the same evaluation or created earlier)
 
 | Поле | Тип | Обязательно | Описание |
 |---|---|---|---|
@@ -637,7 +871,7 @@ _Раздел генерируется из кода — не правьте е�
 
 ### `workRuleSpec.identity` { #schema-workrulespec-identity }
 
-От чьего имени действует правило: описание агента вида service или agent; без identity — полномочиями того, кто применил правило
+On whose behalf the rule acts: an agent description of kind service or agent; without identity, with the authority of whoever applied the rule
 
 | Поле | Тип | Обязательно | Описание |
 |---|---|---|---|
@@ -649,23 +883,24 @@ _Раздел генерируется из кода — не правьте е�
 <!-- generated:schema-agent -->
 _Раздел генерируется из кода — не правьте его руками._
 
-Источник: `package-sdk/schema/v1/object.schema.json`.
+Источник: `sdk/package-sdk/schema/v1/object.schema.json`.
 
 ### `agentSpec` { #schema-agentspec }
 
-Агент: кто он, какую работу берёт, чем и как исполняет, где размещается. Каждое изменение — новая неизменяемая ревизия в ядре; прогон помнит ревизию.
+Agent: who it is, what work it takes, with what and how it executes, where it is placed. Every change is a new immutable revision in the core; a run remembers its revision.
 
 | Поле | Тип | Обязательно | Описание |
 |---|---|---|---|
 | `displayName` | [`displayName`](#schema-displayname) | да |  |
 | `description` | `string` |  |  |
-| `identity` | [объект](#schema-agentspec-identity) | да | Личность: principal ядра и IAM и связка с правами — их заводит и поддерживает платформа. Права не шире прав того, кто применяет описание. |
-| `work` | [объект](#schema-agentspec-work) |  | Какую работу агент берёт из очереди |
-| `executor` | [объект](#schema-agentspec-executor) |  | Чем агент исполняет работу. Вид — данные (строка для ядра); образ по умолчанию выбирает узел, image из описания — только из списка узла. |
-| `workingCopy` | `object` |  | Рабочая копия задачи. Толкует демон исполнителя, ядро хранит объект как данные; форму задаёт вид исполнителя: формы по видам — agentWorkingCopies: у вида исполнителя кода — один репозиторий или каталог с полем задачи, у остальных видов — один репозиторий |
-| `skills` | [объект](#schema-agentspec-skills) |  | Какие скиллы агент исполняет сам и куда им можно ходить |
-| `placement` | = `none` или [объект `{requires, secrets, resources, replicas, drainSeconds}`](#schema-agentspec-placement-2) |  | Где и сколько: none — только личность, без процесса (сервисная учётка) |
+| `identity` | [объект](#schema-agentspec-identity) | да | Identity: the core and IAM principal and its binding to permissions, created and maintained by the platform. Permissions are no broader than those of whoever applies the description. |
+| `work` | [объект](#schema-agentspec-work) |  | What work the agent takes from the queue |
+| `executor` | [объект](#schema-agentspec-executor) |  | What the agent executes work with. The kind is data (a string for the core); the default image is chosen by the node, an image from the description only from the node's list. |
+| `workingCopy` | `object` |  | Task working copy. Interpreted by the executor daemon, the core stores the object as data; the shape is set by the executor kind: shapes per kind are in agentWorkingCopies: for the code executor kind, one repository or a catalog with a task field, for other kinds, one repository |
+| `skills` | [объект](#schema-agentspec-skills) |  | Which skills the agent executes itself and where they may connect |
+| `placement` | = `none` или [объект](#schema-agentspec-placement) — по условию |  | Where and how many: none means identity only, without a process (service account) |
 | `state` | `running` \| `stopped` |  | По умолчанию `running`. |
+| `connections` | array of [`connectionKey`](#schema-connectionkey) |  | Keys of the tenant's connections whose access material the agent may read. Whether such a connection exists is not checked on publish; a non-empty list needs connections.manage of whoever applies it |
 
 Условия:
 
@@ -677,47 +912,47 @@ _Раздел генерируется из кода — не правьте е�
 
 ### `agentSpec.identity` { #schema-agentspec-identity }
 
-Личность: principal ядра и IAM и связка с правами — их заводит и поддерживает платформа. Права не шире прав того, кто применяет описание.
+Identity: the core and IAM principal and its binding to permissions, created and maintained by the platform. Permissions are no broader than those of whoever applies the description.
 
 | Поле | Тип | Обязательно | Описание |
 |---|---|---|---|
 | `kind` | `agent` \| `service` | да |  |
-| `roles` | array of [`slug`](#schema-slug) |  | Роли tenant'а (из пакетов) |
+| `roles` | array of [`slug`](#schema-slug) |  | Tenant roles (from packages) |
 | `permissions` | array of [`permission`](#schema-permission) |  |  |
 | `capabilities` | array of `string` |  |  |
-| `iam` | [объект](#schema-agentspec-identity-iam) |  | IAM-часть учётки: audiences и потолок scope. Данные для того, кто выпускает учётку (bootstrap, контроллер узлов исполнителей); ядро их хранит, но не толкует. |
+| `iam` | [объект](#schema-agentspec-identity-iam) |  | IAM part of the account: audiences and the scope ceiling. Data for whoever issues the account (bootstrap, executor node controller); the core stores it but does not interpret it. |
 
 ### `agentSpec.identity.iam` { #schema-agentspec-identity-iam }
 
-IAM-часть учётки: audiences и потолок scope. Данные для того, кто выпускает учётку (bootstrap, контроллер узлов исполнителей); ядро их хранит, но не толкует.
+IAM part of the account: audiences and the scope ceiling. Data for whoever issues the account (bootstrap, executor node controller); the core stores it but does not interpret it.
 
 | Поле | Тип | Обязательно | Описание |
 |---|---|---|---|
 | `audiences` | array of `string` | да |  |
-| `scopeCeiling` | array of `string` | да | Scope вида &lt;audience&gt;:&lt;действие&gt; |
+| `scopeCeiling` | array of `string` | да | Scope &lt;audience&gt;:&lt;action&gt;, segments may be dotted (control-plane:read, iam:identities.link) |
 
 ### `agentSpec.work` { #schema-agentspec-work }
 
-Какую работу агент берёт из очереди
+What work the agent takes from the queue
 
 | Поле | Тип | Обязательно | Описание |
 |---|---|---|---|
 | `workspace` | [`envOrUuid`](#schema-envoruuid) |  |  |
 | `project` | [`envOrUuid`](#schema-envoruuid) |  |  |
 | `includeSubprojects` | `boolean` |  | По умолчанию `false`. |
-| `onlyAssigned` | `boolean` |  | Только назначенная ему работа. По умолчанию `true`. |
-| `taskTypes` | array of [`typeKey`](#schema-typekey) |  | Пусто — любые типы |
+| `onlyAssigned` | `boolean` |  | Only work assigned to it. По умолчанию `true`. |
+| `taskTypes` | array of [`typeKey`](#schema-typekey) |  | Empty means any types |
 
 ### `agentSpec.executor` { #schema-agentspec-executor }
 
-Чем агент исполняет работу. Вид — данные (строка для ядра); образ по умолчанию выбирает узел, image из описания — только из списка узла.
+What the agent executes work with. The kind is data (a string for the core); the default image is chosen by the node, an image from the description only from the node's list.
 
 | Поле | Тип | Обязательно | Описание |
 |---|---|---|---|
 | `kind` | `claude-code` \| `codex` \| `skills` \| `git-connector` \| `observer` | да |  |
 | `params` | `object` |  |  |
-| `image` | `string` |  | Образ исполнителя: [registry[:port]/]path:tag, …@sha256:&lt;64 hex&gt; или …:tag@sha256:&lt;64 hex&gt; — тег или дайджест обязателен. Узел запускает его, только если образ есть в списке executors.&lt;вид&gt;.images узла, иначе image_not_allowed; без поля — образ вида по умолчанию |
-| `instructions` | `string` |  | Инструкции исполнителю — слой после инструкций платформы, проекта и типа задачи |
+| `image` | `string` |  | Executor image: [registry[:port]/]path:tag, …@sha256:&lt;64 hex&gt; or …:tag@sha256:&lt;64 hex&gt;; a tag or digest is required. The node runs it only if the image is in the node's executors.&lt;kind&gt;.images list, otherwise image_not_allowed; without the field, the kind's default image |
+| `instructions` | `string` |  | Instructions for the executor: a layer after the platform, project and task type instructions |
 
 Условия:
 
@@ -731,44 +966,44 @@ IAM-часть учётки: audiences и потолок scope. Данные д�
 
 ### `agentSpec.skills` { #schema-agentspec-skills }
 
-Какие скиллы агент исполняет сам и куда им можно ходить
+Which skills the agent executes itself and where they may connect
 
 | Поле | Тип | Обязательно | Описание |
 |---|---|---|---|
 | `protocols` | array of `local` \| `http` \| `mcp` |  |  |
-| `local` | array of `string` |  | Разрешённые entrypoints или пакеты |
+| `local` | array of `string` |  | Allowed entrypoints or packages |
 | `httpOrigins` | array of `string` |  |  |
 | `mcpOrigins` | array of `string` |  |  |
-| `audiences` | array of `string` |  | Audiences IAM, в которые скиллы получают токен |
+| `audiences` | array of `string` |  | IAM audiences the skills get a token for |
 | `concurrency` | `integer` |  |  |
-| `invoke` | array of `string` |  | Версии скиллов, которые агент вызывает через ядро (имя@версия), а не исполняет сам; реестр назначает их principal'у агента |
+| `invoke` | array of `string` |  | Skill versions the agent invokes through the core (name@version) rather than executing itself; the registry assigns them to the agent's principal |
 
-### `agentSpec.placement (2)` { #schema-agentspec-placement-2 }
+### `agentSpec.placement` { #schema-agentspec-placement }
 
 | Поле | Тип | Обязательно | Описание |
 |---|---|---|---|
-| `requires` | array of [`nodeLabel`](#schema-nodelabel) |  | Метки, которые должны быть у узла |
-| `secrets` | array of [`secretName`](#schema-secretname) |  | Секреты, которые должны быть на узле: статические (файл в каталоге секретов узла) и выдаваемые — их узел выпускает сам и обновляет, например часовой forge-token из установки приложения forge. Объявляются одинаково, по имени; материал в описание не пишется |
-| `resources` | [объект](#schema-agentspec-placement-2-resources) |  |  |
+| `requires` | array of [`nodeLabel`](#schema-nodelabel) |  | Labels the node must have |
+| `secrets` | array of [`secretName`](#schema-secretname) |  | Secrets the node must have: static ones (a file in the node's secrets directory) and issued ones, which the node issues and renews itself, e.g. an hourly forge-token from the forge app installation. Declared the same way, by name; the material is not written into the description |
+| `resources` | [объект](#schema-agentspec-placement-resources) |  |  |
 | `replicas` | `integer` |  | По умолчанию `1`. |
-| `drainSeconds` | `integer` |  | Сколько ждать текущий прогон перед переходом на новую ревизию. По умолчанию `14400`. |
+| `drainSeconds` | `integer` |  | How long to wait for the current run before switching to a new revision. По умолчанию `14400`. |
 
-### `agentSpec.placement (2).resources` { #schema-agentspec-placement-2-resources }
+### `agentSpec.placement.resources` { #schema-agentspec-placement-resources }
 
 | Поле | Тип | Обязательно | Описание |
 |---|---|---|---|
-| `cpus` | `number` |  |  |
+| `cpus` | `integer` |  | Whole CPUs: the core canonical hash of a revision rejects fractional numbers (non_canonical_value) |
 | `memoryMb` | `integer` |  |  |
 
 ### `permission` { #schema-permission }
 
-Право Control Plane, например tasks.claim
+Control Plane permission, e.g. tasks.claim
 
 Значение: `string`.
 
 ### `agentExecutors` { #schema-agentexecutors }
 
-Параметры видов исполнителя; ядро хранит их, не толкуя, проверяет эта схема и адаптер
+Executor kind parameters; the core stores them without interpreting, this schema and the adapter check them
 
 Набор определений: [`agentExecutors/claude-code`](#schema-agentexecutors-claude-code), [`agentExecutors/codex`](#schema-agentexecutors-codex), [`agentExecutors/skills`](#schema-agentexecutors-skills), [`agentExecutors/git-connector`](#schema-agentexecutors-git-connector), [`agentExecutors/observer`](#schema-agentexecutors-observer).
 
@@ -780,11 +1015,11 @@ IAM-часть учётки: audiences и потолок scope. Данные д�
 | `permissionMode` | `default` \| `acceptEdits` \| `plan` \| `bypassPermissions` |  | По умолчанию `acceptEdits`. |
 | `timeoutSeconds` | `integer` |  | По умолчанию `3600`. |
 | `resume` | `boolean` |  | По умолчанию `true`. |
-| `tools` | [объект](#schema-agentexecutors-claude-code-tools) |  | Сужение инструментов агента; запрет авторитетных команд Control Plane не снимается |
+| `tools` | [объект](#schema-agentexecutors-claude-code-tools) |  | Narrowing of the agent's tools; the ban on authoritative Control Plane commands is not lifted |
 
 ### `agentExecutors/claude-code.tools` { #schema-agentexecutors-claude-code-tools }
 
-Сужение инструментов агента; запрет авторитетных команд Control Plane не снимается
+Narrowing of the agent's tools; the ban on authoritative Control Plane commands is not lifted
 
 | Поле | Тип | Обязательно | Описание |
 |---|---|---|---|
@@ -799,67 +1034,69 @@ IAM-часть учётки: audiences и потолок scope. Данные д�
 | `sandbox` | `read-only` \| `workspace-write` \| `danger-full-access` |  | По умолчанию `workspace-write`. |
 | `timeoutSeconds` | `integer` |  | По умолчанию `3600`. |
 | `resume` | `boolean` |  | По умолчанию `true`. |
-| `credentialClass` | `subscription` \| `api_key` |  | Чей credential расходуется |
+| `credentialClass` | `subscription` \| `api_key` |  | Whose credential is consumed |
 
 ### `agentExecutors/skills` { #schema-agentexecutors-skills }
 
-Исполнитель только скиллов: параметров нет, что исполнять — секция skills агента
+Skills-only executor: what to execute is the agent's skills section; params are non-secret skill settings
 
-Значение: `object`.
+| Поле | Тип | Обязательно | Описание |
+|---|---|---|---|
+| `env` | map → `string` |  | Non-secret skill settings (portal address, limits): environment variables of every local skill call on the skills host. No secrets here: names like *TOKEN, *SECRET, *PASSWORD, *API_KEY are forbidden, secrets come as node secret files (placement.secrets); host names (CONTROL_PLANE_*, IAM_*, PATH…) are forbidden too |
 
 ### `agentExecutors/git-connector` { #schema-agentexecutors-git-connector }
 
-Источник наблюдений git: что наблюдать и какие наблюдения порождать. Курсор — в томе реплики, наблюдения — POST /observations workspace агента.
+Git observation source: what to observe and which observations to produce. The cursor lives in the replica volume, observations go to POST /observations of the agent's workspace.
 
 | Поле | Тип | Обязательно | Описание |
 |---|---|---|---|
 | `repositories` | array of [объект](#schema-agentexecutors-git-connector-repositories-item) | да |  |
 | `observe` | array of `commits` \| `adrRegistry` \| `ciRuns` |  | commits — repo.commit_observed; adrRegistry — adr.registry_observed; ciRuns — ci.run_observed. По умолчанию `["commits"]`. |
 | `intervalSeconds` | `integer` |  | По умолчанию `300`. |
-| `knowledgeSnapshots` | `boolean` |  | Отдавать снимки контрактов в память через POST /knowledge/snapshots. По умолчанию `true`. |
-| `registryRepository` | `string` |  | Из какого репозитория читать реестр ADR (имя из repositories) |
-| `ciRepository` | `string` |  | owner/repo прогонов CI |
+| `knowledgeSnapshots` | `boolean` |  | Send contract snapshots to memory via POST /knowledge/snapshots. По умолчанию `true`. |
+| `registryRepository` | `string` |  | Repository to read the ADR registry from (a name from repositories) |
+| `ciRepository` | `string` |  | owner/repo of CI runs |
 | `ciBranch` | `string` |  | По умолчанию `main`. |
 
 ### `agentExecutors/git-connector.repositories[]` { #schema-agentexecutors-git-connector-repositories-item }
 
 | Поле | Тип | Обязательно | Описание |
 |---|---|---|---|
-| `name` | `string` | да | Имя в наблюдениях (payload.data.repo, source git:&lt;name&gt;) |
+| `name` | `string` | да | Name in observations (payload.data.repo, source git:&lt;name&gt;) |
 | `url` | `string` | да |  |
 | `branch` | `string` |  | По умолчанию `main`. |
 
 ### `agentExecutors/observer` { #schema-agentexecutors-observer }
 
-Источник наблюдений пакета интеграции (коннектор = наблюдатель + скиллы): долгоживущий процесс, который по циклу опрашивает внешнюю систему и пишет наблюдения в workspace агента (POST /observations). Что опрашивать — config, его толкует код интеграции; какой код — entrypoint, его должен содержать образ вида observer на узле. Курсор — в томе реплики, секреты — только файлами секретов узла (placement.secrets).
+Integration package observation source (connector = observer + skills): a long-lived process that polls an external system in a loop and writes observations to the agent's workspace (POST /observations). What to poll is config, interpreted by the integration code; which code is entrypoint, which the observer kind image on the node must contain. The cursor lives in the replica volume, secrets come only as node secret files (placement.secrets).
 
 | Поле | Тип | Обязательно | Описание |
 |---|---|---|---|
-| `entrypoint` | `string` | да | Наблюдатель интеграции «модуль:функция»; процесс образа проверяет, что исполняет именно его |
+| `entrypoint` | `string` | да | Integration observer "module:function"; the image process checks that it executes exactly this one |
 | `intervalSeconds` | `integer` |  | По умолчанию `900`. |
-| `config` | `object` |  | Параметры интеграции (фильтры, адреса, лимиты) — данные пакета. Секретов здесь нет: ключи вида *token, *secret, *password запрещены |
+| `config` | `object` |  | Integration parameters (filters, addresses, limits) are package data. No secrets here: keys like *token, *secret, *password are forbidden |
 
 ### `nodeLabel` { #schema-nodelabel }
 
-Метка узла: имя или имя=значение
+Node label: name or name=value
 
 Значение: `string`.
 
 ### `secretName` { #schema-secretname }
 
-Имя секрета на узле; значение в описание не пишется
+Secret name on the node; the value is not written into the description
 
 Значение: `string`.
 
 ### `agentWorkingCopies` { #schema-agentworkingcopies }
 
-Формы раздела workingCopy по видам исполнителя: ядро хранит раздел как данные, проверяют эта схема и демон исполнителя
+Shapes of the workingCopy section per executor kind: the core stores the section as data, this schema and the executor daemon check it
 
 Набор определений: [`agentWorkingCopies/single`](#schema-agentworkingcopies-single), [`agentWorkingCopies/catalog`](#schema-agentworkingcopies-catalog), [`agentWorkingCopies/catalogEntry`](#schema-agentworkingcopies-catalogentry), [`agentWorkingCopies/claude-code`](#schema-agentworkingcopies-claude-code).
 
 ### `agentWorkingCopies/claude-code` { #schema-agentworkingcopies-claude-code }
 
-Один репозиторий (прежняя форма) или каталог: наличие repositories или repositoryField выбирает каталог
+One repository (legacy shape) or a catalog: the presence of repositories or repositoryField selects the catalog
 
 Значение: [`agentWorkingCopies/catalog`](#schema-agentworkingcopies-catalog) или [`agentWorkingCopies/single`](#schema-agentworkingcopies-single) — по условию.
 
@@ -872,18 +1109,19 @@ IAM-часть учётки: audiences и потолок scope. Данные д�
 
 ### `agentWorkingCopies/catalog` { #schema-agentworkingcopies-catalog }
 
-Каталог репозиториев — единственный источник адресов клона, соседей и публикации. Репозиторий задачи — ключ каталога или псевдоним в поле задачи repositoryField; адрес из задачи не принимается, значения по умолчанию нет. Ключи и псевдонимы сопоставляются без учёта регистра (casefold) — так разрешают ключ задачи демон исполнителя и tasks.check@1. Ссылку superproject на ключ каталога, однозначность ключей и псевдонимов (casefold), адресов (нормализованных) и каталогов между записями проверяет package-sdk check
+Repository catalog: the only source of clone, neighbour and publication addresses. The task repository is a catalog key or an alias in the task field repositoryField; an address from the task is not accepted, there is no default. Keys and aliases are matched case-insensitively (casefold): this is how the executor daemon and tasks.check@1 resolve the task key. package-sdk check verifies that superproject refers to a catalog key and that keys and aliases (casefold), addresses (normalized) and directories are unambiguous across entries
 
 | Поле | Тип | Обязательно | Описание |
 |---|---|---|---|
-| `repositoryField` | `string` | да | Имя поля customFields задачи с ключом репозитория (у coding-task — repositoryKey) |
-| `superproject` | любое |  | Ключ каталога, чьи сабмодули закрепляют ревизии соседей |
-| `publish` | `boolean` |  | Публиковать ветку задачи в forge; запись каталога может переопределить. По умолчанию `true`. |
+| `repositoryField` | `string` | да | Name of the task's customFields field holding the repository key (repositoryKey for coding-task) |
+| `superproject` | любое |  | Catalog key whose submodules pin the neighbours' revisions |
+| `publish` | `boolean` |  | Publish the task branch to the forge; a catalog entry may override it. По умолчанию `true`. |
+| `checks` | `boolean` |  | Run the checks of .agents/runner.yaml of the base revision before hand-in; the report goes to metadata.checks of the commit artifact. По умолчанию `false`. |
 | `repositories` | map → [`agentWorkingCopies/catalogEntry`](#schema-agentworkingcopies-catalogentry) | да |  |
 
 ### `repositoryKey` { #schema-repositorykey }
 
-Канонический ключ репозитория в каталоге рабочей копии: ASCII, как в customFields задачи. Ключи и псевдонимы сопоставляются без учёта регистра (casefold): так разрешают ключ задачи демон исполнителя и tasks.check@1
+Canonical repository key in the working copy catalog: ASCII, as in the task's customFields. Keys and aliases are matched case-insensitively (casefold): this is how the executor daemon and tasks.check@1 resolve the task key
 
 Значение: `string`.
 
@@ -891,41 +1129,48 @@ IAM-часть учётки: audiences и потолок scope. Данные д�
 
 | Поле | Тип | Обязательно | Описание |
 |---|---|---|---|
-| `url` | `string` | да | Адрес клона: ${ПЕРЕМЕННАЯ} установки или https без учётных данных, запроса и фрагмента (топология окружения в пакет не пишется). Хост — метки DNS, порт 1–65535; сегменты пути — ASCII без dot-сегментов и ведущей точки: имя зеркала берётся из последнего сегмента. Совпадение адресов двух записей package-sdk check ищет после нормализации (без завершающего /, без .git, без учёта регистра) |
-| `baseRef` | `string` |  | Базовая ветка задачи — имя ref git: без ведущих - / ., без пробелов и управляющих символов, без .., @{, //, ~^:?*[\ и завершающих / . .lock |
-| `directory` | `string` |  | Имя каталога в рабочей копии (плоская раскладка); не повторяет каталог или ключ другой записи — проверяет package-sdk check |
-| `publish` | `boolean` |  | false — сосед, в который агент не пишет; по умолчанию — publish каталога |
-| `aliases` | array of [`repositoryAlias`](#schema-repositoryalias) |  | Прежние имена, которые принимаются вместо ключа; сопоставление без учёта регистра (casefold), поэтому псевдонимы не повторяют ни свои, ни чужие ключи и псевдонимы и в другом регистре |
+| `url` | `string` | да | Clone address: an installation ${VARIABLE} or https without credentials, query and fragment (environment topology is not written into the package). Host: DNS labels, port 1–65535; path segments: ASCII without dot segments or a leading dot, since the mirror name is taken from the last segment. package-sdk check looks for matching addresses of two entries after normalization (no trailing /, no .git, case-insensitive) |
+| `baseRef` | `string` |  | Task base branch, a git ref name: no leading - / ., no spaces or control characters, no .., @{, //, ~^:?*[\ and no trailing / . .lock |
+| `directory` | любое |  | Directory in the working copy: a name (flat layout) or a path of several segments (services/control-plane). It does not repeat the directory or the key of another entry, and is neither inside the directory of another entry nor contains it — checked by package-sdk check |
+| `publish` | `boolean` |  | false means a neighbour the agent does not write to; defaults to the catalog's publish |
+| `aliases` | array of [`repositoryAlias`](#schema-repositoryalias) |  | Former names accepted instead of the key; matching is case-insensitive (casefold), so aliases repeat neither their own nor other keys and aliases, even in another case |
+
+### `workingCopyPath` { #schema-workingcopypath }
+
+A directory in the working copy relative to its root: one name (flat layout, control-plane) or a path of several segments joined by / (services/control-plane, sdk/platform-auth-sdk). A segment starts with a lowercase Latin letter or a digit, so . and .. do not pass; an absolute path, an empty segment (//, a trailing /) and a backslash are rejected
+
+Значение: `string`.
 
 ### `repositoryAlias` { #schema-repositoryalias }
 
-Прежнее имя репозитория (ключ карты, строка «Репозиторий» документа задач, ключ дедупликации коннектора): буквы латиницы и кириллицы, цифры, . _ -. Сопоставляется с ключом задачи без учёта регистра (casefold)
+Former repository name (map key, repository row of the task document, connector deduplication key): Latin and Cyrillic letters, digits, . _ -. Matched against the task key case-insensitively (casefold)
 
 Значение: `string`.
 
 ### `agentWorkingCopies/single` { #schema-agentworkingcopies-single }
 
-Прежняя форма: один репозиторий, соседи и суперпроект адресами
+Legacy shape: one repository, neighbours and superproject by address
 
 | Поле | Тип | Обязательно | Описание |
 |---|---|---|---|
 | `repository` | `string` | да |  |
-| `directory` | `string` |  | Имя каталога репозитория в рабочей копии (плоская раскладка) |
+| `directory` | любое |  | Directory of the repository in the working copy: a name (flat layout) or a path of several segments |
 | `baseRef` | `string` |  |  |
-| `neighbours` | map → `string` |  | Соседние репозитории на ревизиях, закреплённых суперпроектом |
+| `neighbours` | map → `string` |  | Neighbour repositories at revisions pinned by the superproject. The key is the neighbour's directory in the working copy: a name or a path of several segments |
 | `superproject` | `string` |  |  |
-| `publish` | `boolean` |  | Публиковать ветку задачи в forge. По умолчанию `true`. |
-| `review` | [объект](#schema-agentworkingcopies-single-review) |  | Устарело: ревью объявляет тип задачи критериями приёмки; секция удаляется вместе с авто-ревью демона |
+| `publish` | `boolean` |  | Publish the task branch to the forge. По умолчанию `true`. |
+| `checks` | `boolean` |  | Run the checks of .agents/runner.yaml of the base revision before hand-in; the report goes to metadata.checks of the commit artifact. По умолчанию `false`. |
+| `review` | [объект](#schema-agentworkingcopies-single-review) |  | Deprecated: review is declared by the task type as acceptance criteria; the section is removed together with the daemon's auto-review |
 
 ### `agentWorkingCopies/single.review` { #schema-agentworkingcopies-single-review }
 
-Устарело: ревью объявляет тип задачи критериями приёмки; секция удаляется вместе с авто-ревью демона
+Deprecated: review is declared by the task type as acceptance criteria; the section is removed together with the daemon's auto-review
 
 | Поле | Тип | Обязательно | Описание |
 |---|---|---|---|
 | `mode` | `human` \| `agent` \| `none` |  |  |
 | `taskType` | [`typeKey`](#schema-typekey) |  |  |
-| `taskTypes` | array of [`typeKey`](#schema-typekey) |  | Для каких типов задач заводится ревью |
+| `taskTypes` | array of [`typeKey`](#schema-typekey) |  | Task types that get a review |
 | `reviewer` | [`envOrUuid`](#schema-envoruuid) |  |  |
 | `base` | `string` |  |  |
 <!-- /generated:schema-agent -->
@@ -935,11 +1180,11 @@ IAM-часть учётки: audiences и потолок scope. Данные д�
 <!-- generated:schema-notification-rule -->
 _Раздел генерируется из кода — не правьте его руками._
 
-Источник: `package-sdk/schema/v1/object.schema.json`.
+Источник: `sdk/package-sdk/schema/v1/object.schema.json`.
 
 ### `notificationRuleSpec` { #schema-notificationrulespec }
 
-Правило уведомления: событие ядра и условие → адресат → текст и кнопки. Хранит и исполняет сервис уведомлений; шаблоны — подстановка {{payload.…}}, {{event.…}}, {{task.…}} без логики.
+Notification rule: core event and condition → recipient → text and buttons. Stored and executed by the notification service; templates are {{payload.…}}, {{event.…}}, {{task.…}} substitution without logic.
 
 | Поле | Тип | Обязательно | Описание |
 |---|---|---|---|
@@ -948,34 +1193,34 @@ _Раздел генерируется из кода — не правьте е�
 | `recipient` | [объект](#schema-notificationrulespec-recipient) | да |  |
 | `notification` | [объект](#schema-notificationrulespec-notification) | да |  |
 | `dedupKeyTemplate` | `string` |  |  |
-| `close` | [объект](#schema-notificationrulespec-close) |  | Закрыть кнопки уведомления с тем же ключом дедупликации, когда пришло событие |
-| `status` | `enabled` \| `disabled` |  | По умолчанию enabled |
+| `close` | [объект](#schema-notificationrulespec-close) |  | Close the notification's buttons with the same deduplication key when the event arrives |
+| `status` | `enabled` \| `disabled` |  | enabled by default |
 
 ### `notificationRuleSpec.on` { #schema-notificationrulespec-on }
 
 | Поле | Тип | Обязательно | Описание |
 |---|---|---|---|
-| `type` | `string` | да | Тип события каталога ядра или префикс.* |
-| `when` | `object` \| `boolean` |  | Условие грамматики правил ядра над payload, event и task |
+| `type` | `string` | да | Core catalog event type or a prefix.* |
+| `when` | `object` \| `boolean` |  | Condition in the core rule grammar over payload, event and task |
 
 ### `notificationRuleSpec.recipient` { #schema-notificationrulespec-recipient }
 
 | Поле | Тип | Обязательно | Описание |
 |---|---|---|---|
 | `kind` | `assigned` \| `role` \| `taskOwner` \| `taskAssignee` \| `principal` | да |  |
-| `ref` | `string` |  | Путь к principal или роли в событии (assigned, role) или id/переменная (principal) |
-| `workspace` | `string` |  | Путь к workspace для role; по умолчанию workspace события |
+| `ref` | `string` |  | Path to a principal or role in the event (assigned, role) or an id/variable (principal) |
+| `workspace` | `string` |  | Path to the workspace for role; defaults to the event's workspace |
 | `fallback` | `taskOwner` \| `taskAssignee` \| `none` |  | По умолчанию `none`. |
 
 ### `notificationRuleSpec.notification` { #schema-notificationrulespec-notification }
 
 | Поле | Тип | Обязательно | Описание |
 |---|---|---|---|
-| `type` | `string` | да | Тип уведомления — по нему работают настройки получателя и обязательные правила |
+| `type` | `string` | да | Notification type: recipient settings and mandatory rules work by it |
 | `title` | `string` | да |  |
 | `body` | `string` |  |  |
 | `links` | array of [объект](#schema-notificationrulespec-notification-links-item) |  |  |
-| `actions` | array of `approvalDecide` |  | approvalDecide — кнопки «Одобрить»/«Отклонить» решения из payload.approvalId |
+| `actions` | array of `approvalDecide` |  | approvalDecide: Approve/Reject buttons for the decision from payload.approvalId |
 
 ### `notificationRuleSpec.notification.links[]` { #schema-notificationrulespec-notification-links-item }
 
@@ -986,12 +1231,12 @@ _Раздел генерируется из кода — не правьте е�
 
 ### `notificationRuleSpec.close` { #schema-notificationrulespec-close }
 
-Закрыть кнопки уведомления с тем же ключом дедупликации, когда пришло событие
+Close the notification's buttons with the same deduplication key when the event arrives
 
 | Поле | Тип | Обязательно | Описание |
 |---|---|---|---|
 | `on` | array of `string` | да |  |
-| `outcome` | `string` |  | Шаблон исхода, который показывается вместо кнопок |
+| `outcome` | `string` |  | Outcome template shown instead of the buttons |
 <!-- /generated:schema-notification-rule -->
 
 ## Процесс (`kind: Process`) { #process }
@@ -999,23 +1244,23 @@ _Раздел генерируется из кода — не правьте е�
 <!-- generated:schema-process -->
 _Раздел генерируется из кода — не правьте его руками._
 
-Источник: `package-sdk/schema/v1/object.schema.json`.
+Источник: `sdk/package-sdk/schema/v1/object.schema.json`.
 
 ### `processSpec` { #schema-processspec }
 
-Процесс: кейс со стадиями и блоками исполнения, данные по схеме, выражения CEL, проекция в память. Исполняет ядро
+Process: a case with stages and execution blocks, data by schema, CEL expressions, projection into memory. Executed by the core
 
 | Поле | Тип | Обязательно | Описание |
 |---|---|---|---|
-| `version` | `integer` | да | Версия определения: опубликованная версия неизменяема |
+| `version` | `integer` | да | Definition version: a published version is immutable |
 | `displayName` | [`displayName`](#schema-displayname) | да |  |
 | `description` | `string` |  |  |
 | `workspaceId` | `string` |  |  |
-| `identity` | [объект](#schema-processspec-identity) |  | От чьего имени действует процесс: описание агента вида service или agent |
-| `owner` | [`assignChain`](#schema-assignchain) |  | Владелец процесса — ему адресуются задачи о процессе: расхождение с регламентом, ошибки экземпляров. Не обязателен; проверка пакета предупреждает, если его нет |
-| `calendar` | [`typeKey`](#schema-typekey) |  | Календарь по умолчанию для cal.* |
-| `due` | [`processDue`](#schema-processdue) |  | Срок процесса целиком от старта экземпляра |
-| `data` | [`jsonSchema`](#schema-jsonschema) | да | JSON Schema данных экземпляра; {$ref: &lt;файл пакета&gt;} раскрывает package-sdk |
+| `identity` | [объект](#schema-processspec-identity) |  | On whose behalf the process acts: an agent description of kind service or agent |
+| `owner` | [`assignChain`](#schema-assignchain) |  | Process owner: tasks about the process are addressed to them (divergence from the regulation, instance errors). Optional; the package check warns if it is missing |
+| `calendar` | [`typeKey`](#schema-typekey) |  | Default calendar for cal.* |
+| `due` | [`processDue`](#schema-processdue) |  | Due of the whole process from the instance start |
+| `data` | [`jsonSchema`](#schema-jsonschema) | да | JSON Schema of the instance data; package-sdk expands {$ref: &lt;package file&gt;} |
 | `start` | [объект](#schema-processspec-start) | да |  |
 | `correlate` | array of [объект](#schema-processspec-correlate-item) |  |  |
 | `stages` | array of [`processStage`](#schema-processstage) | да |  |
@@ -1024,12 +1269,12 @@ _Раздел генерируется из кода — не правьте е�
 | `decisions` | array of [`decisionTable`](#schema-decisiontable) |  |  |
 | `governedBy` | [`governedBy`](#schema-governedby) |  |  |
 | `memory` | [`memoryProjection`](#schema-memoryprojection) |  |  |
-| `retrospective` | [объект](#schema-processspec-retrospective) |  | Разбор закрытого дела: агент предлагает уроки, человек подтверждает |
+| `retrospective` | [объект](#schema-processspec-retrospective) |  | Review of a closed case: the agent proposes lessons, a human confirms |
 | `migrations` | array of [объект](#schema-processspec-migrations-item) |  |  |
 
 ### `processSpec.identity` { #schema-processspec-identity }
 
-От чьего имени действует процесс: описание агента вида service или agent
+On whose behalf the process acts: an agent description of kind service or agent
 
 | Поле | Тип | Обязательно | Описание |
 |---|---|---|---|
@@ -1040,7 +1285,7 @@ _Раздел генерируется из кода — не правьте е�
 | Поле | Тип | Обязательно | Описание |
 |---|---|---|---|
 | `on` | [`processTrigger`](#schema-processtrigger) | да |  |
-| `key` | [`cel`](#schema-cel) | да | Ключ экземпляра: повтор события с тем же ключом — correlate, а не новый экземпляр |
+| `key` | [`cel`](#schema-cel) | да | Instance key: a repeated event with the same key is a correlate, not a new instance |
 | `set` | [`celMap`](#schema-celmap) |  |  |
 
 ### `processSpec.correlate[]` { #schema-processspec-correlate-item }
@@ -1061,14 +1306,14 @@ _Раздел генерируется из кода — не правьте е�
 
 ### `processSpec.retrospective` { #schema-processspec-retrospective }
 
-Разбор закрытого дела: агент предлагает уроки, человек подтверждает
+Review of a closed case: the agent proposes lessons, a human confirms
 
 | Поле | Тип | Обязательно | Описание |
 |---|---|---|---|
 | `skill` | `string` |  | По умолчанию `process.retrospective@1`. |
 | `taskType` | [`typeKey`](#schema-typekey) | да |  |
 | `assign` | [`assignChain`](#schema-assignchain) | да |  |
-| `appliesTo` | array of `string` |  | Виды сущностей, к которым привязываются уроки |
+| `appliesTo` | array of `string` |  | Entity kinds lessons are attached to |
 | `when` | [`cel`](#schema-cel) |  |  |
 
 ### `processSpec.migrations[]` { #schema-processspec-migrations-item }
@@ -1082,7 +1327,7 @@ _Раздел генерируется из кода — не правьте е�
 
 ### `assignChain` { #schema-assignchain }
 
-Кандидаты по порядку: берётся первый разрешимый
+Candidates in order: the first resolvable one is taken
 
 Значение: array of [`assignee`](#schema-assignee).
 
@@ -1093,19 +1338,19 @@ _Раздел генерируется из кода — не правьте е�
 | `principal` | [`envOrUuid`](#schema-envoruuid) |  |  |
 | `role` | [`slug`](#schema-slug) |  |  |
 | `agent` | [`slug`](#schema-slug) |  |  |
-| `expr` | [`cel`](#schema-cel) |  | CEL → id principal, agent:&lt;key&gt; или role:&lt;slug&gt; |
+| `expr` | [`cel`](#schema-cel) |  | CEL → principal id, agent:&lt;key&gt; or role:&lt;slug&gt; |
 
 Ровно одно из: `principal`, `role`, `agent`, `expr`.
 
 ### `cel` { #schema-cel }
 
-Выражение CEL в профиле taimen/1: переменные data, event, step, task, instance; функции cal.*; без текущего времени. Типы и лимит стоимости проверяет ядро
+CEL expression in the taimen/1 profile: variables data, event, step, task, instance; cal.* functions; no current time. The core checks types and the cost limit
 
 Значение: `string`.
 
 ### `processDue` { #schema-processdue }
 
-Срок (SLA) шага или процесса: длительность ISO 8601, {at} — момент или длительность от данных, либо ровно одно из duration, workdays, workhours с необязательными calendar и warnBefore
+Due (SLA) of a step or process: an ISO 8601 duration, {at}, a point in time or a duration from data, or exactly one of duration, workdays, workhours with optional calendar and warnBefore
 
 Значение: [`durationOrCel`](#schema-durationorcel) или [объект `{duration, workdays, workhours, calendar, warnBefore}`](#schema-processdue-2).
 
@@ -1114,16 +1359,16 @@ _Раздел генерируется из кода — не правьте е�
 | Поле | Тип | Обязательно | Описание |
 |---|---|---|---|
 | `duration` | [`duration`](#schema-duration) |  |  |
-| `workdays` | [`workdayCount`](#schema-workdaycount) |  |  |
-| `workhours` | [`workhourCount`](#schema-workhourcount) |  |  |
-| `calendar` | [`typeKey`](#schema-typekey) |  | Календарь рабочих единиц; по умолчанию spec.calendar процесса |
-| `warnBefore` | [`workingSpan`](#schema-workingspan) |  | Порог предупреждения до срока; без него предупреждения нет |
+| `workdays` | [`workdayAmount`](#schema-workdayamount) |  |  |
+| `workhours` | [`workhourAmount`](#schema-workhouramount) |  |  |
+| `calendar` | [`typeKey`](#schema-typekey) |  | Calendar of the working units; defaults to the process's spec.calendar |
+| `warnBefore` | [`workingSpan`](#schema-workingspan) |  | Warning threshold before the due; without it there is no warning |
 
 Ровно одно из: `duration`, `workdays`, `workhours`.
 
 ### `durationOrCel` { #schema-durationorcel }
 
-Длительность ISO 8601 или выражение CEL, дающее момент времени (timestamp) или длительность
+ISO 8601 duration or a CEL expression yielding a point in time (timestamp) or a duration
 
 Значение: [`duration`](#schema-duration) или [объект `{at}`](#schema-durationorcel-2).
 
@@ -1133,21 +1378,37 @@ _Раздел генерируется из кода — не правьте е�
 |---|---|---|---|
 | `at` | [`cel`](#schema-cel) | да |  |
 
+### `workdayAmount` { #schema-workdayamount }
+
+Значение: [`workdayCount`](#schema-workdaycount) или [`workingAmountExpr`](#schema-workingamountexpr).
+
 ### `workdayCount` { #schema-workdaycount }
 
-Рабочие дни по календарю: то же время суток через n рабочих дней (cal.addWorkdays)
+Workdays by the calendar: the same time of day n workdays later (cal.addWorkdays)
 
 Значение: `integer`.
 
+### `workingAmountExpr` { #schema-workingamountexpr }
+
+Number of work units as a CEL expression: a non-negative integer, evaluated once on entering the step (settings.* are the package settings); after that the due date is computed as from a number
+
+| Поле | Тип | Обязательно | Описание |
+|---|---|---|---|
+| `expr` | [`cel`](#schema-cel) | да |  |
+
+### `workhourAmount` { #schema-workhouramount }
+
+Значение: [`workhourCount`](#schema-workhourcount) или [`workingAmountExpr`](#schema-workingamountexpr).
+
 ### `workhourCount` { #schema-workhourcount }
 
-Часы рабочего времени по календарю с рабочими часами (cal.addWorkingTime)
+Working-time hours by a calendar with working hours (cal.addWorkingTime)
 
 Значение: `number`.
 
 ### `workingSpan` { #schema-workingspan }
 
-Промежуток: длительность ISO 8601 (астрономическое время), {workdays} или {workhours} по календарю срока
+Interval: an ISO 8601 duration (astronomical time), {workdays} or {workhours} by the due calendar
 
 Значение: [`duration`](#schema-duration) или [объект `{workdays}`](#schema-workingspan-2) или [объект `{workhours}`](#schema-workingspan-3).
 
@@ -1155,17 +1416,17 @@ _Раздел генерируется из кода — не правьте е�
 
 | Поле | Тип | Обязательно | Описание |
 |---|---|---|---|
-| `workdays` | [`workdayCount`](#schema-workdaycount) | да |  |
+| `workdays` | [`workdayAmount`](#schema-workdayamount) | да |  |
 
 ### `workingSpan (3)` { #schema-workingspan-3 }
 
 | Поле | Тип | Обязательно | Описание |
 |---|---|---|---|
-| `workhours` | [`workhourCount`](#schema-workhourcount) | да |  |
+| `workhours` | [`workhourAmount`](#schema-workhouramount) | да |  |
 
 ### `processTrigger` { #schema-processtrigger }
 
-Источник события: событие журнала ядра или наблюдение. where — фильтр CEL над event
+Event source: a core journal event or an observation. where is a CEL filter over event
 
 | Поле | Тип | Обязательно | Описание |
 |---|---|---|---|
@@ -1178,41 +1439,41 @@ _Раздел генерируется из кода — не правьте е�
 
 ### `celMap` { #schema-celmap }
 
-Путь в данных экземпляра → выражение CEL
+Path in the instance data → CEL expression
 
 Значение: map → [`cel`](#schema-cel).
 
 ### `blocks` { #schema-blocks }
 
-Последовательность шагов (блок do)
+Sequence of steps (do block)
 
 Значение: array of [`processStep`](#schema-processstep).
 
 ### `processStep` { #schema-processstep }
 
-Шаг процесса: ровно один вид (human, approve, call, decide, recall, remember, listen, wait, set, raise, compensate, fork, try, do, suspend, resume, complete) плюс общие поля
+Process step: exactly one kind (human, approve, call, decide, recall, remember, listen, wait, set, raise, compensate, fork, try, do, suspend, resume, complete) plus common fields
 
 | Поле | Тип | Обязательно | Описание |
 |---|---|---|---|
 | `id` | [`processElementId`](#schema-processelementid) | да |  |
 | `displayName` | [`displayName`](#schema-displayname) |  |  |
-| `when` | [`cel`](#schema-cel) |  | Сторож: шаг выполняется, только если истинно |
+| `when` | [`cel`](#schema-cel) |  | Guard: the step runs only if it is true |
 | `input` | [объект](#schema-processstep-input) |  |  |
-| `output` | [объект](#schema-processstep-output) |  | Запись результата шага (step.result) в данные экземпляра |
+| `output` | [объект](#schema-processstep-output) |  | Writing the step result (step.result) into the instance data |
 | `export` | [объект](#schema-processstep-export) |  |  |
 | `governedBy` | [`governedBy`](#schema-governedby) |  |  |
-| `onCompensate` | [`blocks`](#schema-blocks) |  | Компенсация сделанного шага: выполняется при compensate в обратном порядке |
+| `onCompensate` | [`blocks`](#schema-blocks) |  | Compensation of a completed step: runs on compensate in reverse order |
 | `human` | [объект](#schema-processstep-human) |  |  |
 | `approve` | [объект](#schema-processstep-approve) |  |  |
 | `call` | [объект](#schema-processstep-call) |  |  |
 | `decide` | [объект](#schema-processstep-decide) |  |  |
-| `recall` | [объект](#schema-processstep-recall) |  | Запрос к памяти через ядро; ответ — событие журнала (детерминированный replay) |
-| `remember` | [объект](#schema-processstep-remember) |  | Запись в память наблюдением ядра от identity процесса, со ссылкой на дело |
-| `listen` | [объект](#schema-processstep-listen) |  | Ожидание первого из событий (отложенный выбор); timeout — таймер |
-| `wait` | [`durationOrCel`](#schema-durationorcel) |  | Пауза: длительность или момент; срока (due) у wait нет — пауза сама задаёт время |
+| `recall` | [объект](#schema-processstep-recall) |  | Memory query through the core; the answer is a journal event (deterministic replay) |
+| `remember` | [объект](#schema-processstep-remember) |  | Write to memory as a core observation from the process identity, with a reference to the case |
+| `listen` | [объект](#schema-processstep-listen) |  | Waiting for the first of the events (deferred choice); timeout is a timer |
+| `wait` | [`durationOrCel`](#schema-durationorcel) |  | Pause: a duration or a point in time; wait has no due, the pause itself sets the time |
 | `set` | [`celMap`](#schema-celmap) |  |  |
 | `raise` | [`processError`](#schema-processerror) |  |  |
-| `compensate` | = `all` или array of [`processElementId`](#schema-processelementid) |  | Выполнить onCompensate сделанных шагов в обратном порядке |
+| `compensate` | = `all` или array of [`processElementId`](#schema-processelementid) |  | Run onCompensate of completed steps in reverse order |
 | `fork` | [объект](#schema-processstep-fork) |  |  |
 | `try` | [объект](#schema-processstep-try) |  |  |
 | `do` | [`blocks`](#schema-blocks) |  |  |
@@ -1230,7 +1491,7 @@ _Раздел генерируется из кода — не правьте е�
 
 ### `processStep.output` { #schema-processstep-output }
 
-Запись результата шага (step.result) в данные экземпляра
+Writing the step result (step.result) into the instance data
 
 | Поле | Тип | Обязательно | Описание |
 |---|---|---|---|
@@ -1248,6 +1509,7 @@ _Раздел генерируется из кода — не правьте е�
 |---|---|---|---|
 | `taskType` | [`typeKey`](#schema-typekey) | да |  |
 | `title` | [`cel`](#schema-cel) |  |  |
+| `customFields` | map → [`cel`](#schema-cel) |  | Prefill of the created task's fields with case data: a field of the type's fieldSchema → CEL; checked against fieldSchema on publication and on task creation, null leaves the field to the human |
 | `form` | [`processForm`](#schema-processform) |  |  |
 | `assign` | [`assignChain`](#schema-assignchain) | да |  |
 | `due` | [`processDue`](#schema-processdue) |  |  |
@@ -1263,7 +1525,7 @@ _Раздел генерируется из кода — не правьте е�
 | `mode` | `parallel` \| `sequential` |  | По умолчанию `parallel`. |
 | `quorum` | `all` \| `any` или [объект `{atLeast}`](#schema-processstep-approve-quorum-2) или [объект `{percent}`](#schema-processstep-approve-quorum-3) | да |  |
 | `earlyDecision` | `boolean` |  | По умолчанию `true`. |
-| `separationOfDuties` | [`cel`](#schema-cel) |  | CEL → список principal, которым голосовать нельзя; проверяет ядро при решении |
+| `separationOfDuties` | [`cel`](#schema-cel) |  | CEL → list of principals who may not vote; the core checks it at decision time |
 | `due` | [`processDue`](#schema-processdue) |  |  |
 | `onDue` | `approve` \| `reject` \| `escalate` |  |  |
 | `escalations` | array of [`escalation`](#schema-escalation) |  |  |
@@ -1304,13 +1566,13 @@ _Раздел генерируется из кода — не правьте е�
 
 ### `processStep.recall` { #schema-processstep-recall }
 
-Запрос к памяти через ядро; ответ — событие журнала (детерминированный replay)
+Memory query through the core; the answer is a journal event (deterministic replay)
 
 | Поле | Тип | Обязательно | Описание |
 |---|---|---|---|
 | `anchors` | array of [`memoryAnchor`](#schema-memoryanchor) | да |  |
 | `traverse` | [`memoryTraverse`](#schema-memorytraverse) |  |  |
-| `query` | [`cel`](#schema-cel) |  | Текст смыслового добора |
+| `query` | [`cel`](#schema-cel) |  | Semantic expansion text |
 | `kinds` | array of `string` |  |  |
 | `where` | [`memoryWhere`](#schema-memorywhere) |  |  |
 | `limit` | `integer` |  |  |
@@ -1320,12 +1582,12 @@ _Раздел генерируется из кода — не правьте е�
 
 ### `processStep.remember` { #schema-processstep-remember }
 
-Запись в память наблюдением ядра от identity процесса, со ссылкой на дело
+Write to memory as a core observation from the process identity, with a reference to the case
 
 | Поле | Тип | Обязательно | Описание |
 |---|---|---|---|
 | `entity` | [объект](#schema-processstep-remember-entity) |  |  |
-| `facts` | [`celMap`](#schema-celmap) |  | Имя факта дела → значение |
+| `facts` | [`celMap`](#schema-celmap) |  | Case fact name → value |
 
 Ровно одно из: `facts`, `entity`.
 
@@ -1349,7 +1611,7 @@ _Раздел генерируется из кода — не правьте е�
 
 ### `processStep.listen` { #schema-processstep-listen }
 
-Ожидание первого из событий (отложенный выбор); timeout — таймер
+Waiting for the first of the events (deferred choice); timeout is a timer
 
 | Поле | Тип | Обязательно | Описание |
 |---|---|---|---|
@@ -1395,7 +1657,7 @@ _Раздел генерируется из кода — не правьте е�
 | `delay` | [`duration`](#schema-duration) |  |  |
 | `backoff` | `constant` \| `exponential` |  |  |
 | `maxDelay` | [`duration`](#schema-duration) |  |  |
-| `on` | array of `string` |  | Типы ошибок для повтора; по умолчанию все |
+| `on` | array of `string` |  | Error types to retry; all by default |
 
 ### `processStep.try.catch[]` { #schema-processstep-try-catch-item }
 
@@ -1432,13 +1694,13 @@ _Раздел генерируется из кода — не правьте е�
 
 ### `processElementId` { #schema-processelementid }
 
-Стабильный id элемента процесса: на него ссылаются раскладка схемы, карты миграции, журнал и граф памяти. Переименование — только картой migrations
+Stable process element id: the schema layout, migration maps, the journal and the memory graph refer to it. Renaming only via the migrations map
 
 Значение: `string`.
 
 ### `governedBy` { #schema-governedby }
 
-Регламенты базы знаний, которым подчиняется элемент: естественный ключ документа памяти и, при необходимости, пункт
+Knowledge base regulations the element is subject to: the natural key of the memory document and, if needed, a clause
 
 Значение: array of [объект](#schema-governedby-item).
 
@@ -1451,7 +1713,7 @@ _Раздел генерируется из кода — не правьте е�
 
 ### `processForm` { #schema-processform }
 
-Форма шага: JSON Schema данных и uischema JSON Forms представления
+Step form: JSON Schema of the data and JSON Forms uischema of the view
 
 | Поле | Тип | Обязательно | Описание |
 |---|---|---|---|
@@ -1462,14 +1724,14 @@ _Раздел генерируется из кода — не правьте е�
 
 | Поле | Тип | Обязательно | Описание |
 |---|---|---|---|
-| `after` | = `due` или [`durationOrCel`](#schema-durationorcel) | да | due — в момент срока; длительность — после срока |
+| `after` | = `due` или [`durationOrCel`](#schema-durationorcel) | да | due means at the due moment; a duration means after the due |
 | `action` | `remind` \| `reassign` \| `notify` \| `raise` | да |  |
 | `to` | [`assignChain`](#schema-assignchain) |  |  |
 | `error` | [`processError`](#schema-processerror) |  |  |
 
 ### `processError` { #schema-processerror }
 
-Ошибка в форме RFC 7807
+Error in RFC 7807 form
 
 | Поле | Тип | Обязательно | Описание |
 |---|---|---|---|
@@ -1479,18 +1741,18 @@ _Раздел генерируется из кода — не правьте е�
 
 ### `stepContext` { #schema-stepcontext }
 
-Профиль контекста исполнителя шага из памяти: явные связи первыми, смысловой добор с пометкой inferred
+Context profile of the step executor from memory: explicit relations first, semantic expansion marked inferred
 
 | Поле | Тип | Обязательно | Описание |
 |---|---|---|---|
 | `anchors` | array of [`memoryAnchor`](#schema-memoryanchor) | да |  |
 | `traverse` | [`memoryTraverse`](#schema-memorytraverse) |  |  |
-| `semantic` | `boolean` |  | Добор по смыслу (inferred); по умолчанию true |
+| `semantic` | `boolean` |  | Semantic expansion (inferred); true by default |
 | `budgetTokens` | `integer` |  |  |
 
 ### `memoryAnchor` { #schema-memoryanchor }
 
-Якорь обхода графа: узел дела экземпляра или сущность по естественному ключу (CEL от данных)
+Graph traversal anchor: the instance's case node or an entity by natural key (CEL over data)
 
 | Поле | Тип | Обязательно | Описание |
 |---|---|---|---|
@@ -1503,7 +1765,7 @@ _Раздел генерируется из кода — не правьте е�
 
 ### `memoryTraverse` { #schema-memorytraverse }
 
-Шаги обхода от якорей — та же форма, что traverse в contextSchema
+Traversal steps from the anchors, the same shape as traverse in contextSchema
 
 Значение: array of [объект](#schema-memorytraverse-item).
 
@@ -1519,7 +1781,7 @@ _Раздел генерируется из кода — не правьте е�
 
 ### `memoryWhere` { #schema-memorywhere }
 
-Фильтры по атрибутам узлов: применяются к узлам результата и к якорям-кандидатам смыслового добора; условия соединяются через И
+Filters on node attributes: applied to result nodes and to candidate anchors of semantic expansion; conditions are joined with AND
 
 Значение: array of [объект](#schema-memorywhere-item).
 
@@ -1527,9 +1789,9 @@ _Раздел генерируется из кода — не правьте е�
 
 | Поле | Тип | Обязательно | Описание |
 |---|---|---|---|
-| `attr` | `string` | да | Имя атрибута узла (плоское), например okpd2 или validUntil; атрибут-список выполняет условие, если его выполняет хоть один элемент |
-| `op` | `eq` \| `in` \| `prefix` \| `lte` \| `gte` \| `exists` | да | prefix сравнивает коды по сегментам через точку: 62.01 совпадает с 62.01.11, но не с 62.011; lte/gte — даты RFC 3339 или числа |
-| `value` | [`cel`](#schema-cel) или `number` \| `boolean` или array of [`cel`](#schema-cel) |  | CEL-выражение от данных экземпляра (строковый литерал — в кавычках CEL: "'62.01'"); для in — CEL-список или список выражений; для exists — true или false |
+| `attr` | `string` | да | Node attribute name (flat), e.g. okpd2 or validUntil; a list attribute satisfies the condition if any of its elements does |
+| `op` | `eq` \| `in` \| `prefix` \| `lte` \| `gte` \| `exists` | да | prefix compares codes by dot-separated segments: 62.01 matches 62.01.11 but not 62.011; lte/gte are RFC 3339 dates or numbers |
+| `value` | [`cel`](#schema-cel) или `number` \| `boolean` или array of [`cel`](#schema-cel) |  | CEL expression over the instance data (a string literal goes in CEL quotes: "'62.01'"); for in, a CEL list or a list of expressions; for exists, true or false |
 
 Условия:
 
@@ -1539,18 +1801,18 @@ _Раздел генерируется из кода — не правьте е�
 
 ### `processStage` { #schema-processstage }
 
-Стадия кейса (CMMN): вход и выход по сторожам, вехи, обязательная и необязательная работа
+Case stage (CMMN): entry and exit by guards, milestones, required and optional work
 
 | Поле | Тип | Обязательно | Описание |
 |---|---|---|---|
 | `id` | [`processElementId`](#schema-processelementid) | да |  |
 | `displayName` | [`displayName`](#schema-displayname) |  |  |
-| `entry` | [`cel`](#schema-cel) |  | Сторож входа; stage.&lt;id&gt;.completed, milestone.&lt;id&gt; и data доступны в выражении |
+| `entry` | [`cel`](#schema-cel) |  | Entry guard; stage.&lt;id&gt;.completed, milestone.&lt;id&gt; and data are available in the expression |
 | `exit` | [`cel`](#schema-cel) |  |  |
 | `repeatable` | `boolean` |  |  |
 | `governedBy` | [`governedBy`](#schema-governedby) |  |  |
 | `steps` | [`blocks`](#schema-blocks) | да |  |
-| `discretionary` | array of [`processStep`](#schema-processstep) |  | Работа, которую человек добавляет по решению |
+| `discretionary` | array of [`processStep`](#schema-processstep) |  | Work a human adds at their discretion |
 | `milestones` | array of [объект](#schema-processstage-milestones-item) |  |  |
 | `timers` | [`processTimers`](#schema-processtimers) |  |  |
 
@@ -1563,7 +1825,7 @@ _Раздел генерируется из кода — не правьте е�
 
 ### `processTimers` { #schema-processtimers }
 
-Граничные таймеры: срабатывают, пока стадия (процесс) открыта; at от данных пересчитывается при их изменении
+Boundary timers: fire while the stage (process) is open; at from data is recalculated when the data changes
 
 Значение: array of [объект](#schema-processtimers-item).
 
@@ -1578,7 +1840,7 @@ _Раздел генерируется из кода — не правьте е�
 
 ### `decisionTable` { #schema-decisiontable }
 
-Таблица решений (DMN по смыслу). Ячейка условия: '-' (любое), литерал, список 'a,b', диапазон '[a..b)'
+Decision table (DMN in spirit). Condition cell: '-' (any), a literal, a list 'a,b', a range '[a..b)'
 
 | Поле | Тип | Обязательно | Описание |
 |---|---|---|---|
@@ -1616,12 +1878,12 @@ _Раздел генерируется из кода — не правьте е�
 
 ### `memoryProjection` { #schema-memoryprojection }
 
-Проекция дела в граф памяти: доставляется событиями, в граф идут только объявленные поля
+Projection of the case into the memory graph: delivered by events, only declared fields go into the graph
 
 | Поле | Тип | Обязательно | Описание |
 |---|---|---|---|
 | `case` | [объект](#schema-memoryprojection-case) | да |  |
-| `facts` | [`celMap`](#schema-celmap) |  | Имя факта дела → значение; изменение закрывает прежний факт сроком действия |
+| `facts` | [`celMap`](#schema-celmap) |  | Case fact name → value; a change closes the previous fact with a validity end |
 | `entities` | array of [объект](#schema-memoryprojection-entities-item) |  |  |
 | `documents` | [объект](#schema-memoryprojection-documents) |  |  |
 
@@ -1642,7 +1904,7 @@ _Раздел генерируется из кода — не правьте е�
 | `name` | [`cel`](#schema-cel) |  |  |
 | `rel` | `string` | да |  |
 | `when` | [`cel`](#schema-cel) |  |  |
-| `many` | `boolean` |  | key даёт список: по сущности на элемент |
+| `many` | `boolean` |  | key yields a list: one entity per element |
 
 ### `memoryProjection.documents` { #schema-memoryprojection-documents }
 
@@ -1656,44 +1918,44 @@ _Раздел генерируется из кода — не правьте е�
 <!-- generated:schema-calendar -->
 _Раздел генерируется из кода — не правьте его руками._
 
-Источник: `package-sdk/schema/v1/object.schema.json`.
+Источник: `sdk/package-sdk/schema/v1/object.schema.json`.
 
 ### `calendarSpec` { #schema-calendarspec }
 
-Производственный календарь: выходные по умолчанию, праздники и переносы по годам
+Business calendar: default days off, holidays and transfers by year
 
 | Поле | Тип | Обязательно | Описание |
 |---|---|---|---|
 | `displayName` | [`displayName`](#schema-displayname) | да |  |
 | `timezone` | `string` | да |  |
-| `weekend` | array of `integer` |  | Дни недели ISO: 1 — понедельник. По умолчанию `[6, 7]`. |
-| `workingHours` | [объект](#schema-calendarspec-workinghours) |  | Рабочие часы в рабочие дни календаря, местное время календаря. Без поля календарь знает только рабочие дни |
+| `weekend` | array of `integer` |  | ISO weekdays: 1 is Monday. По умолчанию `[6, 7]`. |
+| `workingHours` | [объект](#schema-calendarspec-workinghours) |  | Working hours on the calendar's working days, in the calendar's local time. Without the field the calendar knows only working days |
 | `years` | array of [объект](#schema-calendarspec-years-item) | да |  |
 
 ### `calendarSpec.workingHours` { #schema-calendarspec-workinghours }
 
-Рабочие часы в рабочие дни календаря, местное время календаря. Без поля календарь знает только рабочие дни
+Working hours on the calendar's working days, in the calendar's local time. Without the field the calendar knows only working days
 
 | Поле | Тип | Обязательно | Описание |
 |---|---|---|---|
-| `intervals` | [`workingIntervals`](#schema-workingintervals) | да | Интервалы обычного рабочего дня |
-| `weekdays` | map → [`workingIntervals`](#schema-workingintervals) |  | Интервалы по дню недели ISO (1 — понедельник) вместо intervals; [] — рабочих часов нет |
-| `shortDayReduction` | [`duration`](#schema-duration) |  | На сколько короче сокращённый день (shortDays): вычитается с конца последнего интервала |
+| `intervals` | [`workingIntervals`](#schema-workingintervals) | да | Intervals of a regular working day |
+| `weekdays` | map → [`workingIntervals`](#schema-workingintervals) |  | Intervals per ISO weekday (1 is Monday) instead of intervals; [] means no working hours |
+| `shortDayReduction` | [`duration`](#schema-duration) |  | How much shorter a shortened day (shortDays) is: subtracted from the end of the last interval |
 
 ### `calendarSpec.years[]` { #schema-calendarspec-years-item }
 
 | Поле | Тип | Обязательно | Описание |
 |---|---|---|---|
 | `year` | `integer` | да |  |
-| `provisional` | `boolean` |  | Год ещё не утверждён: результаты cal.* помечаются «предварительно» |
+| `provisional` | `boolean` |  | The year is not approved yet: cal.* results are marked as preliminary |
 | `source` | `string` |  |  |
 | `holidays` | array of `string` (date) |  |  |
-| `workdays` | array of `string` (date) |  | Перенесённые рабочие дни, выпавшие на выходные |
+| `workdays` | array of `string` (date) |  | Transferred working days that fall on days off |
 | `shortDays` | array of `string` (date) |  |  |
 
 ### `workingIntervals` { #schema-workingintervals }
 
-Интервалы рабочего времени дня по порядку и без пересечений, from раньше to (порядок проверяет ядро); 24:00 — конец суток
+Working-time intervals of the day, in order and non-overlapping, from before to (the core checks the order); 24:00 is the end of the day
 
 Значение: array of [объект](#schema-workingintervals-item).
 
@@ -1712,7 +1974,7 @@ _Раздел генерируется из кода — не правьте е�
 <!-- generated:schema-knowledge-pack -->
 _Раздел генерируется из кода — не правьте его руками._
 
-Источник: `package-sdk/schema/v1/object.schema.json`, `package-sdk/schema/v1/knowledge-pack.schema.json`.
+Источник: `sdk/package-sdk/schema/v1/object.schema.json`, `sdk/package-sdk/schema/v1/knowledge-pack.schema.json`.
 
 ### `KnowledgePack.spec` { #schema-knowledgepack-spec }
 
@@ -1720,7 +1982,7 @@ _Раздел генерируется из кода — не правьте е�
 
 | Поле | Тип | Обязательно | Описание |
 |---|---|---|---|
-| `version` | `integer` |  | Версия онтологии в пакете — целое: включение ссылается на неё как name@version, правка — новая версия |
+| `version` | `integer` |  | Ontology version in the package, an integer: an inclusion refers to it as name@version, an edit is a new version |
 
 ### `knowledge-pack` { #schema-knowledge-pack }
 
@@ -1835,7 +2097,13 @@ JSON Schema атрибутов вида (draft 2020-12). title и description с
 <!-- generated:schema-common -->
 _Раздел генерируется из кода — не правьте его руками._
 
-Источник: `package-sdk/schema/v1/object.schema.json`.
+Источник: `sdk/package-sdk/schema/v1/object.schema.json`.
+
+### `connectionKey` { #schema-connectionkey }
+
+Key of a connection type or of a connection
+
+Значение: `string`.
 
 ### `displayName` { #schema-displayname }
 
@@ -1843,19 +2111,19 @@ _Раздел генерируется из кода — не правьте е�
 
 ### `duration` { #schema-duration }
 
-Длительность ISO 8601, например P3D, PT4H
+ISO 8601 duration, e.g. P3D, PT4H
 
 Значение: `string`.
 
 ### `envOrUuid` { #schema-envoruuid }
 
-UUID или ${ПЕРЕМЕННАЯ} установки (топология окружения в пакет не пишется)
+UUID or an installation ${VARIABLE} (environment topology is not written into the package)
 
 Значение: `string`.
 
 ### `jsonSchema` { #schema-jsonschema }
 
-JSON Schema документа (draft 2020-12). Удалённые $ref ядро отвергает.
+Document JSON Schema (draft 2020-12). The core rejects remote $ref.
 
 Значение: `object`.
 
@@ -1884,13 +2152,13 @@ JSON Schema документа (draft 2020-12). Удалённые $ref ядро
 
 ### `mediaType` { #schema-mediatype }
 
-Media type в нижнем регистре; маска */* или type/* допустима
+Lowercase media type; a */* or type/* mask is allowed
 
 Значение: `string`.
 
 ### `ruleKey` { #schema-rulekey }
 
-Ключ правила в tenant'е
+Rule key in the tenant
 
 Значение: `string`.
 
@@ -1904,7 +2172,7 @@ Media type в нижнем регистре; маска */* или type/* доп
 
 ### `typeKey` { #schema-typekey }
 
-Ключ типа: латиница в нижнем регистре, цифры, _ и -
+Type key: lowercase Latin letters, digits, _ and -
 
 Значение: `string`.
 <!-- /generated:schema-common -->
@@ -1914,22 +2182,22 @@ Media type в нижнем регистре; маска */* или type/* доп
 <!-- generated:schema-test -->
 _Раздел генерируется из кода — не правьте его руками._
 
-Источник: `package-sdk/schema/v1/test.schema.json`.
+Источник: `sdk/package-sdk/schema/v1/test.schema.json`.
 
 ### `test` { #schema-test }
 
-Файл &lt;имя&gt;.test.yaml в каталоге tests/ пакета. Прогоняет ядро (POST /packages:test) тем же движком, что живой прогон, в песочнице: задачи, approvals и таймеры — в памяти, скиллы, агенты и память — заглушки, проверенные по схемам каталога, время виртуальное. Побочных эффектов нет.
+File &lt;name&gt;.test.yaml in the package's tests/ directory. Run by the core (POST /packages:test) with the same engine as a live run, in a sandbox: tasks, approvals and timers are in memory, skills, agents and memory are stubs checked against the catalog schemas, time is virtual. No side effects.
 
 | Поле | Тип | Обязательно | Описание |
 |---|---|---|---|
 | `$schema` | `string` |  |  |
-| `process` | `string` |  | Ключ процесса пакета |
-| `version` | `integer` |  | По умолчанию — версия в пакете |
+| `process` | `string` |  | Package process key |
+| `version` | `integer` |  | Defaults to the version in the package |
 | `name` | `string` | да |  |
 | `description` | `string` |  |  |
-| `subject` | `process` \| `rule` \| `taskType` |  | Что проверяет тест: процесс (по умолчанию), правило вывода работы или тип задачи (исходы гейтов, критерии приёмки, действия завершения). По умолчанию `process`. |
-| `rule` | `string` |  | Ключ WorkRule пакета (subject: rule) |
-| `taskType` | `string` |  | Ключ TaskType пакета (subject: taskType) |
+| `subject` | `process` \| `rule` \| `taskType` |  | What the test checks: a process (default), a work rule or a task type (gate outcomes, acceptance criteria, completion actions). По умолчанию `process`. |
+| `rule` | `string` |  | Package WorkRule key (subject: rule) |
+| `taskType` | `string` |  | Package TaskType key (subject: taskType) |
 | `given` | `object` |  |  |
 | `mocks` | [объект](#schema-test-mocks) |  |  |
 | `steps` | array of `object` | да |  |
@@ -1947,22 +2215,22 @@ _Раздел генерируется из кода — не правьте е�
 
 | Поле | Тип | Обязательно | Описание |
 |---|---|---|---|
-| `skills` | map → array of [`mockAnswer`](#schema-mockanswer) |  | name@version → ответы по порядку вызовов (или по when); выход проверяется по схеме скилла из каталога |
+| `skills` | map → array of [`mockAnswer`](#schema-mockanswer) |  | name@version → responses in call order (or by when); the output is checked against the skill schema from the catalog |
 | `agents` | map → array of [`mockAnswer`](#schema-mockanswer) |  |  |
-| `recall` | array of [`mockAnswer`](#schema-mockanswer) |  | Ответы памяти шагам recall; step — id шага, when — CEL над запросом |
+| `recall` | array of [`mockAnswer`](#schema-mockanswer) |  | Memory responses to recall steps; step is the step id, when is CEL over the query |
 
 ### `test.coverage` { #schema-test-coverage }
 
 | Поле | Тип | Обязательно | Описание |
 |---|---|---|---|
-| `minimum` | `number` |  | Порог покрытия элементов процесса этим тестом, % |
+| `minimum` | `number` |  | Coverage threshold of process elements by this test, % |
 
 ### `mockAnswer` { #schema-mockanswer }
 
 | Поле | Тип | Обязательно | Описание |
 |---|---|---|---|
 | `step` | `string` |  |  |
-| `when` | `string` |  | CEL над input вызова |
+| `when` | `string` |  | CEL over the call input |
 | `output` | любое |  |  |
 | `error` | [объект](#schema-mockanswer-error) |  |  |
 | `timeout` | = `true` |  |  |
@@ -1981,24 +2249,32 @@ _Раздел генерируется из кода — не правьте е�
 
 | Поле | Тип | Обязательно | Описание |
 |---|---|---|---|
-| `clock` | `string` (date-time) |  | Начальное виртуальное время |
-| `data` | `object` |  | Начальные данные экземпляра (без события старта) |
-| `stage` | `string` |  | Начать с открытой стадии |
-| `fromInstance` | `string` |  | Только пробный прогон на стенде: состояние копируется из живого экземпляра |
-| `calendar` | `string` |  | Ключ календаря вместо календаря процесса |
-| `principals` | map → array of `string` |  | Роль → вымышленные principal теста (для назначений и разделения обязанностей) |
+| `clock` | `string` (date-time) |  | Initial virtual time |
+| `data` | `object` |  | Initial instance data (without a start event) |
+| `stage` | `string` |  | Start with an open stage |
+| `fromInstance` | `string` |  | Dry run on an environment only: state is copied from a live instance |
+| `calendar` | `string` |  | Calendar key instead of the process calendar |
+| `settings` | [`settings`](#schema-settings) |  |  |
+| `principals` | map → array of `string` |  | Role → fictitious test principals (for assignments and separation of duties) |
+
+### `settings` { #schema-settings }
+
+Saved package settings values, as an administrator saves them: they replace the previously saved values, fields not given take their default from spec.settings of the manifest. The core checks them against the settings schema of the package
+
+Значение: `object`.
 
 ### `testStep` { #schema-teststep }
 
 | Поле | Тип | Обязательно | Описание |
 |---|---|---|---|
+| `settings` | [`settings`](#schema-settings) |  | Save new settings values in the middle of the scenario: computations after this step read them, decisions already taken keep the values they read |
 | `emit` | [объект](#schema-teststep-emit) |  |  |
-| `advance` | `string` |  | Сдвиг виртуального времени (ISO 8601, P3D) или до момента: until:&lt;id таймера&gt; |
+| `advance` | `string` |  | Virtual time shift (ISO 8601, P3D) or up to a moment: until:&lt;timer id&gt; |
 | `complete` | [объект](#schema-teststep-complete) |  |  |
 | `approve` | [объект](#schema-teststep-approve) |  |  |
 | `expect` | [объект](#schema-teststep-expect) |  |  |
 
-Ровно одно из: `emit`, `advance`, `complete`, `approve`, `expect`.
+Ровно одно из: `emit`, `advance`, `complete`, `approve`, `expect`, `settings`.
 
 ### `testStep.emit` { #schema-teststep-emit }
 
@@ -2007,6 +2283,8 @@ _Раздел генерируется из кода — не правьте е�
 | `event` | `string` |  |  |
 | `observation` | `string` |  |  |
 | `source` | `string` |  |  |
+| `task` | `string` |  | Only with observation: id of the process step whose latest task the observation is bound to (the task field of the core's observation) |
+| `by` | `string` |  | Event author (actorId): a test principal or agent:&lt;key&gt; |
 | `payload` | `object` |  |  |
 
 Ровно одно из: `event`, `observation`.
@@ -2016,8 +2294,8 @@ _Раздел генерируется из кода — не правьте е�
 | Поле | Тип | Обязательно | Описание |
 |---|---|---|---|
 | `step` | `string` | да |  |
-| `by` | `string` |  | principal теста или agent:&lt;key&gt; |
-| `output` | `object` |  | Данные формы или результат агента; проверяются по схеме формы |
+| `by` | `string` |  | test principal or agent:&lt;key&gt; |
+| `output` | `object` |  | Form data or the agent's result; checked against the form schema |
 | `cancel` | = `true` |  |  |
 
 ### `testStep.approve` { #schema-teststep-approve }
@@ -2027,7 +2305,7 @@ _Раздел генерируется из кода — не правьте е�
 | `step` | `string` | да |  |
 | `by` | `string` | да |  |
 | `decision` | `approve` \| `reject` | да |  |
-| `expectRefused` | `string` |  | Код отказа ядра, например separation_of_duties_violation |
+| `expectRefused` | `string` |  | Core rejection code, e.g. separation_of_duties_violation |
 
 ### `testStep.expect` { #schema-teststep-expect }
 
@@ -2037,9 +2315,10 @@ _Раздел генерируется из кода — не правьте е�
 | `milestones` | array of `string` |  |  |
 | `tasks` | array of [объект](#schema-teststep-expect-tasks-item) |  |  |
 | `timers` | array of [объект](#schema-teststep-expect-timers-item) |  |  |
-| `data` | `object` |  | Путь в данных → ожидаемое значение |
-| `sla` | map → `ok` \| `warning` \| `breached` \| `paused` |  | Состояние срока: id шага → состояние его открытой попытки; ключ process — срок процесса (spec.due) |
-| `events` | array of `string` |  | Типы событий process.* с последнего expect |
+| `data` | `object` |  | Path in data → expected value |
+| `sla` | map → `ok` \| `warning` \| `breached` \| `paused` |  | Due state: step id → state of its open attempt; the process key is the process due (spec.due) |
+| `events` | array of `string` |  | process.* event types since the last expect |
+| `rules` | array of [объект](#schema-teststep-expect-rules-item) |  | Decisions of the package's rules with target: task since the last expect |
 | `memory` | [объект](#schema-teststep-expect-memory) |  |  |
 | `outcome` | `string` |  |  |
 | `status` | `running` \| `suspended` \| `completed` \| `failed` \| `cancelled` |  |  |
@@ -2054,6 +2333,7 @@ _Раздел генерируется из кода — не правьте е�
 | `status` | `string` |  |  |
 | `assignee` | `string` |  |  |
 | `due` | `string` |  |  |
+| `customFields` | `object` |  | Subset of task fields: the given ones are compared (human step prefill) |
 
 ### `testStep.expect.timers[]` { #schema-teststep-expect-timers-item }
 
@@ -2062,6 +2342,16 @@ _Раздел генерируется из кода — не правьте е�
 | `id` | `string` |  |  |
 | `at` | `string` |  |  |
 | `provisional` | `boolean` |  |  |
+
+### `testStep.expect.rules[]` { #schema-teststep-expect-rules-item }
+
+| Поле | Тип | Обязательно | Описание |
+|---|---|---|---|
+| `rule` | `string` |  |  |
+| `action` | `string` |  |  |
+| `step` | `string` |  |  |
+| `result` | `matched` \| `not_matched` \| `skipped` \| `failed` |  |  |
+| `reason` | `string` |  |  |
 
 ### `testStep.expect.memory` { #schema-teststep-expect-memory }
 
@@ -2076,8 +2366,9 @@ _Раздел генерируется из кода — не правьте е�
 |---|---|---|---|
 | `clock` | `string` (date-time) |  |  |
 | `variables` | [`variables`](#schema-variables) |  |  |
-| `task` | [объект](#schema-rulegiven-task) |  | Задача, заведённая до входа: событие без taskId в payload — о ней |
-| `schedule` | [объект](#schema-rulegiven-schedule) |  | Вход — срабатывание расписания правила (trigger.kind: schedule) |
+| `settings` | [`settings`](#schema-settings) |  |  |
+| `task` | [объект](#schema-rulegiven-task) |  | Task created before the input: an event without taskId in the payload is about it |
+| `schedule` | [объект](#schema-rulegiven-schedule) |  | Input: a firing of the rule's schedule (trigger.kind: schedule) |
 | `observation` | [объект](#schema-rulegiven-observation) |  |  |
 | `event` | [объект](#schema-rulegiven-event) |  |  |
 
@@ -2085,23 +2376,23 @@ _Раздел генерируется из кода — не правьте е�
 
 ### `ruleGiven.task` { #schema-rulegiven-task }
 
-Задача, заведённая до входа: событие без taskId в payload — о ней
+Task created before the input: an event without taskId in the payload is about it
 
 | Поле | Тип | Обязательно | Описание |
 |---|---|---|---|
-| `type` | `string` | да | Ключ типа задачи пакета или tenant'а |
+| `type` | `string` | да | Task type key of the package or tenant |
 | `title` | `string` |  |  |
 | `status` | `string` |  |  |
-| `assignee` | `string` |  | agent:&lt;key&gt; или вымышленный principal |
+| `assignee` | `string` |  | agent:&lt;key&gt; or a fictitious principal |
 | `customFields` | `object` |  |  |
 
 ### `ruleGiven.schedule` { #schema-rulegiven-schedule }
 
-Вход — срабатывание расписания правила (trigger.kind: schedule)
+Input: a firing of the rule's schedule (trigger.kind: schedule)
 
 | Поле | Тип | Обязательно | Описание |
 |---|---|---|---|
-| `at` | `string` (date-time) |  | Время слота; по умолчанию clock |
+| `at` | `string` (date-time) |  | Slot time; defaults to clock |
 
 ### `ruleGiven.observation` { #schema-rulegiven-observation }
 
@@ -2122,7 +2413,7 @@ _Раздел генерируется из кода — не правьте е�
 
 ### `variables` { #schema-variables }
 
-Значения переменных установки для теста; остальные — default из манифеста
+Installation variable values for the test; the rest are defaults from the manifest
 
 Значение: map → `string`.
 
@@ -2136,20 +2427,20 @@ _Раздел генерируется из кода — не правьте е�
 
 | Поле | Тип | Обязательно | Описание |
 |---|---|---|---|
-| `result` | `string` |  | Итог оценки правила ядра (как result события rule.evaluated) |
+| `result` | `string` |  | Outcome of the core's rule evaluation (like result of the rule.evaluated event) |
 | `ensureWork` | array of [`workExpectation`](#schema-workexpectation) |  |  |
 | `invokeSkill` | array of [`skillExpectation`](#schema-skillexpectation) |  |  |
 | `noSideEffects` | = `true` |  |  |
 
 ### `workExpectation` { #schema-workexpectation }
 
-Ожидаемая работа: заданные поля сравниваются, незаданные не проверяются
+Expected work: the given fields are compared, the rest are not checked
 
 | Поле | Тип | Обязательно | Описание |
 |---|---|---|---|
 | `type` | `string` |  |  |
 | `title` | `string` |  |  |
-| `assignee` | `string` |  | agent:&lt;key&gt;, роль теста или вымышленный principal |
+| `assignee` | `string` |  | agent:&lt;key&gt;, a test role or a fictitious principal |
 | `customFields` | `object` |  |  |
 | `relation` | `object` |  |  |
 
@@ -2158,7 +2449,7 @@ _Раздел генерируется из кода — не правьте е�
 | Поле | Тип | Обязательно | Описание |
 |---|---|---|---|
 | `skill` | `string` | да |  |
-| `inputs` | `object` |  | Подмножество входа вызова |
+| `inputs` | `object` |  | Subset of the call input |
 
 ### `taskTypeGiven` { #schema-tasktypegiven }
 
@@ -2168,7 +2459,7 @@ _Раздел генерируется из кода — не правьте е�
 | `variables` | [`variables`](#schema-variables) |  |  |
 | `task` | [объект](#schema-tasktypegiven-task) |  |  |
 | `artifacts` | array of [объект](#schema-tasktypegiven-artifacts-item) |  |  |
-| `principals` | map → array of `string` |  | Роль → вымышленные principal теста |
+| `principals` | map → array of `string` |  | Role → fictitious test principals |
 
 ### `taskTypeGiven.task` { #schema-tasktypegiven-task }
 
@@ -2186,15 +2477,15 @@ _Раздел генерируется из кода — не правьте е�
 | `key` | `string` |  |  |
 | `type` | `string` | да |  |
 | `metadata` | `object` |  |  |
-| `content` | `string` |  | Содержимое (текст): артефакт с сохранённым содержимым, как после загрузки |
-| `mediaType` | `string` |  | Тип содержимого (text/markdown, application/json, …) |
+| `content` | `string` |  | Content (text): an artifact with stored content, as after an upload |
+| `mediaType` | `string` |  | Content type (text/markdown, application/json, …) |
 
 ### `taskTypeStep` { #schema-tasktypestep }
 
 | Поле | Тип | Обязательно | Описание |
 |---|---|---|---|
 | `approve` | [объект](#schema-tasktypestep-approve) |  |  |
-| `verify` | [объект](#schema-tasktypestep-verify) |  | Итог критерия приёмки типа |
+| `verify` | [объект](#schema-tasktypestep-verify) |  | Outcome of the type's acceptance criterion |
 | `complete` | [объект](#schema-tasktypestep-complete) |  |  |
 | `expect` | [объект](#schema-tasktypestep-expect) |  |  |
 
@@ -2208,10 +2499,11 @@ _Раздел генерируется из кода — не правьте е�
 | `decision` | `approved` \| `rejected` | да |  |
 | `by` | `string` |  |  |
 | `comment` | `string` |  |  |
+| `expectRefused` | `string` |  | Core rejection code for the decider, e.g. not_eligible: the decider is not a holder of the gate role |
 
 ### `taskTypeStep.verify` { #schema-tasktypestep-verify }
 
-Итог критерия приёмки типа
+Outcome of the type's acceptance criterion
 
 | Поле | Тип | Обязательно | Описание |
 |---|---|---|---|
@@ -2223,7 +2515,7 @@ _Раздел генерируется из кода — не правьте е�
 
 | Поле | Тип | Обязательно | Описание |
 |---|---|---|---|
-| `output` | `object` |  | Выход завершения (completionSchema) |
+| `output` | `object` |  | Completion output (completionSchema) |
 
 ### `taskTypeStep.expect` { #schema-tasktypestep-expect }
 
@@ -2232,7 +2524,7 @@ _Раздел генерируется из кода — не правьте е�
 | `ensureWork` | array of [`workExpectation`](#schema-workexpectation) |  |  |
 | `invokeSkill` | array of [`skillExpectation`](#schema-skillexpectation) |  |  |
 | `status` | [объект](#schema-tasktypestep-expect-status) |  |  |
-| `comments` | array of `string` |  | Подстроки комментариев, оставленных исходами |
+| `comments` | array of `string` |  | Substrings of comments left by outcomes |
 | `noSideEffects` | = `true` |  |  |
 
 ### `taskTypeStep.expect.status` { #schema-tasktypestep-expect-status }
@@ -2250,7 +2542,7 @@ _Раздел генерируется из кода — не правьте е�
 <!-- generated:schema-lock -->
 _Раздел генерируется из кода — не правьте его руками._
 
-Источник: `package-sdk/schema/v1/lock.schema.json`.
+Источник: `sdk/package-sdk/schema/v1/lock.schema.json`.
 
 ### `lock` { #schema-lock }
 
@@ -2294,7 +2586,7 @@ _Раздел генерируется из кода — не правьте е�
 <!-- generated:schema-plan -->
 _Раздел генерируется из кода — не правьте его руками._
 
-Источник: `package-sdk/schema/v1/plan.schema.json`.
+Источник: `sdk/package-sdk/schema/v1/plan.schema.json`.
 
 ### `plan` { #schema-plan }
 
@@ -2387,7 +2679,7 @@ _Раздел генерируется из кода — не правьте е�
 <!-- generated:schema-knowledge-template -->
 _Раздел генерируется из кода — не правьте его руками._
 
-Источник: `package-sdk/schema/v1/knowledge-template.schema.json`.
+Источник: `sdk/package-sdk/schema/v1/knowledge-template.schema.json`.
 
 ### `knowledge-template` { #schema-knowledge-template }
 
@@ -2413,6 +2705,261 @@ _Раздел генерируется из кода — не правьте е�
 | `example` | `string` \| `number` \| `boolean` |  |  |
 | `separator` | `string` |  | Разделитель списка в ячейке (коды, ключи связей); по умолчанию «;» |
 <!-- /generated:schema-knowledge-template -->
+
+## Экраны пакета (`kind: View`, `kind: Component`) { #view }
+
+Экраны пакета лежат в `views/*.yaml` и `components/*.yaml`. Обёртка у них та
+же, что у остальных объектов, а `spec` вида `View` описывает `viewSpec`, вида
+`Component` — `componentSpec`; подписи экранов — ключи словарей
+`i18n/<locale>.yaml`. Схема — копия схемы экранов ядра, её проверяют
+`package-sdk check` и `plan`.
+
+<!-- generated:schema-view -->
+_Раздел генерируется из кода — не правьте его руками._
+
+Источник: `sdk/package-sdk/schema/v1/view.schema.json`.
+
+### `view` { #schema-view }
+
+Screens of a package: spec of the kinds View and Component
+
+Собственной формы у корня нет — только определения; верхнего уровня: [`view/viewSpec`](#schema-view-viewspec), [`view/componentSpec`](#schema-view-componentspec).
+
+### `view/viewSpec` { #schema-view-viewspec }
+
+| Поле | Тип | Обязательно | Описание |
+|---|---|---|---|
+| `blocks` | = `1` |  | Version of the set of blocks the layout is written in |
+| `title` | [`view/messageKey`](#schema-view-messagekey) | да |  |
+| `description` | [`view/messageKey`](#schema-view-messagekey) |  |  |
+| `nav` | [объект](#schema-view-viewspec-nav) |  |  |
+| `audience` | [объект](#schema-view-viewspec-audience) |  |  |
+| `source` | [`view/source`](#schema-view-source) | да |  |
+| `params` | [`view/params`](#schema-view-params) |  |  |
+| `layout` | [`view/layout`](#schema-view-layout) | да |  |
+
+### `view/viewSpec.nav` { #schema-view-viewspec-nav }
+
+| Поле | Тип | Обязательно | Описание |
+|---|---|---|---|
+| `group` | `work` \| `knowledge` \| `packages` |  | A group of the console menu (a closed list, not a key of the dictionaries); none: packages |
+| `icon` | `string` |  |  |
+| `order` | `integer` |  |  |
+
+### `view/viewSpec.audience` { #schema-view-viewspec-audience }
+
+| Поле | Тип | Обязательно | Описание |
+|---|---|---|---|
+| `roles` | array of [`view/slug`](#schema-view-slug) | да | Roles of the organization (slugs): a holder of one of them sees the view |
+
+### `view/messageKey` { #schema-view-messagekey }
+
+A key of the package dictionaries
+
+Значение: `string`.
+
+### `view/slug` { #schema-view-slug }
+
+Значение: `string`.
+
+### `view/source` { #schema-view-source }
+
+Exactly one of {process, filter?}, {process, instance: param.&lt;name&gt;}, {tasks: {type}}, {knowledge: {kinds}}
+
+| Поле | Тип | Обязательно | Описание |
+|---|---|---|---|
+| `process` | [`view/key`](#schema-view-key) |  |  |
+| `filter` | [`view/expression`](#schema-view-expression) |  |  |
+| `instance` | `string` |  |  |
+| `tasks` | [объект](#schema-view-source-tasks) |  |  |
+| `knowledge` | [объект](#schema-view-source-knowledge) |  |  |
+
+### `view/source.tasks` { #schema-view-source-tasks }
+
+| Поле | Тип | Обязательно | Описание |
+|---|---|---|---|
+| `type` | [`view/key`](#schema-view-key) | да |  |
+
+### `view/source.knowledge` { #schema-view-source-knowledge }
+
+| Поле | Тип | Обязательно | Описание |
+|---|---|---|---|
+| `kinds` | array of [`view/kind`](#schema-view-kind) | да |  |
+
+### `view/key` { #schema-view-key }
+
+Значение: `string`.
+
+### `view/expression` { #schema-view-expression }
+
+Значение: `string`.
+
+### `view/kind` { #schema-view-kind }
+
+Значение: `string`.
+
+### `view/params` { #schema-view-params }
+
+Значение: map → [`view/param`](#schema-view-param).
+
+### `view/name` { #schema-view-name }
+
+Значение: `string`.
+
+### `view/param` { #schema-view-param }
+
+| Поле | Тип | Обязательно | Описание |
+|---|---|---|---|
+| `type` | `string` \| `integer` \| `number` \| `boolean` \| `date` \| `datetime` \| `uuid` | да |  |
+| `required` | `boolean` |  |  |
+
+### `view/layout` { #schema-view-layout }
+
+Значение: array of [`view/block`](#schema-view-block).
+
+### `view/block` { #schema-view-block }
+
+A block of the closed set of version 1, named by the key block
+
+| Поле | Тип | Обязательно | Описание |
+|---|---|---|---|
+| `block` | `table` \| `board` \| `list` \| `header` \| `fields` \| `timeline` \| `artifacts` \| `related` \| `metrics` \| `chart` \| `steps` \| `invoke` \| `component` | да |  |
+
+Условия:
+
+| Условие | Следствие |
+|---|---|
+| `block` ∈ `table`, `list` | обязательно `columns`; `title`: [`view/messageKey`](#schema-view-messagekey); `columns`: [`view/columns`](#schema-view-columns); `open`: [`view/open`](#schema-view-open); `filters`: [`view/paths`](#schema-view-paths); `sort`: [`view/sort`](#schema-view-sort); `pageSize`: `integer` |
+| `block` = `board` | обязательно `columns`, `card`; `title`: [`view/messageKey`](#schema-view-messagekey); `columns`: = `stages`; `card`: [`view/card`](#schema-view-card); `open`: [`view/open`](#schema-view-open); `filters`: [`view/paths`](#schema-view-paths) |
+| `block` = `header` | обязательно `title`; `title`: [`view/path`](#schema-view-path); `status`: [`view/path`](#schema-view-path); `actions`: `steps` |
+| `block` = `fields` | обязательно `items`; `title`: [`view/messageKey`](#schema-view-messagekey); `section`: [`view/messageKey`](#schema-view-messagekey); `items`: [`view/columns`](#schema-view-columns) |
+| `block` ∈ `timeline`, `steps` | `title`: [`view/messageKey`](#schema-view-messagekey) |
+| `block` = `artifacts` | `title`: [`view/messageKey`](#schema-view-messagekey); `types`: array of [`view/key`](#schema-view-key) |
+| `block` = `related` | обязательно `knowledge`; `title`: [`view/messageKey`](#schema-view-messagekey); `knowledge`: [объект](#schema-view-block-knowledge); `include`: [`view/include`](#schema-view-include) |
+| `block` = `metrics` | обязательно `items`; `title`: [`view/messageKey`](#schema-view-messagekey); `items`: array of [объект](#schema-view-block-items-item) |
+| `block` = `chart` | обязательно `chart`, `groupBy`, `value`; `title`: [`view/messageKey`](#schema-view-messagekey); `chart`: `bar` \| `line` \| `donut`; `groupBy`: [`view/path`](#schema-view-path); `value`: [`view/expression`](#schema-view-expression); `label`: [`view/messageKey`](#schema-view-messagekey); `format`: [`view/format`](#schema-view-format) |
+| `block` = `invoke` | обязательно `label`, `skill`; `title`: [`view/messageKey`](#schema-view-messagekey); `label`: [`view/messageKey`](#schema-view-messagekey); `skill`: `string`; `input`: [`view/arguments`](#schema-view-arguments) |
+| `block` = `component` | обязательно `component`; `component`: [`view/key`](#schema-view-key); `with`: [`view/arguments`](#schema-view-arguments) |
+
+### `view/block.knowledge` { #schema-view-block-knowledge }
+
+The record of knowledge the block starts from: its kind and a CEL expression of its key
+
+| Поле | Тип | Обязательно | Описание |
+|---|---|---|---|
+| `kind` | [`view/kind`](#schema-view-kind) | да |  |
+| `key` | [`view/expression`](#schema-view-expression) | да |  |
+
+### `view/block.items[]` { #schema-view-block-items-item }
+
+| Поле | Тип | Обязательно | Описание |
+|---|---|---|---|
+| `key` | [`view/columnKey`](#schema-view-columnkey) |  |  |
+| `title` | [`view/messageKey`](#schema-view-messagekey) | да |  |
+| `value` | [`view/expression`](#schema-view-expression) | да |  |
+| `format` | [`view/format`](#schema-view-format) |  |  |
+
+### `view/columns` { #schema-view-columns }
+
+Значение: array of [`view/column`](#schema-view-column).
+
+### `view/column` { #schema-view-column }
+
+What a cell shows: a path of the source (field) or a CEL expression (value), exactly one; label: none — the key &lt;package&gt;.fields.&lt;path&gt; of the dictionaries; key: none — the path
+
+| Поле | Тип | Обязательно | Описание |
+|---|---|---|---|
+| `key` | [`view/columnKey`](#schema-view-columnkey) |  |  |
+| `label` | [`view/messageKey`](#schema-view-messagekey) |  |  |
+| `field` | [`view/path`](#schema-view-path) |  |  |
+| `value` | [`view/expression`](#schema-view-expression) |  |  |
+| `format` | [`view/format`](#schema-view-format) |  |  |
+
+### `view/columnKey` { #schema-view-columnkey }
+
+The key the values of a column come by in the data of a view
+
+Значение: `string`.
+
+### `view/path` { #schema-view-path }
+
+Значение: `string`.
+
+### `view/format` { #schema-view-format }
+
+Значение: `text` \| `number` \| `money` \| `percent` \| `date` \| `datetime` \| `due` \| `duration` \| `principal` \| `status` \| `link`.
+
+### `view/open` { #schema-view-open }
+
+A view of the same package or of a package it requires: id — CEL of the id of the record it opens, params — CEL of its params
+
+| Поле | Тип | Обязательно | Описание |
+|---|---|---|---|
+| `view` | [`view/key`](#schema-view-key) | да |  |
+| `id` | [`view/expression`](#schema-view-expression) |  |  |
+| `params` | [`view/arguments`](#schema-view-arguments) |  |  |
+
+### `view/arguments` { #schema-view-arguments }
+
+Значение: map → [`view/expression`](#schema-view-expression).
+
+### `view/paths` { #schema-view-paths }
+
+Значение: array of [`view/path`](#schema-view-path).
+
+### `view/sort` { #schema-view-sort }
+
+Значение: array of [объект](#schema-view-sort-item).
+
+### `view/sort[]` { #schema-view-sort-item }
+
+| Поле | Тип | Обязательно | Описание |
+|---|---|---|---|
+| `field` | [`view/path`](#schema-view-path) | да |  |
+| `dir` | `asc` \| `desc` |  |  |
+
+### `view/card` { #schema-view-card }
+
+A card of a board: paths of the source for its title, subtitle and badge, and its fields
+
+| Поле | Тип | Обязательно | Описание |
+|---|---|---|---|
+| `title` | [`view/path`](#schema-view-path) | да |  |
+| `subtitle` | [`view/path`](#schema-view-path) |  |  |
+| `fields` | [`view/columns`](#schema-view-columns) |  |  |
+| `badge` | [`view/path`](#schema-view-path) |  |  |
+
+### `view/include` { #schema-view-include }
+
+The links of the record shown: the include of POST /knowledge/entities:query
+
+| Поле | Тип | Обязательно | Описание |
+|---|---|---|---|
+| `relations` | = `*` или array of `string` | да | Names of the relations shown, or * for every relation the packages of the namespace declare |
+| `direction` | `out` \| `in` \| `both` |  |  |
+| `limit` | `integer` |  |  |
+
+### `view/componentSpec` { #schema-view-componentspec }
+
+| Поле | Тип | Обязательно | Описание |
+|---|---|---|---|
+| `description` | [`view/messageKey`](#schema-view-messagekey) |  |  |
+| `params` | [`view/componentParams`](#schema-view-componentparams) |  |  |
+| `layout` | [`view/layout`](#schema-view-layout) | да |  |
+
+### `view/componentParams` { #schema-view-componentparams }
+
+Значение: map → [`view/schemaParam`](#schema-view-schemaparam) или [`view/param`](#schema-view-param) — по условию.
+
+### `view/schemaParam` { #schema-view-schemaparam }
+
+A param typed by a JSON Schema
+
+| Поле | Тип | Обязательно | Описание |
+|---|---|---|---|
+| `schema` | `object` | да | JSON Schema of the param: inline or {$ref: &lt;file&gt;#&lt;pointer&gt;} of a schema of the package; CEL reads param.&lt;name&gt; by it |
+| `required` | `boolean` |  |  |
+<!-- /generated:schema-view -->
 
 ## См. также
 

@@ -27,15 +27,15 @@
 
 Проверки и тесты без стенда исполняет **код ядра** — дополнение `sandbox`
 ставит пакет `control-plane` рядом с инструментом. Компоненты платформы не
-ставятся из публичного индекса пакетов: их подключают исходниками, соседними
-каталогами, как в корневом репозитории поставки.
+ставятся из публичного индекса пакетов: их подключают исходниками в раскладке
+корневого репозитория поставки (`services/`, `sdk/`).
 
 ```bash
 mkdir taimen-src && cd taimen-src
-git clone --branch <тег> https://github.com/taimen-ai/package-sdk.git
-git clone --branch <тег ядра> https://github.com/taimen-ai/control-plane.git
-git clone --branch <тег> https://github.com/taimen-ai/platform-auth-sdk.git
-uv tool install "./package-sdk[sandbox]"
+git clone --branch <тег> https://github.com/taimen-ai/package-sdk.git sdk/package-sdk
+git clone --branch <тег ядра> https://github.com/taimen-ai/control-plane.git services/control-plane
+git clone --branch <тег> https://github.com/taimen-ai/platform-auth-sdk.git sdk/platform-auth-sdk
+uv tool install "./sdk/package-sdk[sandbox]"
 package-sdk --version
 ```
 
@@ -48,15 +48,15 @@ package-sdk --version
   компонента (см. [Обновление](../operations/upgrades.md)). Клон корневого
   репозитория с сабмодулями уже разложен так, как нужно `uv tool install`.
 - Дополнениям `skills`, `mcp` и `all` нужен ещё один сосед — `skill-sdk`
-  (`git clone --branch <тег> https://github.com/taimen-ai/skill-sdk.git` рядом с
-  остальными): без него установка с этими дополнениями не соберётся. Какие
+  (`git clone --branch <тег> https://github.com/taimen-ai/skill-sdk.git sdk/skill-sdk`
+  рядом с остальными SDK): без него установка с этими дополнениями не соберётся. Какие
   соседи нужны какому дополнению — в [Тестах пакета](testing.md#install).
 - Дополнение ставит соседние каталоги в режиме редактирования: клоны должны
   оставаться на месте, пока инструмент установлен.
 - Команда `package-sdk` без аргументов печатает список команд.
 
 !!! tip "Без кода ядра"
-    `uv tool install ./package-sdk` без `[sandbox]` ставит только инструмент.
+    `uv tool install ./sdk/package-sdk` без `[sandbox]` ставит только инструмент.
     Тогда `check` проверяет схему и ссылки и завершается ошибкой «доменные
     валидаторы ядра не импортируются»: молча ограничиться схемой он не станет.
     Явный режим одной схемы — `check --schema-only`. `test` без кода ядра не
@@ -428,7 +428,7 @@ package-sdk apply --plan plan.json --server https://platform.example.com
 
 | Симптом | Причина | Что делать |
 |---|---|---|
-| `check`: «доменные валидаторы ядра не импортируются — проверена только схема формата» | инструмент поставлен без `[sandbox]` | переустановить `uv tool install --reinstall "./package-sdk[sandbox]"` |
+| `check`: «доменные валидаторы ядра не импортируются — проверена только схема формата» | инструмент поставлен без `[sandbox]` | переустановить `uv tool install --reinstall "./sdk/package-sdk[sandbox]"` |
 | `test`: `sandbox_database_required`, прогон `FAIL` | нет базы для сценариев правил и типов задач | задать `PACKAGE_SDK_SANDBOX_DATABASE_URL` или `--database-url` |
 | `engines_mismatch` в предупреждениях | пакет объявляет другую версию ядра, чем код ядра рядом с инструментом | поставить клон ядра нужного тега или поправить `engines` |
 | `init`: «уже есть — заготовка не перезаписывает файлы» | в каталоге уже есть файлы пакета | взять пустой каталог; `.gitignore` заготовка оставляет как есть, а в существующий `README.md` дописывает сгенерированный раздел |

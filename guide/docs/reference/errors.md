@@ -113,6 +113,7 @@ error class: `ValidationError` 422, `BadRequestError` 400, `ConflictError`
 | `permission_denied` | 403 | A permission is missing (`details.required`), or the PDP denied (`details.reasonCode`, `decisionId`). | Grant the permission in the binding or a role in the external PDP; check the token scope. |
 | `permission_escalation` | 403 | An attempt to grant permissions the calling credential does not have. | Grant only your own permissions, or act as an administrator. |
 | `permissions_not_allowed_for_kind` | 422 | `admin` or `approvals.decide` for a principal of kind `agent`/`service`. | Remove the human-only permissions. |
+| `policy_unavailable` | 503 | `CP_AUTHZ_MODE=policy`: the external PDP did not answer, there is no decision; the request is not executed (fail closed). | Restore the PDP or switch back to `CP_AUTHZ_MODE=local`. |
 | `principal_not_active` | 403, 422 | The principal is not active (403 on sign-in, 422 when binding an identity). | Activate the principal. |
 | `unknown_requirement` | 422 | A role or capability from the requirements is not found in the task scope. | Create the role in the task's workspace. |
 | `verification_unavailable` | 503 | Nothing to verify the token with: JWKS has been unavailable longer than `CP_IAM_JWKS_STALE_AFTER_SECONDS`, or the revocation source is unavailable. | Check that `iam-service` is reachable from the container. |
@@ -492,38 +493,6 @@ SCIM endpoints respond in the SCIM format (`scimType`): `invalidFilter`,
 `IAM_SCIM_AUDIENCE`, 403 without the `IAM_SCIM_SCOPE` scope or without an
 active provisioning source, 502/503 when the upstream provider is
 unavailable.
-
-## Runtime console: people { #console-people }
-
-The flows of the console's "People and roles" section (add, disable, enable a person) are
-orchestrated by the console BFF over IAM and the core. The response comes in two forms.
-
-- **Rejection by request body**: an immediate `422` in the Control Plane envelope
-  `{"error": {"code"}}`, and the flow does not start: `invalid_person` ("Add"),
-  `invalid_profile` ("Enable").
-- **Flow report**: `200`, with the rejection inside the report:
-    - "Disable" and "Enable": the top-level `error` field is
-      `{"service": "iam"|"cp", "status", "code", "missing"?}`, and the step fields (`iam`, `cp`,
-      plus `binding` for enabling) show where the flow stopped (`failed`);
-    - "Add": there is no top-level `error`; the rejection is in the flow step with `status: "failed"`:
-      `steps[i].error = {"status", "code", "missing"?}`, without `service`.
-
-Besides the IAM and core codes (see [above](#principal-disable-enable) and
-[iam-service](#iam-people)), the BFF returns its own:
-
-| Code | HTTP | Cause | What to do |
-|---|---|---|---|
-| `iam_login_closed` | 403 | "Enable": the core member is active but IAM sign-in is closed (partial disabling), and the caller has no `admin`. Only an administrator can reopen sign-in, and not when IAM answers `principal_provisioned` (disabled by HR sync, SCIM) or `principal_paused` (paused in IAM): an administrator gets those denials too. | Repeat "Enable" as an administrator. |
-| `iam_principal_unknown` | 409 | "Enable": the core principal has no binding rows with this console's IAM, so there is nothing to attach a new binding to. | Enable through the core API: `:enable`, then a binding `POST /api/v1/principals/{principal_id}/iam-bindings` with explicit permissions. |
-| `invalid_profile` | 422 | "Enable": the permission profile is neither `member` nor `admin`. A direct response, not a report. | Choose a profile from the list. |
-| `invalid_person` | 422 | "Add": the request body is unusable: an empty or too long field, an invalid e-mail, workspace, or roles, an unknown profile. A direct response, not a report. | Fill in the form. |
-| `permission_escalation` | 403 | "Add" and "Enable": the permissions of the chosen profile exceed the caller's (`missing`). Checked before IAM. | Choose the "member" profile or act as an administrator. |
-| `person_disabled` | 409 | "Add": the person with this e-mail is disabled, their IAM account is not active, or it is already linked to a disabled core member. | Bring them back with the "Enable" button. |
-| `identity_disabled` | 409 | "Add": the IdP account is disabled in IAM. | Sort out the account in IAM. |
-| `identity_mismatch` | 409 | "Add": the IdP account from the form does not match the one already linked to this person, or the IAM principal found by the IdP account or by the person's record is not a person (`kind` is not `human`). | Check the IdP identifier. |
-| `identity_bound_elsewhere` | 409 | "Add": the IAM account is already linked to another active core member, or the IdP account is linked to a principal outside the tenant. | Sort out the link in IAM and the core. |
-| `identity_unverifiable` | 501, 502 | "Add": IAM does not allow reading the IdP links; the flow is stopped. | Check the IAM version and its response. |
-| `lookup_incomplete` | 409 | "Add": the list of core members is too long to check everyone; the console refuses so as not to create a duplicate. | A limitation of the current console version. |
 
 ## platform-auth-sdk codes (resource services)
 

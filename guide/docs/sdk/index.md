@@ -38,8 +38,8 @@ your own code (Rationale: TAI-ADR-0030):
 | Read or write memory from an application with its own grant on a namespace | `platform_memory_client` | access the memory database directly |
 | Call an LLM | `platform_llm.OpenAICompatibleClient` | copy retries and JSON parsing into every service |
 
-The clients live next to the server in its repository (`control-plane/client`,
-`memory-service/client`) and are versioned together with the server contract.
+The clients live next to the server in its repository (`services/control-plane/client`,
+`services/memory-service/client`) and are versioned together with the server contract.
 
 ### Memory only through the core { #memory-through-core }
 

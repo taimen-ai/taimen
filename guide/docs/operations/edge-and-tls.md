@@ -41,8 +41,8 @@ TLS; see "Minimal installation Caddyfile" below.
 |---|---|---|---|---|
 | `/iam/*` | `iam-service:8010` | stripped (`handle_path`) | `core` | IAM for clients: JWKS, PAT exchange/introspection/revocation, `tokens/exchange`, `federation:*`, SCIM; issuer `${TAIMEN_PUBLIC_URL}/iam`. Administrative paths return 404 (see below) |
 | `/api/v1/*`, `/health/*`, `/docs*`, `/redoc*`, `/openapi.json` | `control-plane-api:8000` | no | `core` | Control Plane API; WebSocket subscriptions use the same route. `/metrics` is not exposed |
+| `/secrets/*` | `openbao:8200` | stripped | `core` | [Secret store](secret-store.md#perimeter): only `POST /v1/auth/jwt/login`, `GET /v1/kv/data/tenants/…` and `GET /v1/oauth2/creds/tenants/…`; everything else is `404`; `X-Vault-Token` is not logged |
 | `/notify/*` | `notification-service:8000` | stripped | `notify` | Notification service: API and inbox, the Telegram bot webhook (`/notify/channels/telegram/webhook`, verified by the webhook secret), the intake point of the `notify.send@1` skill |
-| `/console/*` | `console:8090` | **kept** (`handle`; the console server itself lives under `/console`) | `core` | [Console](../operator/console.md): OIDC sign-in, API, event WebSocket, interface. `flush_interval -1`: streams without buffering. `/console` without a trailing slash redirects `301` to `/console/` |
 | `/guide/*` | `guide:8080` | stripped | `edge` | This guide: a static MkDocs site (`guide/Dockerfile`) |
 
 
@@ -187,10 +187,10 @@ requests no longer pass through the edge.
 
 ```bash
 # 1. Validate the syntax of the new version
-docker compose exec caddy caddy validate --config /etc/caddy/Caddyfile
+tools/compose exec caddy caddy validate --config /etc/caddy/Caddyfile
 
 # 2. Apply
-docker compose exec caddy caddy reload --config /etc/caddy/Caddyfile
+tools/compose exec caddy caddy reload --config /etc/caddy/Caddyfile
 ```
 
 !!! warning "A file bind mount holds the inode"
@@ -199,12 +199,12 @@ docker compose exec caddy caddy reload --config /etc/caddy/Caddyfile
     atomic writes, `sed -i`) create a new inode, while the container keeps
     seeing the old one, so `caddy reload` rereads the previous version. Edit
     the file in place (`cat new > Caddyfile`) or recreate the container:
-    `docker compose up -d --force-recreate caddy`.
+    `tools/compose up -d --force-recreate caddy`.
 
 Check that the container sees the current file:
 
 ```bash
-docker compose exec caddy cat /etc/caddy/Caddyfile | diff - /opt/taimen/Caddyfile && echo "identical"
+tools/compose exec caddy cat /etc/caddy/Caddyfile | diff - /opt/taimen/Caddyfile && echo "identical"
 ```
 
 ## Edge verification

@@ -507,8 +507,7 @@ The compatibility window is always bounded: `expiresInSeconds` may not exceed
 `409 credential_exists`.
 
 !!! warning "Migration only"
-    New installations work without legacy keys: Control Plane in the root
-    `compose.yml` starts with `CP_LEGACY_API_KEYS_ENABLED=false`.
+    New installations work without legacy keys: Control Plane in the `deploy/local/compose.yml` starts with `CP_LEGACY_API_KEYS_ENABLED=false`.
 
 ## Errors
 

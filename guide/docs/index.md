@@ -10,7 +10,7 @@ of integrations and executors.
 !!! note "How this guide is organized"
     Every article describes the **current behavior of the delivery's code**: APIs,
     variables, ports, commands, and error codes are checked against the component
-    sources, `compose.yml`, `.env.example`, `Makefile`, and `deploy/`. Intent and
+    sources, `deploy/local/compose.yml`, `.env.example`, `Makefile`, and `deploy/`. Intent and
     rationale (ADRs) are referenced by identifier — `TAI-ADR-…`, `CP-ADR-…`,
     `MEM-ADR-…`, `PC-ADR-…` — but the code remains the source of truth about
     behavior.
@@ -131,7 +131,7 @@ For details, see [Architecture](overview/architecture.md).
 
 ## Conventions
 
-- Run commands from the superproject root (the directory with `compose.yml` and
+- Run commands from the superproject root (the directory with `deploy/local/compose.yml` and
   `Makefile`) unless stated otherwise.
 - Addresses in examples are neutral: the local deployment is
   `http://taimen.localhost`, a production one is `https://platform.example.com`;

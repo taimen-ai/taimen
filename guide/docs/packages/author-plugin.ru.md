@@ -26,14 +26,14 @@
 
 ## Установка
 
-Каталог `package-sdk/` поставки — одновременно marketplace `package-sdk`
+Каталог `sdk/package-sdk/` поставки — одновременно marketplace `package-sdk`
 (манифест `.claude-plugin/marketplace.json`) и исходники плагина
 (`plugin/package-author`). Из корня поставки:
 
 1. **Поставьте `package-sdk`** инструментом uv:
 
     ```bash
-    uv tool install --reinstall "./package-sdk[mcp,sandbox,skills]" --with pytest
+    uv tool install --reinstall "./sdk/package-sdk[mcp,sandbox,skills]" --with pytest
     package-sdk mcp --help
     ```
 
@@ -45,15 +45,15 @@
 2. **Добавьте marketplace и поставьте плагин:**
 
     ```bash
-    claude plugin marketplace add ./package-sdk
+    claude plugin marketplace add ./sdk/package-sdk
     claude plugin install package-author@package-sdk
     ```
 
-    То же внутри Claude Code: `/plugin marketplace add ./package-sdk`, затем
+    То же внутри Claude Code: `/plugin marketplace add ./sdk/package-sdk`, затем
     `/plugin install package-author@package-sdk`. Вместо локального каталога
     можно указать репозиторий компонента на GitHub —
     `/plugin marketplace add <org>/<repo>`. Для разработки самого плагина без
-    установки: `claude --plugin-dir package-sdk/plugin/package-author`.
+    установки: `claude --plugin-dir sdk/package-sdk/plugin/package-author`.
 
 3. **Проверьте.** В новой сессии `/plugin` показывает `package-author`, `/mcp` —
    сервер `package-sdk` с шестью инструментами, а запрос «опиши процесс оплаты
@@ -190,7 +190,7 @@ MCP-сервер `package-sdk mcp`:
 | Симптом | Причина | Что делать |
 |---|---|---|
 | скиллов `package-author:*` нет | плагин не установлен или сессия старая | установить из marketplace `package-sdk`, перезапустить сессию |
-| в `/mcp` нет сервера `package-sdk` или он не запускается | `package-sdk` не на `PATH` или поставлен без extra `mcp` | `uv tool install --reinstall "./package-sdk[mcp,sandbox,skills]" --with pytest`, перезапуск сессии |
+| в `/mcp` нет сервера `package-sdk` или он не запускается | `package-sdk` не на `PATH` или поставлен без extra `mcp` | `uv tool install --reinstall "./sdk/package-sdk[mcp,sandbox,skills]" --with pytest`, перезапуск сессии |
 | `cp_process_get` или `cp_process_explain` отвечают `403` | у credential'а оператора нет `processes.read` на workspace процесса | выдать право связке оператора |
 | `server_not_allowed` | стенд не перечислен в `PACKAGE_SDK_SERVERS` окружения сервера | добавить адрес стенда в переменную и перезапустить сессию |
 | «current repository has no Control Plane binding» у `cp_*` | сессия не в привязанном репозитории | вернуть рабочий каталог сессии в привязанный репозиторий |

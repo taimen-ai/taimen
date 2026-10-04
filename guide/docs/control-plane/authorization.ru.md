@@ -47,7 +47,7 @@ server: он проверяет чужой токен, но сам credentials �
 
 | Переменная | Смысл |
 |---|---|
-| `CP_IAM_ENABLED` | включает проверку IAM-токенов (по умолчанию `false`, в `compose.yml` — `true`) |
+| `CP_IAM_ENABLED` | включает проверку IAM-токенов (по умолчанию `false`, в `deploy/local/compose.yml` — `true`) |
 | `CP_IAM_ISSUER` | ожидаемый `iss` токена |
 | `CP_IAM_JWKS_URL` | откуда брать ключи подписи |
 | `CP_IAM_AUDIENCE` | ожидаемый `aud`, по умолчанию `control-plane` |
@@ -58,7 +58,7 @@ server: он проверяет чужой токен, но сам credentials �
 
 !!! tip "JWKS — по внутреннему адресу"
     Проверка подписи не должна зависеть от внешнего прокси и собственного TLS.
-    В `compose.yml` `CP_IAM_JWKS_URL` указывает на
+    В `deploy/local/compose.yml` `CP_IAM_JWKS_URL` указывает на
     `http://iam-service:8010/.well-known/jwks.json`, а `CP_IAM_ISSUER` — на
     публичный `${TAIMEN_PUBLIC_URL}/iam`.
 
@@ -68,7 +68,7 @@ server: он проверяет чужой токен, но сам credentials �
 `POST /principals/{id}/api-keys` (полный ключ показывается один раз) и
 отзывается через `POST /api-keys/{id}:revoke`. Ключ принимается, только пока
 `CP_LEGACY_API_KEYS_ENABLED=true`. Значение по умолчанию в настройках — `true`,
-в `compose.yml` поставки — `false`: это режим «только IAM».
+в `deploy/local/compose.yml` поставки — `false`: это режим «только IAM».
 
 Какой вид credential перед сервером, определяется **по форме** значения, без
 перебора способов: перебор выдавал бы через код ответа, какой способ сработал.
@@ -313,7 +313,7 @@ Y», определяет переменная `CP_AUTHZ_MODE` (CP-ADR-0055).
   [Контекст задачи и память](context.md).
 
 Действия и типы ресурсов Control Plane для PDP описаны в файле
-`control-plane/authz/catalog.yaml`; его регистрируют во внешнем PDP. Имена
+`services/control-plane/authz/catalog.yaml`; его регистрируют во внешнем PDP. Имена
 действий совпадают с правами, кроме трёх: `admin` отображается на роль
 tenant-admin, `delegations.manage` — на admin API PDP, `observations.write` —
 на каталог memory-service. Примеры выводимых правил: `tasks.read` = владелец,

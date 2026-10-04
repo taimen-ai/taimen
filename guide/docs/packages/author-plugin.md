@@ -28,14 +28,14 @@ tests](testing.md#sandbox)).
 
 ## Installation
 
-The `package-sdk/` directory of the delivery is both the `package-sdk` marketplace
+The `sdk/package-sdk/` directory of the delivery is both the `package-sdk` marketplace
 (manifest `.claude-plugin/marketplace.json`) and the plugin sources
 (`plugin/package-author`). From the root of the delivery:
 
 1. **Install `package-sdk`** as a uv tool:
 
     ```bash
-    uv tool install --reinstall "./package-sdk[mcp,sandbox,skills]" --with pytest
+    uv tool install --reinstall "./sdk/package-sdk[mcp,sandbox,skills]" --with pytest
     package-sdk mcp --help
     ```
 
@@ -48,15 +48,15 @@ The `package-sdk/` directory of the delivery is both the `package-sdk` marketpla
 2. **Add the marketplace and install the plugin:**
 
     ```bash
-    claude plugin marketplace add ./package-sdk
+    claude plugin marketplace add ./sdk/package-sdk
     claude plugin install package-author@package-sdk
     ```
 
-    The same inside Claude Code: `/plugin marketplace add ./package-sdk`, then
+    The same inside Claude Code: `/plugin marketplace add ./sdk/package-sdk`, then
     `/plugin install package-author@package-sdk`. Instead of a local directory,
     you can specify the component repository on GitHub:
     `/plugin marketplace add <org>/<repo>`. To develop the plugin itself without
-    installing it: `claude --plugin-dir package-sdk/plugin/package-author`.
+    installing it: `claude --plugin-dir sdk/package-sdk/plugin/package-author`.
 
 3. **Verify.** In a new session, `/plugin` shows `package-author`, `/mcp` shows
    the `package-sdk` server with six tools, and a request like "describe the
@@ -198,7 +198,7 @@ Core tools from the operator MCP plugin that the skills use:
 | Symptom | Cause | What to do |
 |---|---|---|
 | no `package-author:*` skills | the plugin is not installed or the session is old | install from the `package-sdk` marketplace, restart the session |
-| `/mcp` has no `package-sdk` server, or it does not start | `package-sdk` is not on `PATH` or is installed without the `mcp` extra | `uv tool install --reinstall "./package-sdk[mcp,sandbox,skills]" --with pytest`, restart the session |
+| `/mcp` has no `package-sdk` server, or it does not start | `package-sdk` is not on `PATH` or is installed without the `mcp` extra | `uv tool install --reinstall "./sdk/package-sdk[mcp,sandbox,skills]" --with pytest`, restart the session |
 | `cp_process_get` or `cp_process_explain` answer `403` | the operator's credential lacks `processes.read` on the process workspace | grant the permission to the operator's binding |
 | `server_not_allowed` | the deployment is not listed in `PACKAGE_SDK_SERVERS` of the server environment | add the deployment address to the variable and restart the session |
 | "current repository has no Control Plane binding" from `cp_*` | the session is not in a bound repository | return the session's working directory to the bound repository |

@@ -32,7 +32,7 @@ Both tools are entry points of the `control-plane` package (`[project.scripts]`)
 
 ```bash
 # from a superproject clone: the package is installed together with the neighboring platform-auth-sdk
-cd control-plane
+cd services/control-plane
 uv tool install --reinstall .
 control-plane --version
 ```

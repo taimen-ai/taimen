@@ -1,6 +1,6 @@
 # Сервисы и порты
 
-Все сервисы корневого `compose.yml`: профиль, образ или контекст сборки,
+Все сервисы `deploy/local/compose.yml`: профиль, образ или контекст сборки,
 внутренний и публикуемый порт, зависимости, volumes, healthcheck, лимит
 памяти и маршрут во внешнем контуре (Caddy). Статья для инженера, который
 разворачивает стек, открывает порты на хосте или ищет, какой контейнер
@@ -36,13 +36,12 @@ flowchart LR
 
 По умолчанию `make up` поднимает `core edge`. Остальные профили включаются
 явно: `make up PROFILES="core notify edge"` или
-`docker compose --profile core --profile edge up -d`.
+`tools/compose --profile core --profile edge up -d`.
 
 | Профиль | Статус | Сервисы |
 |---|---|---|
-| `core` | ядро | `iam-db`, `iam-service`, `control-plane-db`, `control-plane-api`, `control-plane-worker`, `context-adapter`, `memory-db`, `memory-service`, `minio`, `minio-bootstrap`, `console` |
+| `core` | ядро | `iam-db`, `iam-service`, `control-plane-db`, `control-plane-api`, `control-plane-worker`, `context-adapter`, `memory-db`, `memory-service`, `minio`, `minio-bootstrap` |
 | `edge` | ядро | `caddy`, `guide` |
-| `idp-dex` | только тесты | `dex-render`, `dex` — другой OIDC IdP для compose-теста консоли |
 
 
 !!! note "Зависимости между профилями"
@@ -85,7 +84,7 @@ flowchart LR
 
 | Параметр | Значение |
 |---|---|
-| Образ / сборка | `${IMAGE_PREFIX}/iam-service:${IMAGE_TAG}`, контекст `${IAM_BUILD_CONTEXT:-./iam-service}` |
+| Образ / сборка | `${IMAGE_PREFIX}/iam-service:${IMAGE_TAG}`, контекст `${IAM_BUILD_CONTEXT:-./services/iam-service}` |
 | Команда | `alembic upgrade head && uvicorn iam_service.app:app --host 0.0.0.0 --port 8010` |
 | Порт | 8010 → `127.0.0.1:${IAM_HOST_PORT:-18010}` |
 | Зависит от | `iam-db` (healthy) |
@@ -108,7 +107,7 @@ flowchart LR
 
 | Параметр | Значение |
 |---|---|
-| Образ / сборка | `${IMAGE_PREFIX}/control-plane:${IMAGE_TAG}`, контекст `${CP_BUILD_CONTEXT:-.}` (корень суперпроекта), Dockerfile `control-plane/Dockerfile` |
+| Образ / сборка | `${IMAGE_PREFIX}/control-plane:${IMAGE_TAG}`, контекст `${CP_BUILD_CONTEXT:-.}` (корень суперпроекта), Dockerfile `services/control-plane/Dockerfile` |
 | Команда | `alembic upgrade head && uvicorn control_plane.main:app --host 0.0.0.0 --port 8000` |
 | Порт | 8000 → `127.0.0.1:${CP_HOST_PORT:-18000}` |
 | Зависит от | `control-plane-db`, `memory-service`, `iam-service` (все healthy) |
@@ -151,7 +150,7 @@ flowchart LR
 
 | Параметр | Значение |
 |---|---|
-| Образ / сборка | `${IMAGE_PREFIX}/memory-db:${IMAGE_TAG}`, контекст `${MEMORY_BUILD_CONTEXT:-./memory-service}/infra/memory-db` (PostgreSQL 16 + Apache AGE + pgvector) |
+| Образ / сборка | `${IMAGE_PREFIX}/memory-db:${IMAGE_TAG}`, контекст `${MEMORY_BUILD_CONTEXT:-./services/memory-service}/infra/memory-db` (PostgreSQL 16 + Apache AGE + pgvector) |
 | БД / роль | `company_brain` / `memory` |
 | Volume | `memory_db` |
 | Healthcheck | `pg_isready -U memory -d company_brain` |
@@ -161,7 +160,7 @@ flowchart LR
 
 | Параметр | Значение |
 |---|---|
-| Образ / сборка | `${IMAGE_PREFIX}/memory-service:${IMAGE_TAG}`, контекст `${MEMORY_BUILD_CONTEXT:-.}`, Dockerfile `memory-service/Dockerfile` |
+| Образ / сборка | `${IMAGE_PREFIX}/memory-service:${IMAGE_TAG}`, контекст `${MEMORY_BUILD_CONTEXT:-.}`, Dockerfile `services/memory-service/Dockerfile` |
 | Порт | 8077 → `127.0.0.1:${MEMORY_HOST_PORT:-18001}` |
 | Зависит от | `memory-db` (healthy) |
 | env_file | `./secrets/memory-service-iam.env` (необязательный) |
@@ -178,23 +177,6 @@ flowchart LR
 Хранит только содержимое артефактов ядра; см.
 [Хранилище объектов](../operations/object-storage.md).
 
-### console
-
-| Параметр | Значение |
-|---|---|
-| Образ | `${IMAGE_PREFIX:-taimen}/runtime-console`, сборка `web/console/Dockerfile` (контекст `web/console`, `node:24-alpine`) |
-| Пользователь | `10001:10001` |
-| Порт | 8090, не публикуется; снаружи — `/console/*` через Caddy |
-| Зависит от | `iam-service`, `control-plane-api` (healthy) |
-| Секреты | `runtime_console_oidc_secret`, `runtime_console_cookie_secret` |
-| Healthcheck | `GET http://127.0.0.1:8090/console/healthz` |
-| Лимит памяти | `128m` |
-
-Сервер консоли и собранный интерфейс в одном образе; своей базы нет, сессии — в
-памяти процесса. Вход — OIDC IdP организации, в ядро и IAM — по внутренним именам от
-имени вошедшего человека.
-См. [Консоль](../operator/console.md),
-переменные `RUNTIME_CONSOLE_*` — в [справочнике](environment.md).
 
 ## Периметр (`edge`)
 
@@ -217,7 +199,7 @@ flowchart LR
 !!! warning "Правка Caddyfile на месте"
     Файл смонтирован bind-mount'ом и держит inode. Если заменить файл через
     `mv`, `caddy reload` перечитает старую версию. Правьте файл на месте или
-    пересоздайте контейнер: `docker compose up -d --force-recreate caddy`.
+    пересоздайте контейнер: `tools/compose up -d --force-recreate caddy`.
 
 ## Healthcheck'и и smoke {#healthchecks}
 
@@ -256,8 +238,6 @@ flowchart LR
 | Секрет | Файл по умолчанию | Кому |
 |---|---|---|
 | `iam_signing_key` | `./secrets/iam-signing.pem` | `iam-service` |
-| `runtime_console_oidc_secret` | `./secrets/runtime-console-oidc-secret` (`RUNTIME_CONSOLE_OIDC_SECRET_FILE`) | `console`, `dex-render` |
-| `runtime_console_cookie_secret` | `./secrets/runtime-console-cookie-secret` (`RUNTIME_CONSOLE_COOKIE_SECRET_FILE`) | `console` |
 
 Контейнеры читают секреты под непривилегированным uid (10001 у сервисов
 ядра). На Linux выполните `chown 10001` для файлов в `secrets/`, права

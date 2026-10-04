@@ -466,7 +466,7 @@ IAM `memory:service`, ключ с грантом записи на пустой 
 
 ## Клиентская библиотека
 
-`platform-memory-client` (каталог `memory-service/client`) — канонический
+`platform-memory-client` (каталог `services/memory-service/client`) — канонический
 HTTP-клиент: `MemoryClient` (sync) и `AsyncMemoryClient` (asyncio) над
 `/api/brain/*` и `/api/memory/*`. Зависимости — только `httpx` и `pydantic`.
 Токен передаётся строкой, callable или (в async-клиенте) объектом с `async token()`,

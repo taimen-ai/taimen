@@ -498,7 +498,7 @@ curl -s -X POST "$IAM_URL/api/v1/tenants/$TENANT/legacy-credentials:import" -H "
 
 !!! warning "Только для миграции"
     Новые инсталляции работают без legacy-ключей: Control Plane в
-    корневом `compose.yml` запускается с `CP_LEGACY_API_KEYS_ENABLED=false`.
+    `deploy/local/compose.yml` запускается с `CP_LEGACY_API_KEYS_ENABLED=false`.
 
 ## Ошибки
 

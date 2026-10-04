@@ -11,8 +11,7 @@ performance, and common problems. It is for administrators.
 The service reads environment variables with the `CB_` prefix (and the `.env`
 file in the process's working directory, if there is one). The full list is in
 `src/platform_memory/core/config.py` in the memory-service repository. As part
-of the platform, the values are set by the `memory-service` block of the root
-`compose.yml`, some of them through variables of the root `.env`:
+of the platform, the values are set by the `memory-service` block of the `deploy/local/compose.yml`, some of them through variables of the root `.env`:
 
 | `.env` variable | Default | What it becomes |
 |---|---|---|
@@ -34,7 +33,7 @@ of the platform, the values are set by the `memory-service` block of the root
 | `VOLUME_MEMORY_DB` | `<project>_memory_db` | Name of the database volume |
 
 
-Hard-coded in `compose.yml`: `CB_PII_PROTECTION=true`, an empty
+Hard-coded in `deploy/local/compose.yml`: `CB_PII_PROTECTION=true`, an empty
 `CB_SERVER_API_KEYS_PII`, `CB_DEFAULT_NAMESPACE=main`, `CB_EMBEDDING_DIM=1536`,
 `CB_EMBEDDING_TIMEOUT=60`, `CB_RERANK_POOL=20`,
 `CB_IAM_JWKS_URL=http://iam-service:8010/.well-known/jwks.json`,
@@ -230,7 +229,7 @@ Selection guidelines:
 ### Resources and placement
 
 - The service is stateless; all state is in `memory-db`. The port is not
-  published externally: in `compose.yml` it is bound to `127.0.0.1`, and the
+  published externally: in `deploy/local/compose.yml` it is bound to `127.0.0.1`, and the
   platform calls memory at the internal address.
 - The schema (graph, tables, indexes) is created and completed idempotently
   when the service starts; migrations are additive and need no separate steps
@@ -262,7 +261,7 @@ All of memory is in the single `memory-db` database, so a backup is a
 `pg_dump`:
 
 ```bash
-docker compose exec -T memory-db \
+tools/compose exec -T memory-db \
   pg_dump -U memory -d company_brain -Fc > memory-$(date +%Y%m%d-%H%M).dump
 ```
 
@@ -270,8 +269,8 @@ Restore onto a fresh volume where the init script has already created the
 extensions:
 
 ```bash
-docker compose stop memory-service
-docker compose exec -T memory-db \
+tools/compose stop memory-service
+tools/compose exec -T memory-db \
   pg_restore -U memory -d company_brain --clean --if-exists < memory-XXXX.dump
 ```
 
@@ -314,7 +313,7 @@ COMMIT;
 Then start the service and check:
 
 ```bash
-docker compose start memory-service
+tools/compose start memory-service
 curl -fsS http://127.0.0.1:18001/healthz        # nodes and chunks > 0
 curl -fsS -X POST http://127.0.0.1:18001/api/brain/recall \
   -H "Authorization: Bearer $MEMORY_API_KEY" -H "Content-Type: application/json" \
@@ -361,8 +360,8 @@ The same applies to data loaded with `CB_EMBEDDING_PROVIDER=fake`.
 ### Upgrade
 
 ```bash
-docker compose build memory-service
-docker compose up -d memory-service
+tools/compose build memory-service
+tools/compose up -d memory-service
 curl -fsS http://127.0.0.1:18001/healthz
 ```
 
@@ -378,7 +377,7 @@ procedure is in [Upgrades](../operations/upgrades.md).
 | Observation projection | `GET /api/memory/observations?namespace=…&status=failed`; retry with `POST /api/memory/consolidate` |
 | Why this context was assembled | `GET /api/memory/context/trace/{trace_id}` |
 | Trace of an operation (write, deletion, personal data access) | `GET /api/brain/trace/{trace_id}?namespace=…` |
-| Logs | `docker compose logs -f memory-service` |
+| Logs | `tools/compose logs -f memory-service` |
 
 ## Common problems
 

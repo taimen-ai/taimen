@@ -9,8 +9,8 @@
 ```mermaid
 flowchart TD
     A[Симптом] --> B{make smoke зелёный?}
-    B -- нет --> C[docker compose ps: какой сервис не healthy]
-    C --> D[docker compose logs сервиса: первая ошибка]
+    B -- нет --> C[tools/compose ps: какой сервис не healthy]
+    C --> D[tools/compose logs сервиса: первая ошибка]
     D --> S[Установка и запуск]
     B -- да --> E{Ответ API с кодом ошибки?}
     E -- 401/403 --> F[Аутентификация и доступ]
@@ -25,8 +25,8 @@ flowchart TD
 
 ```bash
 make smoke                                     # health всех запущенных сервисов
-docker compose --profile "*" ps                # статусы, healthcheck, рестарты
-docker compose logs --since 15m <сервис>       # логи
+tools/compose --profile "*" ps                # статусы, healthcheck, рестарты
+tools/compose logs --since 15m <сервис>       # логи
 curl -s http://127.0.0.1:18000/health/ready    # готовность Control Plane
 curl -s http://127.0.0.1:18000/metrics | grep context_adapter
 ```
@@ -64,7 +64,7 @@ curl -s http://127.0.0.1:18000/metrics | grep context_adapter
 ## Что собрать перед обращением за помощью
 
 - Коммит суперпроекта (`git rev-parse HEAD`) и `git submodule status`.
-- Вывод `docker compose --profile "*" ps`.
+- Вывод `tools/compose --profile "*" ps`.
 - Логи затронутого сервиса за период инцидента (без секретов: проверьте, что
   в выдержке нет токенов и паролей).
 - Точный ответ API: статус, тело ошибки, `requestId` / `request_id`.

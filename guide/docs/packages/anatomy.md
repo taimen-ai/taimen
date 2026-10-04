@@ -110,7 +110,7 @@ spec:
   authors: ["Example Integrations <dev@example.com>"]
   homepage: https://git.example.com/example/access-requests
   engines:
-    control-plane: ">=0.9,<0.10"
+    control-plane: ">=0.10,<0.11"
   requires:
     - {package: access-base, version: ">=0.1"}
   knowledge: ["access@1"]
@@ -140,7 +140,7 @@ spec:
 ### `engines`: compatibility { #engines }
 
 `engines` are the version ranges of platform components the package has been
-checked against: `{control-plane: ">=0.9,<0.10"}`. A range is a
+checked against: `{control-plane: ">=0.10,<0.11"}`. A range is a
 comma-separated list of conditions, all of which must hold; the operators are
 `>=`, `>`, `<=`, `<`, `=`, `^`, `~`; a version without an operator is an exact
 version or a prefix (`1.2` is any `1.2.x`); `*` is any version.

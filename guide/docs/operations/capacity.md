@@ -2,13 +2,13 @@
 # Resources and scaling
 
 How much CPU, memory, and disk a Taimen installation needs, which limits are
-set in `compose.yml`, how to change them, and where the platform's scaling
+set in `deploy/local/compose.yml`, how to change them, and where the platform's scaling
 limits are. This article is for the engineer who picks the machine and plans
 for growth.
 
 ## Container memory limits
 
-Every service in the root `compose.yml` has a `mem_limit` set by an
+Every service in the `deploy/local/compose.yml` has a `mem_limit` set by an
 environment variable with a default value. The value is a ceiling: when a
 process exceeds it, the kernel kills the container process (OOM), and Docker
 restarts it according to `restart: unless-stopped`.
@@ -43,7 +43,7 @@ Set the variable in `.env` and recreate the service:
 
 ```bash
 echo 'MEMORY_DB_MEM_LIMIT=1g' >> .env
-docker compose up -d memory-db
+tools/compose up -d memory-db
 docker stats --no-stream        # actual usage against the limit
 ```
 
@@ -60,7 +60,7 @@ How to estimate:
   less, but under load `memory-db` and `memory-service` approach their
   ceilings. Check actual usage with `docker stats`.
 - Leave at least 1 GiB for the OS, Docker, the file cache, and **image builds**:
-  `docker compose build` on the host briefly needs more memory and CPU than
+  `tools/compose build` on the host briefly needs more memory and CPU than
   the running stack. On a 2 vCPU machine, run the build ahead of time, before
   the switchover (see [Upgrades and migrations](upgrades.md)).
 - Swap does not replace memory, but it saves you from OOM during builds and
@@ -81,7 +81,7 @@ How to estimate:
 
 ```bash
 docker system df -v | head -40
-docker compose exec control-plane-db psql -U control_plane -d control_plane \
+tools/compose exec control-plane-db psql -U control_plane -d control_plane \
   -c "SELECT relname, pg_size_pretty(pg_total_relation_size(relid)) FROM pg_catalog.pg_statio_user_tables ORDER BY pg_total_relation_size(relid) DESC LIMIT 10"
 ```
 
@@ -93,7 +93,7 @@ need to know:
 | Component | Limitation |
 |---|---|
 | `context-adapter` | Singleton: uniqueness is held by an advisory lock in the database. A second instance does not speed up delivery. Per-tenant isolation isolates **failures** (one parked tenant does not block the others); it does not provide parallelism |
-| `control-plane-api` | One container; horizontal scaling is not described in `compose.yml` |
+| `control-plane-api` | One container; horizontal scaling is not described in `deploy/local/compose.yml` |
 | Databases | Each is a separate PostgreSQL 16 container on the same host. `memory-db` needs the Apache AGE and pgvector extensions, which managed PostgreSQL offerings usually lack |
 | Migrations | Indexes are not built `CONCURRENTLY`; large tables need a maintenance window |
 | Log retention | There is no scheduler: the operator runs `:archive` |

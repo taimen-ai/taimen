@@ -287,7 +287,12 @@ stages:
 Кого исключить, процесс знает из своих данных: например, того, кто разбирал
 дело, сохраняет `output.as` предыдущего шага `human` —
 `reviewedBy: string(task.assigneeId)` (полный пример — в
-[Выражениях](expressions.md#variables)).
+[Выражениях](expressions.md#variables)). Автора входа берите из события, а не
+из его данных: `event.actorId` ставит ядро по аутентифицированному отправителю,
+а `event.payload` пишет сам отправитель — подставленный туда чужой id снял бы
+исключение. Поэтому оплата счёта исключает и автора наблюдения
+(`uploadedBy: string(event.actorId)`, см. [Старт и корреляция](#start)), и
+названного в данных загрузившего, если он назван.
 Голос исключённого principal'а отвергается `403
 separation_of_duties_violation` при любом пути — из рабочего места, канала, MCP или
 API, — даже если у него есть роль согласующего. В списке «Важное» такой
@@ -402,7 +407,7 @@ data:
     supplier: {type: string}
     amount: {type: number}
     currency: {type: string}
-    uploadedBy: {type: string, description: "Principal, загрузивший счёт"}
+    uploadedBy: {type: string, format: uuid, minLength: 1, description: "Principal, загрузивший счёт"}
     dueDate: {type: string, format: date-time}
     review: {type: string, enum: [ok, mismatch]}
 ```
@@ -424,6 +429,7 @@ start:
   set:
     number: string(event.payload.data.invoice)
     amount: double(event.payload.data.amount)
+    uploadedBy: string(event.actorId)   # автор наблюдения, а не поле payload
 correlate:
   - "on": {observation: invoice.corrected}
     key: "'invoice:' + string(event.payload.data.invoice)"

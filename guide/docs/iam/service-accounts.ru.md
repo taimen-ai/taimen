@@ -129,12 +129,12 @@ access_token = await tokens()   # обмен или значение из кэш
 
 `make bootstrap` (`deploy/bootstrap.py`) заводит следующие service accounts и
 пишет их credentials в `secrets/` (0600). Сервисы подхватывают файлы через
-`env_file` в `compose.yml`.
+`env_file` в `deploy/local/compose.yml`.
 
 
 | Service account | Audiences | Потолок | Файл | Кто использует |
 |---|---|---|---|---|
-| Control Plane | `memory-service` | `memory:read`, `memory:write`, `memory:tenants`, `memory:on-behalf`, `memory:service` | `control-plane-iam.env` (`CP_IAM_CLIENT_ID`, `CP_IAM_CLIENT_SECRET`) | control-plane-api, worker, context-adapter |
+| Control Plane | `memory-service`, `openbao` | `memory:read`, `memory:write`, `memory:tenants`, `memory:on-behalf`, `memory:service`, `secrets:read` | `control-plane-iam.env` (`CP_IAM_CLIENT_ID`, `CP_IAM_CLIENT_SECRET`) | control-plane-api, worker, context-adapter |
 
 !!! note "Service account — это ещё и principal в Control Plane"
     Если service account ходит в Control Plane (как коннектор или сервис уведомлений), ему,
@@ -144,16 +144,69 @@ access_token = await tokens()   # обмен или значение из кэш
 
 После появления или смены env-файла сервисы нужно пересоздать, чтобы они
 прочитали его: например,
-`docker compose up -d control-plane-api control-plane-worker context-adapter`.
+`tools/compose up -d control-plane-api control-plane-worker context-adapter`.
 
-## Смена секрета и изменение потолка
+## Смена секрета и изменение потолка { #update }
 
-У service account **нет** эндпоинтов ротации секрета и изменения
-`audiences`/`scopeCeiling`. Процедура замены — «выпустить новый, переключить,
-отозвать старый»:
+`PATCH /api/v1/tenants/{tenantId}/service-accounts/{clientId}` меняет учётку на
+месте: principal и `clientId` остаются прежними, поэтому права в Control Plane и
+агенты, которыми владеет учётка, остаются за ней (iam-service ADR-0005). Вызывает
+только bootstrap (`X-IAM-Bootstrap-Token`).
 
-1. Создайте новый service account с нужными audiences и потолком
-   (`POST …/service-accounts`).
+| Поле | Описание |
+|---|---|
+| `audiences` | Новый список audiences целиком (не пустой); каждый должен быть зарегистрирован и активен в tenant |
+| `scopeCeiling` | Новый потолок целиком; каждый scope — из `allowedScopes` указанных audiences |
+| `rotateSecret` | `true` — выпустить новый секрет; прежний гаснет тем же commit |
+
+Пропущенное поле не меняется. Без изменений и без `rotateSecret` IAM ничего не
+пишет и отдаёт представление учётки — так пустой `PATCH {}` проверяет, что учётка
+жива.
+
+```bash
+curl -s -X PATCH "$IAM_URL/api/v1/tenants/$TENANT/service-accounts/$CLIENT_ID" \
+  -H "X-IAM-Bootstrap-Token: $IAM_BOOTSTRAP_TOKEN" -H "Content-Type: application/json" \
+  -d '{"rotateSecret": true}'
+```
+
+```json
+{"principalId": "<principal-id>", "clientId": "<client-id>",
+ "audiences": ["memory-service"], "scopeCeiling": ["memory:read"],
+ "clientSecret": "<новый секрет — показывается один раз>"}
+```
+
+`clientSecret` в ответе есть только при `rotateSecret`. Уже выданные access token
+живут до своего `exp`. Изменение пишет событие `service_account.updated` и audit
+`service_accounts.update` (разница вида `audience:+x`, `scope:-y`), смена секрета —
+`service_account.secret_rotated` и `service_accounts.rotate_secret`.
+
+После смены секрета запишите его в env-файл сервиса (0600) и пересоздайте
+контейнеры сервиса.
+
+### Как это делает bootstrap
+
+
+Для учёток ядра и `notification-service` `deploy/bootstrap.py` держит в state
+отпечаток (scopes и audiences) и на каждом запуске:
+
+1. сверяется с IAM пустым `PATCH {}`; principal в ответе не тот, что в state, —
+   остановка до любой записи;
+2. потолок в коде изменился — сначала приводит `allowedScopes` audiences, затем
+   `PATCH` с полными `audiences` и `scopeCeiling`;
+3. env-файла нет — `PATCH {"rotateSecret": true}` и сразу пишет новый секрет в
+   env-файл (атомарно); остаётся перезапустить сервис;
+4. IAM ответил `404 service_account_not_found` или `409 service_account_revoked` —
+   заводит новую учётку (`POST`).
+
+IAM без маршрута `PATCH` останавливает bootstrap: тихого перехода на новую учётку
+нет.
+
+### Новая учётка вместо прежней
+
+Если прежняя учётка отозвана или её нужно заменить целиком — «выпустить новую,
+переключить, отозвать старую»:
+
+1. Создайте новый service account (`POST …/service-accounts`).
 2. Запишите новую пару в env-файл сервиса (0600).
 3. Пересоздайте контейнеры сервиса и убедитесь, что обмен работает.
 4. Отзовите прежний `clientId`:
@@ -168,9 +221,9 @@ access_token = await tokens()   # обмен или значение из кэш
 !!! warning "Новый service account — новый principal"
     Каждое создание заводит **новый** principal с новым `principal_id`
     (`sub` в токене). Если получатель привязывает права к principal (например,
-    binding в Control Plane), binding нужно создать и для нового principal.
-    `deploy/bootstrap.py` сам перевыпускает service account ядра, когда его
-    потолок в коде изменился, и отзывает прежний.
+    binding в Control Plane или роль ядра в хранилище секретов), их нужно
+    завести и для нового principal. Поэтому смена потолка и секрета идёт через
+    `PATCH`, а не через новую учётку.
 
 ## Отзыв
 
@@ -192,12 +245,14 @@ access_token = await tokens()   # обмен или значение из кэш
 
 | HTTP | `detail` | Операция | Причина |
 |---|---|---|---|
-| 401 | `unauthorized` | создание, отзыв | нет или неверный `X-IAM-Bootstrap-Token` |
+| 401 | `unauthorized` | создание, отзыв, `PATCH` | нет или неверный `X-IAM-Bootstrap-Token` |
 | 401 | `invalid_client` | обмен | неизвестный/отозванный `clientId`, неверный секрет, неактивный principal или membership |
 | 403 | `audience_not_allowed` | обмен | audience не в списке service account или не активен |
 | 403 | `scope_not_allowed` | обмен | scope вне потолка или вне `allowedScopes` (частая причина — без префикса) |
-| 404 | `service_account_not_found` | отзыв | `clientId` не найден в tenant |
-| 422 | `unknown_audience` | создание | audience не зарегистрирован или выключен |
+| 404 | `service_account_not_found` | отзыв, `PATCH` | `clientId` не найден в tenant |
+| 409 | `service_account_revoked` | `PATCH` | учётка отозвана |
+| 422 | `unknown_audience` | создание, `PATCH` | audience не зарегистрирован или выключен |
+| 422 | `invalid_scope_ceiling` | `PATCH` | scope вне `allowedScopes` указанных audiences |
 
 ## См. также
 

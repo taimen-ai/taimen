@@ -61,7 +61,7 @@ code and its tests are run by the same interpreter. That is why everything
 they need is installed into the tool's environment:
 
 ```bash
-uv tool install "./package-sdk[all]" --with pytest
+uv tool install "./sdk/package-sdk[all]" --with pytest
 ```
 
 | Extra | For which stage |
@@ -75,17 +75,18 @@ uv tool install "./package-sdk[all]" --with pytest
 - Third-party dependencies of the integration code (what is listed in
   `integration/pyproject.toml`) are also added with `--with`: the stage does
   not install them itself.
-- Core code and the SDK are connected as neighbouring directories, as
-  described in [A package in 10 minutes](quickstart.md#install). The
-  neighbours each extra needs:
+- Core code and the SDK are connected as directories in the installation's
+  layout (`services/`, `sdk/`), as described in
+  [A package in 10 minutes](quickstart.md#install). The neighbours each extra
+  needs:
 
-| Extra | Neighbouring directories next to `package-sdk` |
+| Extra | Directories next to `sdk/package-sdk` |
 |---|---|
-| `sandbox` | `control-plane`, `platform-auth-sdk` |
-| `connector` | `control-plane` (the core client from its `client/`) |
-| `skills` | `skill-sdk` |
-| `mcp` | `control-plane` |
-| `all` | `control-plane`, `platform-auth-sdk`, `skill-sdk` |
+| `sandbox` | `services/control-plane`, `sdk/platform-auth-sdk` |
+| `connector` | `services/control-plane` (the core client from its `client/`) |
+| `skills` | `sdk/skill-sdk` |
+| `mcp` | `services/control-plane` |
+| `all` | `services/control-plane`, `sdk/platform-auth-sdk`, `sdk/skill-sdk` |
 
 The `skill-sdk` and `pytest` commands installed this way live in the tool's
 environment, not on `PATH`: only `package-sdk` is exposed. How to call them
@@ -164,8 +165,8 @@ field:
 
 | `subject` | Object key | `given` | Steps |
 |---|---|---|---|
-| `process` (default) | `process` | `clock`, `data`, `stage`, `principals`, `calendar`, `fromInstance` | `emit`, `advance`, `complete`, `approve`, `expect` |
-| `rule` | `rule` | exactly one of `observation`, `event`; `clock`, `variables` | only `expect`: `result`, `ensureWork`, `invokeSkill`, `noSideEffects` |
+| `process` (default) | `process` | `clock`, `data`, `stage`, `principals`, `calendar`, `settings`, `fromInstance` | `emit`, `advance`, `complete`, `approve`, `settings`, `expect` |
+| `rule` | `rule` | exactly one of `observation`, `event`; `clock`, `variables`, `settings` | only `expect`: `result`, `ensureWork`, `invokeSkill`, `noSideEffects` |
 | `taskType` | `taskType` | `task`, `artifacts`, `principals`, `clock`, `variables` | `approve`, `verify`, `complete`, `expect` |
 
 `check` verifies that the subject is an object of the same package, and for a
@@ -273,6 +274,74 @@ Specifics of rule and task type scenarios:
 The decision on an approval is spelled differently in scenarios: the vote of a
 process's `approve` step is `decision: approve` or `reject`, and the decision
 of a task type's gate is `decision: approved` or `rejected`.
+
+## Settings in scenarios { #settings }
+
+A package with [settings](settings.md) checks in scenarios both the default
+values and a change of a value by an administrator. The sandbox keeps
+settings versions the same way the core does: every value goes through the
+`PUT` check — the package settings schema from the files sent, `x-ref`, and
+the secret markers.
+
+| Where | What it sets | Values version |
+|---|---|---|
+| no `given.settings` | the schema `default` values are in effect | `0` |
+| `given.settings` (process, rule) | the values saved by the start of the scenario | `1` |
+| the `settings` step (process only) | an administrator saved new values in the middle of the scenario | the next one; the same values do not make a version |
+
+The values in `given.settings` and in the `settings` step are the whole
+saved set, like the `PUT` body: a field that is not there takes its
+`default`, so a required field without a `default` (`escalationRole` of the
+`claims` package) is given in every set. Computations after the `settings`
+step read the new values, while decisions a case has already made keep the
+values they read. The case state in `expect` (`data`, `stages`, `status`,
+`outcome`) is read from the first case of the scenario, and another case
+cannot be picked, so the old case and a new case are checked by separate
+scenarios:
+
+```yaml
+process: claim
+name: a raised refund limit does not change the route already chosen
+given:
+  principals: {claims-officer: [alice], claims-manager: [bob]}
+  settings: {refundLimit: 500, escalationRole: 0c000000-0000-4000-8000-000000000001}
+steps:
+  - emit: {observation: helpdesk.ticket_created, payload: {data: {ticketId: T-1, amount: 800}}}
+  - expect: {data: {route: manager}}
+  - settings: {refundLimit: 1000, escalationRole: 0c000000-0000-4000-8000-000000000001}  # an administrator raised the limit
+  - expect: {data: {route: manager}}   # the route of the case is already chosen
+```
+
+```yaml
+process: claim
+name: a claim opened after the raise follows the new limit
+given:
+  principals: {claims-officer: [alice], claims-manager: [bob]}
+  settings: {refundLimit: 500, escalationRole: 0c000000-0000-4000-8000-000000000001}
+steps:
+  - settings: {refundLimit: 1000, escalationRole: 0c000000-0000-4000-8000-000000000001}  # an administrator raised the limit before the first case
+  - emit: {observation: helpdesk.ticket_created, payload: {data: {ticketId: T-2, amount: 800}}}
+  - expect: {data: {route: officer}}   # the case follows the new limit
+```
+
+- A due date computed from a setting (`due: {workdays: {expr: settings.…}}`)
+  is computed on entering the step: the `settings` step does not move a due
+  date that is already open.
+- In a rule scenario, `given.settings` holds the values saved for the
+  evaluation; without it and without references to `settings` in the rule,
+  the sandbox does not touch settings.
+- A value that does not match the schema, an `x-ref` reference to an object
+  that does not exist, or secret material stops the test with the code
+  `settings_invalid`, `unknown_ref`, or `secret_material_rejected` — with no
+  value in the message.
+- If the package declares no settings but the scenario sets them, the test
+  stops with `settings_not_declared`.
+- An `x-ref` to a task type or a calendar must name an object of the package
+  or of its `requires`. The sandbox does not check the ids of roles,
+  principals, and workspaces; with `--server`, the deployment's core checks
+  them against the organization.
+- Core code next to `package-sdk` that does not know settings yet gives the
+  error `sandbox_settings_unsupported`: update `control-plane`.
 
 ## Coverage { #coverage }
 
@@ -443,7 +512,7 @@ jobs:
           clone control-plane "$CONTROL_PLANE_REF"
           clone platform-auth-sdk "$PLATFORM_AUTH_SDK_REF"
           clone skill-sdk "$SKILL_SDK_REF"
-          uv tool install "./package-sdk[sandbox,skills,connector]" --with pytest
+          uv tool install "./sdk/package-sdk[sandbox,skills,connector]" --with pytest
           echo "$(uv tool dir --bin)" >> "$GITHUB_PATH"
       - name: package-sdk test
         run: package-sdk test .
@@ -477,7 +546,7 @@ The same pyramid is available to an author agent through the tool
 | Symptom | Cause | What to do |
 |---|---|---|
 | `ERR` on the contracts stage: `сверке контрактов скиллов нужен skill-sdk` ("skill contract verification needs skill-sdk") | there is no `skill-sdk` in the tool's environment | reinstall with `[skills]` or `[all]` |
-| `ERR` on the integration stage: `тестам кода интеграции нужен pytest` ("integration code tests need pytest") | there is no `pytest` in the tool's environment | `uv tool install --reinstall "./package-sdk[all]" --with pytest` |
+| `ERR` on the integration stage: `тестам кода интеграции нужен pytest` ("integration code tests need pytest") | there is no `pytest` in the tool's environment | `uv tool install --reinstall "./sdk/package-sdk[all]" --with pytest` |
 | `ModuleNotFoundError` in integration tests | a dependency of the integration code is not in the tool's environment | add it with `--with` |
 | `ModuleNotFoundError: No module named '<module>'` on a manual `skill-sdk export` or `pytest` | the integration code in `integration/src` is not on `sys.path` | run from `integration/` with `PYTHONPATH=src` (see [Integration code](#integration-code)) |
 | `skill-sdk: command not found` | the command lives in the environment of the `package-sdk` tool | `"$(uv tool dir)/package-sdk/bin/skill-sdk"` |
@@ -497,6 +566,7 @@ The same pyramid is available to an author agent through the tool
 - [Rules in a package](rules.md#tests)
 - [Work: task types and roles](work.md#tests)
 - [Package skills](skills.md#tests)
+- [Package settings](settings.md): the declaration, `settings` references, permissions
 - [Integrations](integrations.md#tests)
 - [Installation and release](install-and-release.md)
 - [Package readiness checklist](checklist.md)
