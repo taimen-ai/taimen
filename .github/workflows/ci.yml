@@ -36,7 +36,7 @@ jobs:
           - component: platform-llm
             directory: sdk/platform-llm
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           submodules: recursive
       - uses: astral-sh/setup-uv@v6
@@ -75,7 +75,7 @@ jobs:
           - component: fleet
             directory: services/fleet
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           submodules: recursive
       - uses: astral-sh/setup-uv@v6
@@ -112,7 +112,7 @@ jobs:
           --health-cmd "pg_isready -U control_plane -d control_plane_test"
           --health-interval 5s --health-timeout 5s --health-retries 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           submodules: recursive
       - uses: astral-sh/setup-uv@v6
@@ -150,7 +150,7 @@ jobs:
           --health-cmd "pg_isready -U notification -d notification_test"
           --health-interval 5s --health-timeout 5s --health-retries 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           submodules: recursive
       - uses: astral-sh/setup-uv@v6
@@ -171,7 +171,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           submodules: recursive
           # oss-check inspects the history reachable from the revision (gitleaks)
@@ -225,7 +225,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v6
         with:
           version: ${{ env.UV_VERSION }}
@@ -242,7 +242,7 @@ jobs:
     # make secrets → make up → make bootstrap → make smoke pass on a clean machine.
     if: github.event_name != 'pull_request'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           submodules: recursive
       # make bootstrap runs through uv: the package SDK needs PyYAML and jsonschema
