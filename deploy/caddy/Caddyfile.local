@@ -6,13 +6,32 @@
 # same path layout; the path to the file is the CADDYFILE variable in .env.
 {
 	auto_https off
+
+	# The default log: errors of request handling (http.log.error.*, for example a 502 of an
+	# unavailable upstream) are written here together with the whole request, and the access
+	# log filter of the site does not apply to them. The same rules: neither the address of a
+	# people search nor the code and state of an OAuth callback.
+	log default {
+		output stderr
+		format filter {
+			wrap json
+			fields {
+				request>uri regexp "(?i)((?:e|%[46]5)(?:m|%[46]d)(?:a|%[46]1)(?:i|%[46]9)(?:l|%[46]c)|(?:c|%[46]3)(?:o|%[46]f)(?:d|%[46]4)(?:e|%[46]5)|(?:s|%[57]3)(?:t|%[57]4)(?:a|%[46]1)(?:t|%[57]4)(?:e|%[46]5))=[^&#]*" "$1=REDACTED"
+			}
+		}
+	}
 }
 
 http://taimen.localhost, http://localhost {
 	# Artifact contents are not compressed: the core's ETag is the sha256 of the bytes, and
 	# encode appends "-gzip" to it, so the client rejects the download as
-	# content_integrity_failed.
-	@compressible not path_regexp ^/api/v1/artifacts/[^/]+/content$
+	# content_integrity_failed. The assistant's streams (the console's SSE and the
+	# launcher's surface) are not compressed either: encode would hold the events back.
+	@compressible {
+		not path_regexp ^/api/v1/artifacts/[^/]+/content$
+		not path /console/api/assistant/stream
+		not path_regexp ^/harness/_launcher/internal/principals/[^/]+/surface/stream$
+	}
 	encode @compressible zstd gzip
 
 	# IAM exposes only what clients need: JWKS, PAT exchange/introspection/revocation,
@@ -21,17 +40,34 @@ http://taimen.localhost, http://localhost {
 	# /api/v1/events) is protected only by the bootstrap token — it is not at the edge;
 	# deploy/bootstrap.py reaches IAM via 127.0.0.1. Second line of defence: the
 	# bootstrap token header is stripped before proxying.
+	# Matching people of an external system by a connector: exactly the search by e-mail,
+	# reading identities by issuer, linking and unlinking a connection identity — each with
+	# its method; every other route about people stays closed. All four require a Bearer
+	# token with iam:identities.link or iam:people.
 	handle_path /iam/* {
 		@iam_admin {
 			path /api/v1/events /api/v1/events/* /api/v1/tenants /api/v1/tenants/*
 			not path_regexp ^/api/v1/tenants/[^/]+/federation:(authenticate|exchange)$
+			not {
+				method GET
+				path_regexp ^/api/v1/tenants/[^/]+/(principals:by-email|external-identities)$
+			}
+			not {
+				method POST
+				path_regexp ^/api/v1/tenants/[^/]+/principals/[^/]+/external-identities$
+			}
+			not {
+				method DELETE
+				path_regexp ^/api/v1/tenants/[^/]+/principals/[^/]+/external-identities/[^/]+$
+			}
 		}
 		respond @iam_admin 404
 		request_header -X-IAM-Bootstrap-Token
 		reverse_proxy iam-service:8010
 	}
 
-	# Keycloak (idp profile) itself lives under /auth, hence handle without stripping the path.
+	# Keycloak (idp and console profiles) itself lives under /auth, hence handle without
+	# stripping the path.
 	handle /auth/* {
 		reverse_proxy keycloak:8080 {
 			header_up X-Forwarded-Host {host}
@@ -44,10 +80,38 @@ http://taimen.localhost, http://localhost {
 		reverse_proxy notification-service:8000
 	}
 
+	# fleet (fleet profile): nodes join, pull their desired state and report only with
+	# outgoing requests; administration needs a token of the fleet audience.
+	handle_path /fleet/* {
+		reverse_proxy fleet-controller:8040
+	}
+
 	# Memory is exposed only in the local setup; a production installation does not
 	# publish it: clients get context through the Control Plane.
 	handle_path /memory/* {
 		reverse_proxy memory-service:8077
+	}
+
+	# Personal assistants (harness profile). The assistant has no web interface of its own:
+	# people talk to it in the console, so behind the launcher only its service routes are
+	# exposed — the conversation surface and the channel entry (/_launcher/internal/*, an
+	# IAM Bearer token) and health. The console and the notification service reach the
+	# launcher over the compose network, past the edge. The launcher's headers are not
+	# accepted from outside — only the launcher sets them (HMAC with the container secret).
+	@harness_service path /harness/_launcher/internal/* /harness/_launcher/health
+	handle @harness_service {
+		request_header -X-Harness-Launcher
+		request_header -X-Harness-Principal
+		reverse_proxy harness-launcher:8080 {
+			flush_interval -1
+		}
+	}
+
+	# Everything else under /harness — browser entry and bookmarks — goes to the console
+	# with the assistant panel open.
+	@harness_ui path /harness /harness/*
+	handle @harness_ui {
+		redir * /console/?assistant=open 302
 	}
 
 	# The platform guide (guide/, static MkDocs in the guide container).
@@ -67,13 +131,32 @@ http://taimen.localhost, http://localhost {
 		}
 	}
 
-	# There is no web console in the distribution: the root leads to the guide.
+	# The web console (console profile): the BFF itself lives under /console — OIDC sign-in,
+	# API, the events WebSocket, the assistant's SSE and the SPA. Caddy sets X-Forwarded-*
+	# itself, WebSocket passes reverse_proxy as is; flush_interval -1 — streams unbuffered.
+	redir /console /console/ 301
+	handle /console/* {
+		reverse_proxy console:8090 {
+			flush_interval -1
+		}
+	}
+
+	# The root leads to the guide: it is served by the default profiles (core edge);
+	# the console is at /console/ once the console profile is started.
 	handle {
 		redir * /guide/ 302
 	}
 
 	log {
 		output stderr
-		format console
+		format filter {
+			wrap console
+			fields {
+				# the address of a people search and the code and state of the core's OAuth
+				# callback do not go from the query into the log for any request; the parameter
+				# name is matched case-insensitively and with %-encoded letters
+				request>uri regexp "(?i)((?:e|%[46]5)(?:m|%[46]d)(?:a|%[46]1)(?:i|%[46]9)(?:l|%[46]c)|(?:c|%[46]3)(?:o|%[46]f)(?:d|%[46]4)(?:e|%[46]5)|(?:s|%[57]3)(?:t|%[57]4)(?:a|%[46]1)(?:t|%[57]4)(?:e|%[46]5))=[^&#]*" "$1=REDACTED"
+			}
+		}
 	}
 }

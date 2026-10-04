@@ -1,23 +1,33 @@
 # Running the Taimen platform from one file: one network, stable DNS names of services
-# (iam-service, control-plane-api, memory-service, notification-service, caddy).
+# (iam-service, control-plane-api, memory-service, notification-service, keycloak, caddy).
 # Installations differ only in .env (see .env.example) and the Caddyfile.
 #
-# Profiles (make up starts core edge by default):
+# The file lives in deploy/local/, but the project directory is the repository root:
+# .env, secrets/ and the build contexts are resolved from there. Run it only through
+# `make` or the tools/compose wrapper, never as a bare `docker compose` from the root:
+#
+#   make up                                        core edge (the default)
+#   make up PROFILES="core notify console edge"    + notifications and the web console
+#   tools/compose --profile core --profile edge up -d
+#
+# Profiles (make up starts core edge; everything else is opt-in):
 #   core     IAM + Control Plane (api / worker / context-adapter) + memory-service,
 #            their databases and MinIO (storage for artifact contents)
 #   notify   notification-service and its database: web inbox, Telegram, email
-#   idp      optional: Keycloak — an external IdP for people, federated through IAM;
-#            the core does not need it; the operator and agents use Platform Access Tokens
+#   idp      Keycloak and its database — an external IdP for people, federated through IAM;
+#            the core does not need it: the operator and agents use Platform Access Tokens
+#   console  the web console at /console/ (it signs people in through the IdP, so the
+#            console profile starts Keycloak as well)
+#   harness  personal assistant containers of people: launcher + Docker socket proxy;
+#            people talk to their assistant in the console (start it with console)
+#   fleet    fleet-controller: places agents described in catalog packages on nodes
+#            (a node itself runs on the executor's machine — deploy/node/)
 #   edge     Caddy — the only container facing the outside — and the guide guide/
 #
-#   make up                                     core edge
-#   make up PROFILES="core notify edge"         + notifications
-#   docker compose --profile core --profile edge up -d
-#
-# The build context of control-plane, memory-service and notification-service is the
-# umbrella root: platform-auth-sdk (and the core client) are path dependencies in a
-# neighbouring directory, hence the flat submodule layout. The root .dockerignore trims the rest.
-# One control-plane image serves the three core processes.
+# The build context of control-plane, memory-service, notification-service and fleet is
+# the repository root: platform-auth-sdk (sdk/) and the core client are path dependencies
+# at the same relative paths as in the image (TAI-ADR-0064). The root .dockerignore trims
+# the rest. One control-plane image serves the three core processes.
 
 name: ${COMPOSE_PROJECT_NAME:-taimen}
 
@@ -32,6 +42,9 @@ x-cp-env: &cp-env
   CP_CONTEXT_AUTH: ${CP_CONTEXT_AUTH:-auto}
   CP_CONTEXT_API_KEY: ${MEMORY_API_KEY:?set MEMORY_API_KEY}
   CP_IAM_BASE_URL: http://iam-service:8010
+  # Source of domain authorization: local | shadow | policy. There is no external PDP in
+  # the distribution, so local by default.
+  CP_AUTHZ_MODE: ${CP_AUTHZ_MODE:-local}
   # Storage for artifact contents: the installation's MinIO, a dedicated user with rights
   # to the bucket only (created by minio-bootstrap). External S3 — CP_S3_ENDPOINT_URL and keys.
   CP_S3_ENDPOINT_URL: ${CP_S3_ENDPOINT_URL:-http://minio:9000}
@@ -71,7 +84,7 @@ services:
 
   iam-service:
     build:
-      context: ./iam-service
+      context: ./services/iam-service
     image: ${IMAGE_PREFIX:-taimen}/iam-service:${IMAGE_TAG:-local}
     profiles: [core]
     restart: unless-stopped
@@ -120,7 +133,7 @@ services:
   control-plane-api:
     build:
       context: .
-      dockerfile: control-plane/Dockerfile
+      dockerfile: services/control-plane/Dockerfile
     image: ${IMAGE_PREFIX:-taimen}/control-plane:${IMAGE_TAG:-local}
     profiles: [core]
     restart: unless-stopped
@@ -145,7 +158,8 @@ services:
       CP_CORS_ORIGINS: ${CP_CORS_ORIGINS:-[]}
     ports:
       - "127.0.0.1:${CP_HOST_PORT:-18000}:8000"
-    networks: [taimen]
+    # harness-people: the assistant's cp_* tools reach the core by its internal name
+    networks: [taimen, harness-people]
     mem_limit: ${CP_MEM_LIMIT:-512m}
     depends_on:
       control-plane-db:
@@ -200,7 +214,7 @@ services:
   # ------------------------------------------------------------- core: Memory
   memory-db:
     build:
-      context: ./memory-service/infra/memory-db
+      context: ./services/memory-service/infra/memory-db
     image: ${IMAGE_PREFIX:-taimen}/memory-db:${IMAGE_TAG:-local}
     profiles: [core]
     restart: unless-stopped
@@ -219,9 +233,9 @@ services:
   memory-service:
     build:
       # The context is the root: platform-auth-sdk is a path dependency;
-      # memory-service/Dockerfile.dockerignore overrides the root .dockerignore.
+      # services/memory-service/Dockerfile.dockerignore overrides the root .dockerignore.
       context: .
-      dockerfile: memory-service/Dockerfile
+      dockerfile: services/memory-service/Dockerfile
     image: ${IMAGE_PREFIX:-taimen}/memory-service:${IMAGE_TAG:-local}
     profiles: [core]
     restart: unless-stopped
@@ -252,6 +266,10 @@ services:
       CB_IAM_ISSUER: ${TAIMEN_PUBLIC_URL}/iam
       CB_IAM_JWKS_URL: http://iam-service:8010/.well-known/jwks.json
       CB_IAM_AUDIENCE: memory-service
+      # Visibility by principal through an external PDP: there is none in the distribution,
+      # so it is off by default.
+      CB_POLICY_ENABLED: ${MEMORY_POLICY_ENABLED:-false}
+      CB_IAM_BASE_URL: http://iam-service:8010
     ports:
       - "127.0.0.1:${MEMORY_HOST_PORT:-18001}:8077"
     networks: [taimen]
@@ -269,7 +287,8 @@ services:
   # No ports exposed.
   minio:
     # The official MinIO images on Docker Hub and quay.io are no longer served anonymously;
-    # the Chainguard build is the same server (Apache-2.0 image, AGPL-3.0 MinIO), pinned by digest.
+    # the Chainguard build is the same server (Apache-2.0 image, AGPL-3.0 MinIO), pinned by
+    # digest. The image runs as uid 65532.
     image: ${MINIO_IMAGE:-cgr.dev/chainguard/minio@sha256:4692462f35d97d7e82c30371d82f057703c5d9489bcae726010594c812f2d285}
     profiles: [core]
     restart: unless-stopped
@@ -328,8 +347,8 @@ services:
 
   # ---------------------------------------------------------------- notify
   # Notification service: sending from any service or skill, web / Telegram / email
-  # channels, a consumer of core events. Its own database; service account — secrets/notification-iam.env
-  # (written by deploy/bootstrap.py).
+  # channels, a consumer of core events. Its own database; service account —
+  # secrets/notification-iam.env (written by deploy/bootstrap.py, step 5c).
   notification-db:
     image: postgres:16-alpine
     profiles: [notify]
@@ -350,7 +369,7 @@ services:
     build:
       # The context is the root: platform-auth-sdk and the core client are path dependencies.
       context: .
-      dockerfile: notification-service/Dockerfile
+      dockerfile: services/notification-service/Dockerfile
     image: ${IMAGE_PREFIX:-taimen}/notification-service:${IMAGE_TAG:-local}
     profiles: [notify]
     restart: unless-stopped
@@ -373,9 +392,13 @@ services:
       NS_EMAIL_FROM: ${NOTIFY_EMAIL_FROM:-notifications@localhost}
       NS_SMTP_HOST: ${NOTIFY_SMTP_HOST:-localhost}
       NS_SMTP_PORT: ${NOTIFY_SMTP_PORT:-587}
+      # Telegram as an entry into the assistant conversation: the launcher of the harness
+      # profile; without it the service answers "the assistant is unavailable".
+      NS_HARNESS_LAUNCHER_URL: ${NOTIFY_HARNESS_LAUNCHER_URL:-http://harness-launcher:8080/harness}
     ports:
       - "127.0.0.1:${NOTIFY_HOST_PORT:-18045}:8000"
-    networks: [taimen]
+    # harness-people: the assistant's replies and confirmations go to the channel (HARNESS_NOTIFY_URL)
+    networks: [taimen, harness-people]
     mem_limit: ${NOTIFY_MEM_LIMIT:-256m}
     depends_on:
       notification-db:
@@ -384,13 +407,14 @@ services:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/healthz', timeout=3)"]
       <<: *healthcheck-py
 
-  # ---------------------------------------------------------------------- idp
-  # Optional profile. Keycloak is an external IdP for people: its token is exchanged in IAM
-  # (federation:exchange); there are no roles or tenant in the realm — authority lives in IAM and
-  # the Control Plane. The realm is the template deploy/keycloak/platform-realm.json.
+  # ----------------------------------------------------------- idp (console)
+  # Keycloak is an external IdP for people: its token goes only to IAM
+  # (federation:exchange); there are no roles or tenant in the realm — authority lives in
+  # IAM and the Control Plane. The console signs people in through it, so these services
+  # belong to both the idp and the console profiles. Admin API scripts — deploy/keycloak/.
   keycloak-db:
     image: postgres:16-alpine
-    profiles: [idp]
+    profiles: [idp, console]
     restart: unless-stopped
     environment:
       POSTGRES_DB: keycloak
@@ -406,9 +430,48 @@ services:
       timeout: 5s
       retries: 10
 
+  # The realm import does not expand environment variables: the public address and the
+  # console's client secret are substituted into the template before the start; git keeps
+  # the template. Keycloak imports the realm only on its first start — later changes go
+  # through the Admin API (deploy/keycloak/).
+  realm-render:
+    image: busybox:1.36
+    profiles: [idp, console]
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      # Literal substitution (awk index/substr, values from ENVIRON): unlike sed,
+      # `|`, `&`, `\` and `/` in the secret or the address do not break the template.
+      - |
+        set -eu
+        CONSOLE=$$(tr -d '\n' < /run/secrets/runtime_console_oidc_secret)
+        export CONSOLE
+        awk '
+          function put(line, key, value,   out, at) {
+            out = ""
+            while ((at = index(line, key)) > 0) {
+              out = out substr(line, 1, at - 1) value
+              line = substr(line, at + length(key))
+            }
+            return out line
+          }
+          {
+            line = $$0
+            line = put(line, "__WEB_BASE_URL__", ENVIRON["WEB_BASE_URL"])
+            line = put(line, "__RUNTIME_CONSOLE_SECRET__", ENVIRON["CONSOLE"])
+            print line
+          }' /template/platform-realm.json > /import/platform-realm.json
+    environment:
+      WEB_BASE_URL: ${TAIMEN_PUBLIC_URL:?set TAIMEN_PUBLIC_URL}
+    secrets: [runtime_console_oidc_secret]
+    volumes:
+      - ./deploy/keycloak/platform-realm.json:/template/platform-realm.json:ro
+      - realm_import:/import
+    networks: [taimen]
+    restart: "no"
+
   keycloak:
-    image: quay.io/keycloak/keycloak:26.5.2
-    profiles: [idp]
+    image: ${KEYCLOAK_IMAGE:-quay.io/keycloak/keycloak:26.5.2}
+    profiles: [idp, console]
     restart: unless-stopped
     command: ["start", "--import-realm"]
     environment:
@@ -427,9 +490,7 @@ services:
       KC_PROXY_HEADERS: xforwarded
       KC_HEALTH_ENABLED: "true"
     volumes:
-      # --import-realm imports the realm only on the first start; later changes go
-      # through the Admin API.
-      - ./deploy/keycloak/platform-realm.json:/opt/keycloak/data/import/platform-realm.json:ro
+      - realm_import:/opt/keycloak/data/import:ro
     ports:
       - "127.0.0.1:${KEYCLOAK_HOST_PORT:-18081}:8080"
     networks: [taimen]
@@ -437,12 +498,222 @@ services:
     depends_on:
       keycloak-db:
         condition: service_healthy
+      realm-render:
+        condition: service_completed_successfully
     healthcheck:
       test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/9000 && printf 'GET /auth/health/ready HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n' >&3 && grep -q UP <&3"]
       interval: 15s
       timeout: 5s
       retries: 20
       start_period: 40s
+
+  # ------------------------------------------------------------------ console
+  # The web console (apps/console): a BFF on Hono plus the SPA, behind Caddy at /console/*.
+  # IdP and IAM tokens live in the BFF's memory; the browser gets a cookie with a session
+  # id. Two secrets, both files (make secrets): the OIDC client secret and the cookie key.
+  # The BFF reaches the IdP by its public issuer (Caddy is the taimen.localhost alias in
+  # the network) and everything else by internal names. The .env keys are RUNTIME_CONSOLE_*;
+  # the container variables are CONSOLE_*. Without IAM_TENANT_ID (printed by make bootstrap)
+  # the BFF does not start.
+  console:
+    build:
+      context: ./apps/console
+      dockerfile: Dockerfile
+    image: ${IMAGE_PREFIX:-taimen}/console:${IMAGE_TAG:-local}
+    profiles: [console]
+    restart: unless-stopped
+    user: "10001:10001"
+    environment:
+      CONSOLE_PUBLIC_URL: ${TAIMEN_PUBLIC_URL:?set TAIMEN_PUBLIC_URL}
+      CONSOLE_BASE_PATH: /console
+      CONSOLE_OIDC_ISSUER: ${RUNTIME_CONSOLE_OIDC_ISSUER:-${TAIMEN_PUBLIC_URL}/auth/realms/platform}
+      CONSOLE_OIDC_CLIENT_ID: ${RUNTIME_CONSOLE_OIDC_CLIENT_ID:-runtime-console}
+      CONSOLE_OIDC_SCOPES: ${RUNTIME_CONSOLE_OIDC_SCOPES:-openid profile email}
+      CONSOLE_OIDC_SECRET_FILE: /run/secrets/runtime_console_oidc_secret
+      CONSOLE_COOKIE_SECRET_FILE: /run/secrets/runtime_console_cookie_secret
+      CONSOLE_IDENTITY_PROVIDER: ${RUNTIME_CONSOLE_IDENTITY_PROVIDER:-keycloak}
+      CONSOLE_IAM_TENANT: ${IAM_TENANT_ID:-}
+      CONSOLE_IAM_URL: http://iam-service:8010
+      CONSOLE_CONTROL_PLANE_URL: http://control-plane-api:8000
+      CONSOLE_LAUNCHER_URL: http://harness-launcher:8080/harness
+      # Permissions in a matter are decided by the core (bindings); the scope is only the
+      # token's ceiling, the console does not need admin.
+      CONSOLE_CP_SCOPES: ${RUNTIME_CONSOLE_CP_SCOPES:-control-plane:read control-plane:write}
+      CONSOLE_SESSION_TTL_HOURS: ${RUNTIME_CONSOLE_SESSION_TTL_HOURS:-12}
+      CONSOLE_PORT: "8090"
+      # White-label and languages at start-up; English is the primary language.
+      CONSOLE_PRODUCT_NAME: ${RUNTIME_CONSOLE_PRODUCT_NAME:-Console}
+      CONSOLE_ORG_NAME: ${RUNTIME_CONSOLE_ORG_NAME:-}
+      CONSOLE_LOCALES: ${RUNTIME_CONSOLE_LOCALES:-en,ru}
+      CONSOLE_DEFAULT_LOCALE: ${RUNTIME_CONSOLE_DEFAULT_LOCALE:-en}
+      # People are added in the console by their IdP subject; the console does not create
+      # users at the IdP. Users are created by an administrator (deploy/keycloak/keycloak-users.py).
+      CONSOLE_IDP_ADMIN: "off"
+    secrets: [runtime_console_oidc_secret, runtime_console_cookie_secret]
+    # Sessions survive a redeploy: an encrypted file (the key comes from the cookie secret);
+    # the image sets CONSOLE_SESSION_STORE_DIR=/data/sessions owned by 10001.
+    volumes: [console_sessions:/data/sessions]
+    networks: [taimen]
+    mem_limit: ${CONSOLE_MEM_LIMIT:-128m}
+    # The core comes from the core profile; required: false keeps the console profile valid
+    # on its own (make config-all), with core the console still waits for it.
+    depends_on:
+      iam-service:
+        condition: service_healthy
+        required: false
+      control-plane-api:
+        condition: service_healthy
+        required: false
+    healthcheck:
+      # 127.0.0.1, not localhost: in alpine localhost may go to ::1
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8090/console/healthz').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # ------------------------------------------------------------------ harness
+  # Personal assistant containers of people: the launcher creates one container per person
+  # (not compose) from the image below. People talk to their assistant in the console; the
+  # console and the notification service reach the launcher over the compose network, and
+  # only its service routes are behind Caddy. Docker is reached through a socket proxy with
+  # an allow-list (containers and volumes); the launcher checks the label and the image on
+  # every operation.
+  #
+  # Networks (threat model — the guide, "Assistant security"): the model in a person's
+  # container has a shell, so the Docker proxy (port 2375 without authentication,
+  # POST /containers/create) is out of reach of people's containers.
+  #   harness-control (internal) — only harness-docker-proxy and harness-launcher;
+  #   harness-people             — people's containers and exactly what the assistant needs:
+  #                                the launcher (conversation channel), control-plane-api,
+  #                                notification-service, caddy (IAM by the public address);
+  #                                the network has internet egress (model API, forge).
+  # Databases, MinIO, Keycloak, iam-service, memory-service and fleet are not in harness-people.
+  harness-image:
+    build:
+      context: ./services/human-harness
+      dockerfile: Dockerfile
+    image: ${IMAGE_PREFIX:-taimen}/human-harness:${IMAGE_TAG:-local}
+    profiles: [harness]
+    # Build only: `up` exits this service right away.
+    entrypoint: ["/bin/true"]
+    restart: "no"
+
+  harness-docker-proxy:
+    image: tecnativa/docker-socket-proxy:v0.4.1
+    profiles: [harness]
+    restart: unless-stopped
+    environment:
+      CONTAINERS: "1"
+      VOLUMES: "1"
+      POST: "1"
+      # the rest of the Docker API (exec, images, networks, build, swarm…) is closed
+      EXEC: "0"
+      IMAGES: "0"
+      NETWORKS: "0"
+      BUILD: "0"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    # Only the launcher's network: neither the compose network nor people's containers see the proxy.
+    networks: [harness-control]
+    mem_limit: 64m
+
+  harness-launcher:
+    build:
+      context: ./services/human-harness
+      dockerfile: packages/launcher/Dockerfile
+    image: ${IMAGE_PREFIX:-taimen}/harness-launcher:${IMAGE_TAG:-local}
+    profiles: [harness]
+    restart: unless-stopped
+    environment:
+      LAUNCHER_PUBLIC_URL: ${TAIMEN_PUBLIC_URL:?set TAIMEN_PUBLIC_URL}/harness
+      LAUNCHER_COOKIE_SECRET_FILE: /run/secrets/harness_cookie_secret
+      LAUNCHER_OIDC_ISSUER: ${TAIMEN_PUBLIC_URL}/auth/realms/platform
+      LAUNCHER_OIDC_CLIENT_ID: human-harness
+      LAUNCHER_IAM_URL: http://iam-service:8010
+      LAUNCHER_IAM_ISSUER: ${TAIMEN_PUBLIC_URL}/iam
+      LAUNCHER_IAM_TENANT: ${IAM_TENANT_ID:-}
+      LAUNCHER_IAM_BOOTSTRAP_TOKEN_FILE: /run/secrets/harness_iam_bootstrap_token
+      LAUNCHER_DOCKER_URL: http://harness-docker-proxy:2375
+      LAUNCHER_IMAGE: ${IMAGE_PREFIX:-taimen}/human-harness:${IMAGE_TAG:-local}
+      # The network of people's containers is harness-people (the full Docker network name, as below).
+      LAUNCHER_NETWORK: ${HARNESS_PEOPLE_NETWORK:-${COMPOSE_PROJECT_NAME:-taimen}_harness-people}
+      LAUNCHER_PEOPLE_FILE: /run/harness/people.json
+      LAUNCHER_HARNESS_MEMORY_MB: ${HARNESS_MEM_LIMIT_MB:-1536}
+      LAUNCHER_HARNESS_CPUS: ${HARNESS_CPUS:-1}
+      LAUNCHER_HARNESS_PIDS: ${HARNESS_PIDS_LIMIT:-512}
+      LAUNCHER_IDLE_MINUTES: ${HARNESS_IDLE_MINUTES:-30}
+      # The environment of a person's container: the core by its internal name, IAM by the
+      # public address (the issuer is the key of credentials.json; hairpin through Caddy).
+      LAUNCHER_HARNESS_ENV: >-
+        {"HARNESS_CONTROL_PLANE_URL": "http://control-plane-api:8000",
+        "HARNESS_NOTIFY_URL": "http://notification-service:8000",
+        "HARNESS_IAM_URL": "${TAIMEN_PUBLIC_URL}/iam",
+        "HARNESS_IAM_TENANT": "${IAM_TENANT_ID:-}",
+        "HARNESS_APP_NAME": "${HARNESS_APP_NAME:-Human Harness}",
+        "HARNESS_TRUSTED_HOSTS": "${TAIMEN_PUBLIC_HOST:-taimen.localhost}"}
+    secrets: [harness_cookie_secret, harness_iam_bootstrap_token]
+    volumes:
+      - harness_launcher:/var/lib/harness-launcher
+      # the people registry and their secret directories are written by bootstrap (step 8)
+      - ./secrets/harness/people.json:/run/harness/people.json:ro
+    # taimen — iam-service, Keycloak (through caddy), the console and the notification service;
+    # harness-control — the Docker proxy; harness-people — people's containers.
+    networks: [taimen, harness-control, harness-people]
+    mem_limit: 128m
+    depends_on:
+      harness-docker-proxy:
+        condition: service_started
+      harness-image:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8080/harness/_launcher/health').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  # -------------------------------------------------------------------- fleet
+  # Declarative agents: the controller of nodes and agent placement. Nodes (fleet-node,
+  # deploy/node/) live on the executors' machines and reach the controller only with
+  # outgoing requests through Caddy /fleet/*. Service account — secrets/fleet-iam.env
+  # (deploy/bootstrap.py, step 5d); without it the API answers 503 not_configured.
+  fleet-controller:
+    build:
+      # The context is the root: platform-auth-sdk is a path dependency.
+      context: .
+      dockerfile: services/fleet/Dockerfile
+    image: ${IMAGE_PREFIX:-taimen}/fleet:${IMAGE_TAG:-local}
+    profiles: [fleet]
+    restart: unless-stopped
+    env_file:
+      - path: ./secrets/fleet-iam.env
+        required: false
+    environment:
+      FLEET_CONTROL_PLANE_URL: http://control-plane-api:8000
+      FLEET_IAM_URL: http://iam-service:8010
+      FLEET_IAM_ISSUER: ${TAIMEN_PUBLIC_URL}/iam
+      FLEET_IAM_TENANT: ${IAM_TENANT_ID:-}
+      FLEET_JWKS_URL: http://iam-service:8010/.well-known/jwks.json
+      FLEET_DATA_DIR: /data
+      # The ceiling of agent tokens; an audience beyond control-plane only if the agent asks for it
+      # in its description (identity.iam.scopeCeiling).
+      FLEET_TOKEN_AUDIENCES: control-plane notification-service iam
+      FLEET_TOKEN_SCOPES: control-plane:read control-plane:write notification-service=notifications:send iam=iam:identities.link
+    volumes:
+      - fleet_data:/data
+    networks: [taimen]
+    mem_limit: ${FLEET_MEM_LIMIT:-128m}
+    # The core comes from the core profile (see console above).
+    depends_on:
+      control-plane-api:
+        condition: service_healthy
+        required: false
+      iam-service:
+        condition: service_healthy
+        required: false
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8040/healthz', timeout=3)"]
+      <<: *healthcheck-py
 
   # --------------------------------------------------------------------- edge
   caddy:
@@ -463,6 +734,11 @@ services:
         # this is the same Caddy under the name taimen.localhost.
         aliases:
           - ${TAIMEN_PUBLIC_HOST:-taimen.localhost}
+      # People's containers reach IAM (HARNESS_IAM_URL) by the public address — the same
+      # perimeter as from the internet, without direct access to the services behind it.
+      harness-people:
+        aliases:
+          - ${TAIMEN_PUBLIC_HOST:-taimen.localhost}
 
   # The guide guide/ (static MkDocs): Caddy serves it at /guide/.
   guide:
@@ -477,10 +753,33 @@ services:
 secrets:
   iam_signing_key:
     file: ${IAM_SIGNING_KEY_FILE:-./secrets/iam-signing.pem}
+  # Secrets are read by uid 10001: on Linux — chown 10001 on the host.
+  # The launcher's cookie key is written by bootstrap (step 8); the IAM bootstrap token is
+  # the launcher's only way to the status of a principal (conversations of disabled people).
+  harness_cookie_secret:
+    file: ${HARNESS_COOKIE_SECRET_FILE:-./secrets/harness/cookie-secret}
+  harness_iam_bootstrap_token:
+    environment: IAM_BOOTSTRAP_TOKEN
+  # The console's OIDC client secret: written by make secrets, put into the realm by
+  # realm-render (first start) or deploy/keycloak/keycloak-runtime-console-client.py.
+  runtime_console_oidc_secret:
+    file: ${RUNTIME_CONSOLE_OIDC_SECRET_FILE:-./secrets/runtime-console-oidc-secret}
+  # The console's cookie key (at least 32 bytes; HKDF derives the session id HMAC and the
+  # sign-in cookie AES-GCM key from it): written by make secrets.
+  runtime_console_cookie_secret:
+    file: ${RUNTIME_CONSOLE_COOKIE_SECRET_FILE:-./secrets/runtime-console-cookie-secret}
 
 networks:
   taimen:
     name: ${TAIMEN_NETWORK:-taimen_default}
+  # The Docker proxy and the launcher (harness profile): internal — no egress, no neighbours.
+  harness-control:
+    name: ${HARNESS_CONTROL_NETWORK:-${COMPOSE_PROJECT_NAME:-taimen}_harness-control}
+    internal: true
+  # People's containers (created by the launcher, LAUNCHER_NETWORK) and the services the
+  # assistant needs. Not internal: the assistant needs the model API and the forge.
+  harness-people:
+    name: ${HARNESS_PEOPLE_NETWORK:-${COMPOSE_PROJECT_NAME:-taimen}_harness-people}
 
 # Volume names are explicit so that an installation can point to existing ones.
 volumes:
@@ -496,6 +795,14 @@ volumes:
     name: ${VOLUME_NOTIFY_DB:-${COMPOSE_PROJECT_NAME:-taimen}_notify_db}
   keycloak_db:
     name: ${VOLUME_KEYCLOAK_DB:-${COMPOSE_PROJECT_NAME:-taimen}_keycloak_db}
+  realm_import:
+    name: ${VOLUME_REALM_IMPORT:-${COMPOSE_PROJECT_NAME:-taimen}_realm_import}
+  console_sessions:
+    name: ${VOLUME_CONSOLE_SESSIONS:-${COMPOSE_PROJECT_NAME:-taimen}_console_sessions}
+  harness_launcher:
+    name: ${VOLUME_HARNESS_LAUNCHER:-${COMPOSE_PROJECT_NAME:-taimen}_harness_launcher}
+  fleet_data:
+    name: ${VOLUME_FLEET_DATA:-${COMPOSE_PROJECT_NAME:-taimen}_fleet_data}
   caddy_data:
     name: ${VOLUME_CADDY_DATA:-${COMPOSE_PROJECT_NAME:-taimen}_caddy_data}
   caddy_config:

@@ -1,7 +1,9 @@
-# The build context of control-plane, memory-service and notification-service is the
-# umbrella root: platform-auth-sdk (and the core client) are path dependencies in a
-# neighbouring directory. Everything the build does not need is excluded here.
-# memory-service overrides this file with its own memory-service/Dockerfile.dockerignore.
+# The build context of control-plane, memory-service, notification-service, fleet and the
+# agent runner (deploy/agent-runner/Dockerfile) is the repository root: platform-auth-sdk
+# (and the core client) are path dependencies at sdk/ and services/. Everything the build
+# does not need is excluded here. services/memory-service/Dockerfile.dockerignore
+# overrides this file for memory-service; the console and human-harness build from their
+# own directories with their own .dockerignore.
 **/.git
 **/.venv
 **/.mypy_cache
@@ -9,18 +11,24 @@
 **/.pytest_cache
 **/__pycache__
 **/node_modules
+**/.next
 **/.env
 **/.secrets
 **/*.zip
 secrets/
 deploy/
+# git credential helpers of the agent runner image
+!deploy/agent-runner/git-credential-forge-token
+!deploy/agent-runner/runner-forge-credentials
 tools/
 guide/
 cla/
 .claude/
 .github/
-*/docs/
-*/tests/
-memory-service/*
-!memory-service/client
-iam-service/
+apps/
+*/*/docs/
+*/*/tests/
+services/memory-service/*
+!services/memory-service/client
+services/iam-service/
+services/human-harness/

@@ -14,6 +14,8 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
+ROOT = Path(__file__).resolve().parent.parent
+
 CHECKS = [
     ("iam-service", "IAM_HOST_PORT", "18010", "/healthz"),
     ("control-plane-api", "CP_HOST_PORT", "18000", "/health/ready"),
@@ -37,7 +39,7 @@ def load_env(path: Path) -> dict[str, str]:
 def running_services() -> set[str] | None:
     try:
         result = subprocess.run(
-            ["docker", "compose", "--profile", "*", "ps", "--services", "--status", "running"],
+            [str(ROOT / "tools" / "compose"), "--profile", "*", "ps", "--services", "--status", "running"],
             capture_output=True,
             text=True,
             check=True,
@@ -48,7 +50,7 @@ def running_services() -> set[str] | None:
 
 
 def main() -> int:
-    env = load_env(Path(".env"))
+    env = load_env(ROOT / ".env")
     running = running_services()
     failures = 0
     for name, var, default, path in CHECKS:

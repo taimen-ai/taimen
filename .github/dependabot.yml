@@ -1,5 +1,5 @@
 # Dependabot for the umbrella: only what lives in this repository — GitHub Actions and
-# the images pinned in compose.yml. Component dependencies are updated in their repositories.
+# the images pinned in deploy/local/compose.yml. Component dependencies are updated in their repositories.
 version: 2
 updates:
   - package-ecosystem: github-actions
@@ -9,7 +9,7 @@ updates:
     commit-message:
       prefix: ci
   - package-ecosystem: docker-compose
-    directory: /
+    directory: /deploy/local
     schedule:
       interval: weekly
     commit-message:
