@@ -472,7 +472,7 @@ services:
     restart: "no"
 
   keycloak:
-    image: ${KEYCLOAK_IMAGE:-quay.io/keycloak/keycloak:26.5.2}
+    image: ${KEYCLOAK_IMAGE:-quay.io/keycloak/keycloak:26.8.0}
     profiles: [idp, console, harness]
     restart: unless-stopped
     command: ["start", "--import-realm"]
