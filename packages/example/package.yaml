@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../../package-sdk/schema/v1/object.schema.json
+# yaml-language-server: $schema=../../sdk/package-sdk/schema/v1/object.schema.json
 # A minimal catalog package: one task type. A sample for your own packages —
 # the structure and object kinds are described in the guide (guide/, catalog packages).
 apiVersion: taimen.ai/v1

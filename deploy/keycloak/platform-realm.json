@@ -25,6 +25,83 @@
       "publicClient": false,
       "standardFlowEnabled": false,
       "directAccessGrantsEnabled": false
+    },
+    {
+      "clientId": "runtime-console",
+      "name": "runtime-console",
+      "description": "Web console: a confidential client, Authorization Code + PKCE (BFF); its token goes only to IAM federation:exchange",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "bearerOnly": false,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "__RUNTIME_CONSOLE_SECRET__",
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "implicitFlowEnabled": false,
+      "serviceAccountsEnabled": false,
+      "frontchannelLogout": true,
+      "redirectUris": [
+        "__WEB_BASE_URL__/console/_auth/callback"
+      ],
+      "webOrigins": [
+        "__WEB_BASE_URL__"
+      ],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "__WEB_BASE_URL__/console/"
+      },
+      "protocolMappers": [
+        {
+          "name": "iam-service-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.client.audience": "iam-service",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "introspection.token.claim": "true"
+          }
+        }
+      ]
+    },
+    {
+      "clientId": "human-harness",
+      "name": "human-harness",
+      "description": "Launcher of personal assistants: a public client, Authorization Code + PKCE; its token goes only to IAM federation:exchange",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": true,
+      "bearerOnly": false,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "implicitFlowEnabled": false,
+      "serviceAccountsEnabled": false,
+      "redirectUris": [
+        "__WEB_BASE_URL__/harness/*"
+      ],
+      "webOrigins": [
+        "__WEB_BASE_URL__"
+      ],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "__WEB_BASE_URL__/harness/*"
+      },
+      "protocolMappers": [
+        {
+          "name": "iam-service-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.client.audience": "iam-service",
+            "id.token.claim": "false",
+            "access.token.claim": "true",
+            "introspection.token.claim": "true"
+          }
+        }
+      ]
     }
   ],
   "components": {

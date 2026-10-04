@@ -1,6 +1,6 @@
-# yaml-language-server: $schema=../package-sdk/schema/v1/object.schema.json
+# yaml-language-server: $schema=../sdk/package-sdk/schema/v1/object.schema.json
 # Catalog install file: which packages from packages/ to install into the installation.
-# make bootstrap applies it at step 5b; afterwards, with the package SDK (package-sdk/):
+# make bootstrap applies it at step 5b; afterwards, with the package SDK (sdk/package-sdk):
 #   make packages-check                                  # package-sdk check --install deploy/packages.yaml
 #   make packages-plan  SERVER=http://taimen.localhost   # package-sdk plan --install … --out <plan>
 #   make packages-apply SERVER=http://taimen.localhost   # package-sdk apply --plan <plan>

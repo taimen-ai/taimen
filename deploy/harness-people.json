@@ -1,0 +1,6 @@
+{
+  "$comment": "People with a personal assistant (make bootstrap ARGS=\"--harness-people deploy/harness-people.json\", step 8). iamPrincipalId is the person's IAM principal; \"operator\" is the operator created by bootstrap.",
+  "people": [
+    {"iamPrincipalId": "operator"}
+  ]
+}

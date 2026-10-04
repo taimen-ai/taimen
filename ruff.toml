@@ -1,10 +1,7 @@
 # ruff for the umbrella scripts (tools/, deploy/); the components have their own settings.
 line-length = 120
 target-version = "py311"
-extend-exclude = [
-  "control-plane", "memory-service", "iam-service", "platform-auth-sdk",
-  "notification-service", "skill-sdk", "platform-llm", "package-sdk", "guide",
-]
+extend-exclude = ["services", "sdk", "apps", "guide"]
 
 [lint]
 select = ["E", "F", "W", "I", "UP", "B"]
