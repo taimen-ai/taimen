@@ -1,8 +1,8 @@
-# Umbrella CI. Component tests run here, not only in their own repositories:
-# control-plane, memory-service, notification-service, skill-sdk and package-sdk take their
-# neighbours (platform-auth-sdk, platform-llm, the core, the core client, skill-sdk) as path
-# dependencies and do not build in a standalone checkout. A checkout with submodules gives
-# everyone neighbours at pinned revisions.
+# Umbrella CI. Component tests run here, not only in their own repositories: the
+# components take their neighbours (sdk/platform-auth-sdk, sdk/platform-llm, the core and its
+# client in services/control-plane, sdk/skill-sdk) as path dependencies and do not build in a
+# standalone checkout. A checkout with submodules gives everyone neighbours at pinned revisions
+# in the layout services/, sdk/, apps/ (TAI-ADR-0064).
 name: ci
 
 on:
@@ -32,22 +32,9 @@ jobs:
       matrix:
         include:
           - component: platform-auth-sdk
-            tests: tests
+            directory: sdk/platform-auth-sdk
           - component: platform-llm
-            tests: tests
-          - component: skill-sdk
-            tests: tests
-            extra: --all-extras
-          # The moved tools' tests run on the component's fixture snapshot of the packages: the
-          # umbrella ships only packages/example, and the suite expects the platform packages.
-          - component: package-sdk
-            tests: tests
-            extra: --all-extras
-          - component: iam-service
-            tests: tests
-          - component: memory-service
-            tests: tests --ignore=tests/integration
-            extra: --extra mcp
+            directory: sdk/platform-llm
     steps:
       - uses: actions/checkout@v4
         with:
@@ -56,22 +43,58 @@ jobs:
         with:
           version: ${{ env.UV_VERSION }}
       - name: Install dependencies
-        working-directory: ${{ matrix.component }}
-        run: uv sync ${{ matrix.extra }} --all-groups 2>/dev/null || uv sync ${{ matrix.extra }} --dev
+        working-directory: ${{ matrix.directory }}
+        run: uv sync --all-groups 2>/dev/null || uv sync --dev
       - name: ruff
-        working-directory: ${{ matrix.component }}
+        working-directory: ${{ matrix.directory }}
         run: |
           uv run ruff check .
           uv run ruff format --check .
       - name: pytest
-        working-directory: ${{ matrix.component }}
-        run: uv run ${{ matrix.extra }} pytest -q ${{ matrix.tests }}
+        working-directory: ${{ matrix.directory }}
+        run: uv run pytest -q tests
+
+  # Components with their own make targets: CI calls them instead of copying the commands —
+  # `make check` of a component is everything it considers mandatory.
+  component:
+    name: ${{ matrix.component }} (make check)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - component: skill-sdk
+            directory: sdk/skill-sdk
+          - component: package-sdk
+            directory: sdk/package-sdk
+          - component: iam-service
+            directory: services/iam-service
+          - component: memory-service
+            directory: services/memory-service
+          - component: fleet
+            directory: services/fleet
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: ${{ env.UV_VERSION }}
+      - name: make install
+        working-directory: ${{ matrix.directory }}
+        run: make install
+      - name: make check
+        working-directory: ${{ matrix.directory }}
+        run: make check
       - name: Umbrella packages against the package schema
+        # The suite of package-sdk runs on its own fixture snapshot of the packages; the umbrella
+        # ships only packages/example, which is checked against the format's schema here.
         if: matrix.component == 'package-sdk'
-        working-directory: package-sdk
+        working-directory: sdk/package-sdk
         env:
           PACKAGE_SDK_UMBRELLA: ${{ github.workspace }}
-        run: uv run ${{ matrix.extra }} pytest -q tests/test_umbrella_packages.py
+        run: uv run --all-extras pytest -q tests/test_umbrella_packages.py
 
   control-plane:
     name: control-plane (all tests, PostgreSQL)
@@ -95,25 +118,21 @@ jobs:
       - uses: astral-sh/setup-uv@v6
         with:
           version: ${{ env.UV_VERSION }}
-      - name: ruff + pytest (unit, client, integration, concurrency)
-        working-directory: control-plane
+      - name: make lint + make test (unit, client, integration, concurrency)
+        working-directory: services/control-plane
         env:
           CP_TEST_DATABASE_URL: postgresql+psycopg://control_plane:control_plane@localhost:5434/control_plane_test
         run: |
-          uv sync --all-groups 2>/dev/null || uv sync --dev
-          uv run ruff check .
-          uv run ruff format --check .
-          uv run pytest -q tests/unit tests/client tests/integration tests/concurrency
+          make install
+          make lint
+          make test PYTEST_ARGS="-q tests/unit tests/client tests/integration tests/concurrency"
       - name: skill-sdk through the core skill executor
-        working-directory: control-plane
-        run: |
-          PYTHONPATH=../skill-sdk/src:../skill-sdk uv run pytest -q -p no:cacheprovider \
-            -c ../skill-sdk/pyproject.toml ../skill-sdk/tests/test_executor_e2e.py
+        run: make -C sdk/skill-sdk test-e2e
       - name: Catalog packages with the core's validators (package-sdk)
         # The package SDK from its submodule in the core's environment: the core's code at the revision tested above
         env:
-          PYTHONPATH: ${{ github.workspace }}/package-sdk/src
-        run: uv run --project control-plane python -m package_sdk.cli check --install deploy/packages.yaml
+          PYTHONPATH: ${{ github.workspace }}/sdk/package-sdk/src
+        run: uv run --project services/control-plane python -m package_sdk.cli check --install deploy/packages.yaml
 
   notification-service:
     name: notification-service (all tests, PostgreSQL)
@@ -123,12 +142,12 @@ jobs:
       postgres:
         image: postgres:16-alpine
         env:
-          POSTGRES_USER: notify
-          POSTGRES_PASSWORD: notify
-          POSTGRES_DB: notify_test
-        ports: ["5438:5432"]
+          POSTGRES_USER: notification
+          POSTGRES_PASSWORD: notification
+          POSTGRES_DB: notification_test
+        ports: ["5436:5432"]
         options: >-
-          --health-cmd "pg_isready -U notify -d notify_test"
+          --health-cmd "pg_isready -U notification -d notification_test"
           --health-interval 5s --health-timeout 5s --health-retries 10
     steps:
       - uses: actions/checkout@v4
@@ -137,15 +156,15 @@ jobs:
       - uses: astral-sh/setup-uv@v6
         with:
           version: ${{ env.UV_VERSION }}
-      - name: ruff + pytest
-        working-directory: notification-service
+      - name: make install, lint, migrations-check, test
+        working-directory: services/notification-service
         env:
-          NS_TEST_DATABASE_URL: postgresql+psycopg://notify:notify@localhost:5438/notify_test
+          NS_TEST_DATABASE_URL: postgresql+psycopg://notification:notification@localhost:5436/notification_test
         run: |
-          uv sync --all-groups 2>/dev/null || uv sync --dev
-          uv run ruff check .
-          uv run ruff format --check .
-          uv run pytest -q
+          make install
+          make lint
+          make migrations-check
+          make test
 
   umbrella:
     name: umbrella (tools, compose, links, oss-check)
@@ -165,16 +184,27 @@ jobs:
           uvx ruff check tools deploy
           uvx ruff format --check tools deploy
           uv run --no-project --with pytest python -m pytest -q tools/tests
-      - name: Compose interpolation with all profiles
+      - name: Compose interpolation, every profile alone and all together (clean .env, make secrets)
         run: |
           cp .env.example .env
           python3 tools/fill_secrets.py .env
           mkdir -p secrets && touch secrets/iam-signing.pem
-          docker compose --profile core --profile notify --profile idp --profile edge config --quiet
-      - name: Catalog packages (schema and references, without the core's code)
-        # The package SDK is the package-sdk submodule; the core's validators run in the control-plane job
+          make config-all
+      - name: The default profiles (core edge) without the IdP, the console, assistants and fleet
         run: |
-          PYTHONPATH=package-sdk/src uv run --no-project --with pyyaml --with jsonschema \
+          tools/compose --profile core --profile edge config --services > /tmp/core-services
+          cat /tmp/core-services
+          if grep -xE 'keycloak.*|realm-render|console|harness-.*|fleet-.*' /tmp/core-services; then
+            echo "a service outside the core got into the default profiles"; exit 1
+          fi
+      - name: Compose of a fleet node
+        run: |
+          cp deploy/node/.env.example deploy/node/.env
+          docker compose -f deploy/node/compose.yml config --quiet
+      - name: Catalog packages (schema and references, without the core's code)
+        # The package SDK is the sdk/package-sdk submodule; the core's validators run in the control-plane job
+        run: |
+          PYTHONPATH=sdk/package-sdk/src uv run --no-project --with pyyaml --with jsonschema --with ruamel.yaml \
             python -m package_sdk.cli check --schema-only --install deploy/packages.yaml
       - name: Documentation links
         run: python3 tools/linkcheck.py
@@ -214,14 +244,15 @@ jobs:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
-      # make bootstrap runs through uv: step 5b (catalog from packages) needs PyYAML and jsonschema
+      # make bootstrap runs through uv: the package SDK needs PyYAML and jsonschema
       - uses: astral-sh/setup-uv@v6
         with:
           version: ${{ env.UV_VERSION }}
       - name: make secrets
         run: |
           make secrets
-          sudo chown 10001:10001 secrets/*.pem && sudo chmod 600 secrets/*.pem
+          sudo chown 10001:10001 secrets/*.pem secrets/runtime-console-*-secret
+          sudo chmod 600 secrets/*.pem secrets/runtime-console-*-secret
       - name: make up PROFILES="core edge"
         run: |
           start=$(date +%s)
@@ -238,10 +269,10 @@ jobs:
           make bootstrap
       - name: Restart the core after bootstrap, then smoke
         run: |
-          docker compose --profile core --profile edge up -d control-plane-api control-plane-worker context-adapter
+          tools/compose --profile core --profile edge up -d control-plane-api control-plane-worker context-adapter
           for i in $(seq 1 60); do make smoke >/dev/null 2>&1 && break; sleep 5; done
           make smoke
           docker stats --no-stream --format '{{.Name}} {{.MemUsage}}' | tee -a "$GITHUB_STEP_SUMMARY"
       - name: Logs on failure
         if: failure()
-        run: docker compose --profile "*" logs --tail 200
+        run: tools/compose --profile "*" logs --tail 200
