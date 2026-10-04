@@ -1,32 +1,49 @@
+# Components of the open platform (TAI-ADR-0064 layout): services/, sdk/, apps/.
+# The section name is the component's stable name; the oss.publish skill finds a section
+# by its path and moves the gitlink to the release snapshot of the component's public
+# repository. A section without a gitlink (fleet, console, human-harness before their
+# first release) is ignored by git until the first publication adds the gitlink.
 [submodule "control-plane"]
-	path = control-plane
+	path = services/control-plane
 	url = https://github.com/taimen-ai/control-plane.git
 	branch = main
-[submodule "memory-service"]
-	path = memory-service
-	url = https://github.com/taimen-ai/memory-service.git
-	branch = main
 [submodule "iam-service"]
-	path = iam-service
+	path = services/iam-service
 	url = https://github.com/taimen-ai/iam-service.git
 	branch = main
-[submodule "platform-auth-sdk"]
-	path = platform-auth-sdk
-	url = https://github.com/taimen-ai/platform-auth-sdk.git
+[submodule "memory-service"]
+	path = services/memory-service
+	url = https://github.com/taimen-ai/memory-service.git
 	branch = main
 [submodule "notification-service"]
-	path = notification-service
+	path = services/notification-service
 	url = https://github.com/taimen-ai/notification-service.git
 	branch = main
-[submodule "skill-sdk"]
-	path = skill-sdk
-	url = https://github.com/taimen-ai/skill-sdk.git
+[submodule "fleet"]
+	path = services/fleet
+	url = https://github.com/taimen-ai/fleet.git
+	branch = main
+[submodule "human-harness"]
+	path = services/human-harness
+	url = https://github.com/taimen-ai/human-harness.git
+	branch = main
+[submodule "platform-auth-sdk"]
+	path = sdk/platform-auth-sdk
+	url = https://github.com/taimen-ai/platform-auth-sdk.git
 	branch = main
 [submodule "platform-llm"]
-	path = platform-llm
+	path = sdk/platform-llm
 	url = https://github.com/taimen-ai/platform-llm.git
 	branch = main
+[submodule "skill-sdk"]
+	path = sdk/skill-sdk
+	url = https://github.com/taimen-ai/skill-sdk.git
+	branch = main
 [submodule "package-sdk"]
-	path = package-sdk
+	path = sdk/package-sdk
 	url = https://github.com/taimen-ai/package-sdk.git
+	branch = main
+[submodule "console"]
+	path = apps/console
+	url = https://github.com/taimen-ai/console.git
 	branch = main
