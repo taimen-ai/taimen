@@ -20,6 +20,11 @@ flowchart LR
         caddy[Caddy<br/>the only edge]
         caddy ==> iam[iam-service]
         caddy ==> cp[control-plane-api]
+        caddy ==> con[console]
+        caddy ==> kc[keycloak]
+        caddy ==> hl[harness-launcher]
+        caddy ==> fc[fleet-controller]
+        kc --- kcdb[(keycloak-db)]
         cp --- worker[control-plane-worker]
         cp --- adapter[context-adapter]
         adapter ==> mem[memory-service]
@@ -27,15 +32,17 @@ flowchart LR
         cp --- cpdb[(control-plane-db)]
         mem --- memdb[(memory-db<br/>AGE + pgvector)]
     end
-    runner[Runner host<br/>control-plane-agent] ==>|HTTPS: PAT → access token| caddy
+    runner[Fleet node<br/>agent containers] ==>|HTTPS: PAT → access token| caddy
 ```
 
 Key principles:
 
 
 - **One description file**: the superproject's `deploy/local/compose.yml` with
-  profiles (`core`, `edge`, `notify`). A local installation and a production
-  one differ only in the `.env` file and the Caddyfile.
+  profiles (`core`, `edge`, `notify`, `idp`, `console`, `harness`, `fleet`).
+  A local installation and a production one differ only in the `.env` file
+  and the Caddyfile.
+
 - **One edge**: only the `caddy` container publishes ports (80/443).
   All other services listen on the host's `127.0.0.1` or only on the internal
   network.

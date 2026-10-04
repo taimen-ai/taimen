@@ -53,7 +53,7 @@ curl -s -X POST "$IAM_URL/api/v1/tenants" -H "$BT" \
     that IAM and Control Plane refer to one organization by one identifier
     (`TAI-ADR-0030`). `make bootstrap` first creates the tenant in IAM and then
     passes its UUID to the Control Plane bootstrap. Write the resulting id to
-    `.env` as `IAM_TENANT_ID`; services and executors that need the tenant use it.
+    `.env` as `IAM_TENANT_ID`; the personal workspace launcher, fleet-controller, and runners use it.
 
 Errors: `409 tenant_id_exists` (that `id` already exists), `409 tenant_slug_exists`,
 `422` for an invalid `slug`/`name`.
@@ -202,7 +202,6 @@ There is no separate API to add an existing principal to a second tenant.
 
 ## Groups
 
-
 Groups are tenant-wide sets of principals. IAM stores them and projects
 membership from external sources into them, but groups **by themselves** grant
 no access: consuming services (for example, an external PDP) use them.
@@ -263,8 +262,8 @@ directory, not by the administrator (see [lifecycle profiles](federation.md#life
 !!! tip "How to find the `subject`"
 
     `subject` is the value of the claim configured on the provider as
-    `subjectClaim` (`sub` by default). It is usually the immutable user
-    identifier at the IdP.
+    `subjectClaim` (`sub` by default). In Keycloak, it is the UUID of the
+    realm user.
 
 ## Link to principals in services
 

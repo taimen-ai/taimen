@@ -84,6 +84,13 @@ binding не может выдать права, которых нет у нег
 
 ## Заведение identity по шагам
 
+!!! note "Агентам с описанием шаги не нужны"
+    Для агента, описанного видом `Agent`, identity заводит платформа: fleet-controller
+    создаёт principal в IAM (scope `iam:agents`) и выпускает PAT на каждое размещение, а
+    principal Control Plane и связку с правами из `identity.permissions` выводит ядро
+    (`PUT /api/v1/agents/{key}/identity`). Отзыв — вывод агента из оборота. См. [Агенты
+    описанием](declarative-agents.md#lifecycle) и [Узлы и fleet](fleet.md#identity-and-pat).
+    Ручные шаги ниже нужны для principal'ов без описания.
 
 Ниже — последовательность вызовов API. Вручную её повторяют, когда добавляют исполнителя
 без описания в уже развёрнутую систему.
@@ -257,4 +264,5 @@ systemd).
 - [Tenants и principals](../iam/principals.md)
 - [Токены, audiences, scopes](../iam/tokens.md)
 - [Авторизация и права](../control-plane/authorization.md)
+- [Установка runner](installation.md)
 - [Секреты и ротация](../operations/secrets.md)

@@ -19,9 +19,8 @@ pattern; run commands from the root of the superproject clone.
 
 To check the resulting configuration after interpolation:
 
-
 ```bash
-make config PROFILES="core notify edge"
+make config PROFILES="core idp harness edge"
 tools/compose --profile core --profile edge config | less
 ```
 
@@ -47,8 +46,11 @@ tools/compose --profile core --profile edge config | less
 | `/health/ready` → `503 migrations_pending`, the database revision is **newer** than head | An old image runs on top of the new schema | Restore the new release's image or run a downgrade with the new image |
 | `/health/ready` → `503 database_unreachable` | The database did not start, the password is wrong, or the disk is full | `tools/compose logs control-plane-db`, `df -h` |
 | `password authentication failed for user "…"` after changing a password in `.env` | `POSTGRES_PASSWORD` applies only when an empty volume is initialized | Change the role password with `ALTER ROLE` in the database or restore the previous value in `.env`, see [Secrets and rotation](../operations/secrets.md) |
+| `keycloak-db` does not start: `set KEYCLOAK_DB_PASSWORD` | The Keycloak database password is not set | Run `make secrets` or set it manually |
+| `keycloak` stays `starting` for a long time | This is normal: the JVM starts and the realm is imported; `start_period` is 40 s, up to 20 retries | Wait; on OOM, raise `KEYCLOAK_MEM_LIMIT` |
 | `control-plane-api` does not start: dependency `minio-bootstrap` exited with an error | The one-shot container failed | `tools/compose logs minio minio-bootstrap` |
 | `memory-service` fails with `graph with oid … does not exist` | The memory database was restored from a logical dump into a new cluster | Fix the AGE catalog OIDs, see [Backup](../operations/backup.md) |
+| `harness-launcher` does not let people in, or a service of the `harness` profile does not start without `idp` | The `harness` profile requires `idp` (sign-in through Keycloak) | Start the profiles together: `make up PROFILES="core idp harness edge"` |
 
 ## Edge (Caddy)
 
@@ -57,6 +59,7 @@ tools/compose --profile core --profile edge config | less
 | `caddy` logs show `challenge failed`, `no valid A records`, `429` | The name does not point to the host, ports 80/443 are closed, or the ACME CA rate limits were exceeded after a series of failures | Check `dig` and the firewall; remove names without DNS from the Caddyfile; after a `429`, wait for the rate-limit window |
 | A Caddyfile change does not apply after `caddy reload` | The file was replaced with a new inode (`mv`, atomic write), and the bind mount still sees the old one | Write into the same file (`cat new > Caddyfile`) or run `tools/compose up -d --force-recreate caddy` |
 | `502` on a route | The upstream is not running (its profile is off) or has crashed | `tools/compose ps <upstream>`; remove the unneeded route |
+| Your own route responds with `302` to `/console/` | The route is declared after the root block (`handle { redir * /console/ 302 }`) | Move it above the root block |
 
 For details, see [Edge and TLS](../operations/edge-and-tls.md).
 

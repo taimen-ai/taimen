@@ -2,17 +2,18 @@
 # Executor configuration
 
 Where the `control-plane-agent` executor daemon gets its settings and which environment
-variables it reads. In the delivery, you start the daemon manually and configure it with
-environment variables ("env mode"). If the daemon's principal is bound to an agent in the
-core registry (kind `Agent`), the daemon takes everything about the agent from the
-description revision. This is a reference article for operations engineers.
+variables it reads. The main path: the agent is described by the `Agent` kind, the daemon
+takes everything about the agent from its revision, and the fleet node sets the environment
+variables. The variables described below as "env mode" are needed only by a daemon started
+manually for a principal without a description (local debugging). This is a reference
+article for operations engineers.
 
 ## Two sources of settings
 
 | What | Where from | Who sets it |
 |---|---|---|
-| What the agent is: work, executor kind, model, permission mode, instructions, working copy, neighbours, review, skills, drain period | the agent revision, `GET /api/v1/agents/me`; for a principal without an agent — env mode variables | the author of the description in the package ([Catalog packages](../control-plane/catalog-packages.md#agent)) or whoever starts the daemon |
-| What belongs to the machine: Control Plane and IAM address, credential, working copy and mirror directories, CLI binaries, MCP passthrough, local logs, trace, isolation of local skills, progress watchdog | environment variables | whoever starts the daemon (systemd unit, compose, container) |
+| What the agent is: work, executor kind, model, permission mode, instructions, working copy, neighbours, review, skills, drain period | the agent revision, `GET /api/v1/agents/me` | the author of the description in the package ([Agents by description](declarative-agents.md)) |
+| What belongs to the machine: Control Plane and IAM address, credential, working copy and mirror directories, CLI binaries, MCP passthrough, local logs, trace, isolation of local skills, progress watchdog | environment variables | when started through fleet, the node: `agentEnv` and `executors.<kind>.env` from `node.yaml`, plus the variables the node sets itself ([Nodes and fleet](fleet.md#agent-container)) |
 
 !!! tip "How to change agent settings"
     Change the model, `permissionMode`, neighbours, review, or skills by editing the agent
@@ -38,11 +39,11 @@ restart instead of guessing the mode.
 
 ### Exit codes
 
-| Code | When | What the process supervisor should do |
+| Code | When | What the fleet node does |
 |---|---|---|
-| `0` | the agent is stopped (`state: stopped`) or retired | do not restart until the agent is started again |
-| `2` | the configuration cannot be executed: no `CONTROL_PLANE_SERVER` or credential, unknown executor kind, invalid `executor.params`, `review` without `reviewer`, a mirror with a foreign `origin` | fix the configuration; restarting without a fix is useless |
-| `75` | a new agent revision appeared (after the current run) or `/agents/me` could not be read at startup | start again immediately |
+| `0` | the agent is stopped (`state: stopped`) or retired | starts it again immediately while the agent is in the node's desired state |
+| `2` | the configuration cannot be executed: no `CONTROL_PLANE_SERVER` or credential, unknown executor kind, invalid `executor.params`, `review` without `reviewer`, a mirror with a foreign `origin` | restarts with a growing pause; after three failures, `crash_looping` |
+| `75` | a new agent revision appeared (after the current run) or `/agents/me` could not be read at startup | starts it again immediately |
 
 ## What comes from the revision
 
@@ -68,21 +69,21 @@ too, even if a `CONTROL_PLANE_SKILLS_*` variable from this table is set on the h
 
 ## Host variables
 
-The daemon and the adapters read these variables in both modes. The defaults suit most
-installations.
+The daemon and the adapters read these variables in both modes. When started through
+fleet, the node sets them; the defaults suit most installations.
 
 ### Connection and credential
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `CONTROL_PLANE_SERVER` | — (required) | Control Plane base URL, for example `https://platform.example.com` |
-| `CONTROL_PLANE_IAM_URL` | — | IAM URL; setting it turns on IAM identity |
-| `CONTROL_PLANE_IAM_TENANT` | — | IAM tenant; required together with `CONTROL_PLANE_IAM_URL` (`iam_tenant_required`) |
+| `CONTROL_PLANE_SERVER` | — (required) | Control Plane base URL, for example `https://platform.example.com`. Through fleet: `agentEnv` |
+| `CONTROL_PLANE_IAM_URL` | — | IAM URL; setting it turns on IAM identity. Through fleet: `agentEnv` |
+| `CONTROL_PLANE_IAM_TENANT` | — | IAM tenant; required together with `CONTROL_PLANE_IAM_URL` (`iam_tenant_required`). Through fleet, set by the node |
 | `CONTROL_PLANE_IAM_AUDIENCE` | `control-plane` | audience of the exchanged access token |
 | `CONTROL_PLANE_IAM_SCOPES` | the whole PAT ceiling ∩ audience | scopes separated by spaces or commas |
-| `IAM_PRINCIPAL` | — | the IAM principal of this process; needed if the store has several PATs of the same tenant |
+| `IAM_PRINCIPAL` | — | the IAM principal of this process; needed if the store has several PATs of the same tenant. Through fleet, set by the node |
 | `IAM_CREDENTIAL_MODE` | — | `environment` (or `ci`) — allows a PAT from `IAM_PLATFORM_ACCESS_TOKEN` |
-| `IAM_PLATFORM_ACCESS_TOKEN` | — | PAT in the environment; without `IAM_CREDENTIAL_MODE` — `iam_environment_mode_required` |
+| `IAM_PLATFORM_ACCESS_TOKEN` | — | PAT in the environment; without `IAM_CREDENTIAL_MODE` — `iam_environment_mode_required`. The reference image takes it from `/run/secrets/agent-pat` |
 | `IAM_NO_KEYCHAIN` | — | `1` — do not look for the PAT in the macOS Keychain |
 | `XDG_CONFIG_HOME` | `~/.config` | where to look for `iam/credentials.json` |
 | `CONTROL_PLANE_API_KEY` | — | legacy API key; only if IAM is not configured and the server still accepts such keys |
@@ -96,7 +97,7 @@ Details: [Agent identity](agent-identity.md).
 |---|---|---|
 | `CONTROL_PLANE_AGENT_CONFIG` | `auto` | configuration mode (see above) |
 | `CONTROL_PLANE_AGENT_POLL` | `5` | pause between queue polls when there is no work, seconds |
-| `CONTROL_PLANE_AGENT_WORKTREE_ROOT` | in revision mode `~/.control-plane-agent/worktrees` | working copy directory |
+| `CONTROL_PLANE_AGENT_WORKTREE_ROOT` | in revision mode `~/.control-plane-agent/worktrees` | working copy directory. The reference image sets `/runner/worktrees` (the replica volume) |
 | `CONTROL_PLANE_AGENT_MIRRORS` | `<WORKTREE_ROOT>/.mirrors` | where the bare mirrors of the revision's repositories live; a missing mirror is cloned |
 | `CONTROL_PLANE_AGENT_KEEP_WORKSPACES` | off | `1` — do not delete the copy after success |
 | `CONTROL_PLANE_AGENT_MAX_WORKSPACES` | `8` | how many idle copies to keep on disk |
@@ -120,12 +121,12 @@ idle).
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `CLAUDE_CODE_OAUTH_TOKEN` | — | Claude Code subscription token (`claude setup-token`); inherited by the CLI |
+| `CLAUDE_CODE_OAUTH_TOKEN` | — | Claude Code subscription token (`claude setup-token`); inherited by the CLI. The reference image takes it from `/run/secrets/claude-oauth-token` |
 | `ANTHROPIC_API_KEY` | — | alternative to the subscription; inherited by the CLI |
 | `CONTROL_PLANE_CLAUDE_BINARY` | `claude` | path to the CLI |
 | `CONTROL_PLANE_CLAUDE_MCP` | `1` | `0` — do not pass the `control-plane` MCP into the agent |
 | `CONTROL_PLANE_CLAUDE_LOGS` | `1` | `0` — do not write the local session log |
-| `CONTROL_PLANE_CLAUDE_RUNTIME_DIR` | `~/.claude-runner` | `mcp.json` and `sessions/` |
+| `CONTROL_PLANE_CLAUDE_RUNTIME_DIR` | `~/.claude-runner` | `mcp.json` and `sessions/`. The reference image sets `/runner/claude` |
 | `CODEX_HOME` | `~/.codex` | Codex `auth.json` directory; must be writable and persistent |
 | `OPENAI_API_KEY` | — | alternative to subscription login; inherited by the CLI |
 | `CONTROL_PLANE_CODEX_BINARY` | `codex` | path to the CLI |
@@ -157,10 +158,14 @@ The executor principal needs the `skills.execute` permission for skills. Details
 
 ## Env mode: configuration without a description { #env-mode }
 
-For a principal that is not bound to an agent, everything comes from the environment. This
-is the standard way to start the daemon manually: a systemd unit, a compose service, or a
-container with its own variables. These variables have no effect on an agent with a
-description.
+For a principal that is not bound to an agent (local debugging of the daemon, your own
+experiments), everything comes from the environment. These variables have no effect on an
+agent with a description.
+
+!!! warning "Not for permanent executors"
+    Permanent executors are described by the `Agent` kind and started through fleet: that way
+    the configuration goes through review, is versioned, and is visible in runs
+    (`agentRevisionId`). Env mode is kept for debugging and gives none of this.
 
 ### Queue
 
@@ -241,6 +246,41 @@ The separate `control-plane-opencode` process is not configured by an agent desc
 | `CONTROL_PLANE_AGENT_WORKSPACE`, `…_PROJECT`, `…_SUBPROJECTS`, `…_POLL` | as for the daemon | queue |
 | `CP_LOG_LEVEL` | `INFO` | log level |
 
+## Reference image entrypoint
+
+The `deploy/agent-runner/` image (user uid `10001`) chooses its path by the
+environment:
+
+| Condition | What the entrypoint does |
+|---|---|
+| always | `IAM_CREDENTIAL_MODE=environment`, `IAM_PLATFORM_ACCESS_TOKEN` from `/run/secrets/agent-pat` |
+| `RUNNER_MODE=skills` | no code agent and no mirrors: `CLAUDE_CODE_OAUTH_TOKEN` from `/run/secrets/claude-oauth-token` if the file is mounted (for `ctx.llm` with `SKILL_LLM_PROVIDER=claude-code`), then the daemon |
+| `CONTROL_PLANE_AGENT_KEY` is set (the container was created by a fleet node) | `CONTROL_PLANE_AGENT_WORKTREE_ROOT=/runner/worktrees` and `CONTROL_PLANE_CLAUDE_RUNTIME_DIR=/runner/claude` if not set; `CLAUDE_CODE_OAUTH_TOKEN` from `/run/secrets/claude-oauth-token` if the file is mounted; then the daemon. The daemon sets up mirrors itself from the revision |
+| otherwise (env mode) | the subscription token and `/run/secrets/github-token` are required; clones the mirrors `RUNNER_REPO_URL`, `RUNNER_SDK_URL`, `RUNNER_SUPERPROJECT_URL`, `RUNNER_EXTRA_MIRRORS` (`url=path,url=path`) and runs `fetch` on them; then the daemon |
+
+## Example: agent environment on a fleet node
+
+The node assembles the container environment from three sources. In `node.yaml`:
+
+```yaml
+executors:
+  claude-code:
+    image: agent-runner:1.4.0
+    dataPath: /runner                 # working copies and mirrors on the replica volume
+    env:
+      IAM_NO_KEYCHAIN: "1"
+      CP_TEST_DATABASE_URL: postgresql+psycopg://test:test@db-test:5432/test
+agentEnv:
+  CONTROL_PLANE_SERVER: https://platform.example.com
+  CONTROL_PLANE_IAM_URL: https://platform.example.com/iam
+  CONTROL_PLANE_IAM_SCOPES: control-plane:read control-plane:write
+```
+
+The node itself adds `CONTROL_PLANE_AGENT_KEY`, `CONTROL_PLANE_IAM_TENANT`,
+`IAM_PRINCIPAL`, `FLEET_REPLICA` and mounts `/run/secrets/agent-pat` and the secrets from
+the description. Everything else (model, permission mode, repositories, review) is in the
+agent description.
+
 ## Configuration errors at startup
 
 | Message | What to fix |
@@ -258,6 +298,9 @@ The separate `control-plane-opencode` process is not configured by an agent desc
 
 ## See also
 
+- [Agents by description](declarative-agents.md)
+- [Nodes and fleet](fleet.md)
+- [Installing executors](installation.md)
 - [Executor adapters](adapters.md)
 - [Environment variables (consolidated reference)](../reference/environment.md)
 - [Permissions and scopes](../reference/permissions.md)

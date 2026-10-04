@@ -359,5 +359,6 @@ media type, размер и одно из:
 
 - [Рабочие копии](execution-workspace.md)
 - [Трасса прогонов](trace.md)
+- [Агент остановился без результата](declarative-agents.md#blocked)
 - [Конфигурация](configuration.md)
 - [CLI и MCP-сервер](../control-plane/cli-and-mcp.md)

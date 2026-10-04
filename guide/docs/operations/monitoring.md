@@ -23,6 +23,7 @@ Sample `make smoke` output:
   iam-service          OK  200 http://127.0.0.1:18010/healthz
   control-plane-api    OK  200 http://127.0.0.1:18000/health/ready
   memory-service       OK  200 http://127.0.0.1:18001/healthz
+  keycloak             OK  200 http://127.0.0.1:18081/auth/realms/platform
 ```
 
 The `tools/smoke.py` script takes ports from `.env`, skips services that are
@@ -38,6 +39,8 @@ with an alert on the exit code.
 | `control-plane-api` | `GET /health/live` | 18000 | The process is alive (`{"status":"alive"}`) |
 | `control-plane-api` | `GET /health/ready` | 18000 | The database is reachable **and** the Alembic revision equals head; otherwise `503` with `reason` |
 | `memory-service` | `GET /healthz` | 18001 | Database connection, the number of graph nodes and chunks; `503` if the database is unreachable |
+| `keycloak` | `GET /auth/health/ready` | only inside the container (management port 9000) | Keycloak readiness; from outside, smoke checks `/auth/realms/platform` on 18081 |
+| `harness-launcher` | `GET /harness/_launcher/health` | only inside the container | Compose healthcheck |
 | PostgreSQL databases | `pg_isready` | — | Compose healthcheck |
 
 Control Plane `/health/ready` responses:
@@ -142,7 +145,10 @@ make logs svc=iam-service                    # tools/compose --profile "*" logs 
   trace of a run, the `X-Run-Id` header; the same `run_id` appears in the
   memory logs).
 
-- Caddy writes JSON to stderr (in the production Caddyfile template).
+- Caddy writes JSON to stderr (in the production Caddyfile template); the
+  workplace launcher writes JSON lines to stdout (see [Personal
+  workspace](../workplace/index.md)).
+
 - Control Plane API errors always have the form
   `{"error": {"code", "message", "details", "requestId"}}`; search the logs
   by the `requestId` from the response.

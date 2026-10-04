@@ -1,8 +1,7 @@
 # Федерация identity
 
-
 IAM не хранит паролей и не показывает форму входа: человека аутентифицирует
-внешний OIDC Identity Provider, а IAM проверяет его
+внешний OIDC Identity Provider (в поставке — Keycloak), а IAM проверяет его
 токен, связывает учётную запись с principal и выпускает credentials
 платформы. Статья описывает регистрацию IdP, вход через `federation:authenticate`
 и `federation:exchange`, привязку identities, проекцию групп и
@@ -143,9 +142,8 @@ flowchart LR
     публичному адресу. В `deploy/local/compose.yml` периметр Caddy имеет в сети сервисов
 
     псевдоним `${TAIMEN_PUBLIC_HOST}`, поэтому контейнер IAM достигает
-    IdP, опубликованного за тем же периметром, по публичному имени. Если IAM
-    в вашей топологии не может разрешить публичное имя, задайте `jwksUri`
-    явно на внутренний адрес.
+    Keycloak по публичному имени. Если IAM в вашей топологии не может
+    разрешить публичное имя, задайте `jwksUri` явно на внутренний адрес.
 
 ## Связывание с principal (linking)
 
@@ -289,20 +287,21 @@ curl -s -X POST "$IAM_URL/api/v1/tenants/$TENANT/federation:exchange" \
     Это потолок, а не право: что человек реально может, определяет binding
     его principal в Control Plane.
 
+Настройка launcher'а — в статье [Рабочее место человека](../workplace/index.md),
+настройка Keycloak — в статье [Keycloak — внешний IdP](keycloak.md).
 
+## Подключение Keycloak: чек-лист
 
-## Подключение IdP: чек-лист
-
-1. `aud` **access token** клиента, через который входят люди, содержит
-   `audience` провайдера (например, `iam-service`). В IAM передаётся именно
-   access token IdP, не ID token.
-   Пример: в Keycloak — клиент `iam-service` (bearer-only) и audience-маппер.
-2. Issuer IdP совпадает с `issuer` провайдера в IAM символ в символ
-   (схема, хост, путь).
+1. В realm есть клиент `iam-service` (bearer-only) и audience-маппер, который
+   добавляет `iam-service` в `aud` **access token** клиента, через который
+   входят люди. В IAM передаётся именно access token IdP: в поставляемом
+   realm audience-маппер пишет `iam-service` только в него, не в ID token.
+2. Issuer realm совпадает с `issuer` провайдера в IAM символ в символ
+   (схема, хост, путь `/auth/realms/<realm>`).
 3. Провайдер зарегистрирован в IAM (`POST …/identity-providers`) с тем же
-   `key`, что клиент передаёт в `identityProvider`.
+   `key`, что использует launcher (`keycloak`).
 4. Для людей, уже существующих как principals, external identities
-   привязаны заранее (`subject` = значение `subjectClaim` пользователя в IdP).
+   привязаны заранее (`subject` = `sub` пользователя в Keycloak).
 5. Для каждого человека, который будет работать в Control Plane, создан
    binding его IAM principal в Control Plane **до** первого запроса.
 6. Проверка: `federation:authenticate` с токеном тестового пользователя
@@ -408,6 +407,8 @@ identity из токена — объявить чужой tenant клиент �
 
 ## См. также
 
+- [Keycloak — внешний IdP](keycloak.md)
+- [Рабочее место человека](../workplace/index.md)
 - [Tenants и principals](principals.md)
 - [Токены, audiences, scopes](tokens.md)
 - [API IAM](api.md#federation)

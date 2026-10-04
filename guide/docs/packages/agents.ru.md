@@ -8,8 +8,9 @@
 инсталляции без правки. Обоснование — TAI-ADR-0052, TAI-ADR-0062 (п.9) и
 CP-ADR-0073.
 
-Разделы описания и правила применения вида — в статье [Пакеты
-каталога](../control-plane/catalog-packages.md#agent). Здесь — то, что нужно автору пакета.
+Полный справочник разделов описания, ревизий, событий и API реестра — в статье
+[Агенты описанием](../runner/declarative-agents.md), размещение на машинах — в
+[Узлах и fleet](../runner/fleet.md). Здесь — то, что нужно автору пакета.
 
 ## Какой агент нужен
 
@@ -327,6 +328,11 @@ spec:
 
 Назвать образ — не право его запустить.
 
+Узел запускает названный образ, только если его допускает список
+`executors.<вид>.images` в `node.yaml` этого узла: точная ссылка или шаблон с одной `*`
+в теге. Иначе агент ждёт с причиной размещения `image_not_allowed`, а узел, которому
+образ всё же прислали, его не запускает. Как узел сверяет список — в статье [Узлы и
+fleet](../runner/fleet.md#images).
 
 Образ собирается из заготовки `package-sdk image observer` или `package-sdk image
 skills` (см. [Интеграции](integrations.md#images)). Версию образа пакет закрепляет
@@ -399,5 +405,7 @@ package-sdk apply --plan plan.json --server https://platform.example.com
 - [Скиллы пакета](skills.md)
 - [Интеграции](integrations.md)
 - [Пакеты каталога](../control-plane/catalog-packages.md#agent)
+- [Агенты описанием](../runner/declarative-agents.md)
+- [Узлы и fleet](../runner/fleet.md)
 - [Правила вывода работы](../control-plane/work-rules.md#identity) — личность правил
 - [Процессы](../processes/index.md) — владелец и личность процесса

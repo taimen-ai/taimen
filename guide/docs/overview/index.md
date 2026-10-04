@@ -13,7 +13,7 @@ like a collection of unrelated APIs.
 | [What is Taimen](what-is-taimen.md) | Organizational Runtime: people, agents, workflows, and services over a shared Work model; the organizational loop; what the platform is not |
 | [Architecture](architecture.md) | Components, how they connect, request and event flows, sources of truth, integration invariants |
 | [Key concepts](concepts.md) | Tenant, Workspace, Project, Principal, Task, Task Type, Claim, fencing token, Run, Approval, Artifact, Goal, Evidence, Session, Harness, Capability, Skill, Namespace, and more, as defined in the code |
-| [Delivery contents](components.md) | Component repositories, `deploy/local/compose.yml` profiles (`core`, `edge`, `notify`), and the status of each |
+| [Delivery contents](components.md) | Component repositories, `deploy/local/compose.yml` profiles (`core`, `edge`, `notify`, `idp`, `console`, `harness`, `fleet`), and the status of each |
 | [Security model](security-model.md) | IAM tokens, audience, scopes, PAT, service accounts, bindings in Control Plane, `platform-auth-sdk`, revocation |
 
 ## In brief
@@ -43,8 +43,9 @@ flowchart LR
   short-lived tokens for a single audience.
 - **Memory Service** holds long-term knowledge with provenance and assembles
   bounded context. It does not manage work.
-- Everything else is peripheral: notifications (`notify`), the edge (`edge`),
-  clients, and executors.
+- Everything else is peripheral: notifications (`notify`), the edge (`edge`), human
+  sign-in (`idp`), the console (`console`), the assistant (`harness`), executor
+  placement (`fleet`), clients, and executors.
 
 ## See also
 

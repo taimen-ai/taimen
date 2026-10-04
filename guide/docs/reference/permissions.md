@@ -78,7 +78,6 @@ The `admin` permission covers any other.
 | `calendars.write` | Publishing a business calendar. |
 | `goals.read` | Reading goals (Goals). |
 | `goals.write` | Creating and changing goals. |
-| `connections.read` | Reading connection types, connections, and the state of a type's OAuth application. See [Connections](../control-plane/connections.md#permissions). |
 | `connections.manage` | Publishing connection types, a type's OAuth application, creating, changing, connecting, and revoking connections; publishing an agent with a non-empty `spec.connections`. |
 | `connections.status.write` | Reporting lost access (`PUT /connections/{key}/status`), only for a connector whose description names the connection. |
 | `agents.secrets.manage` | Setting and deleting agent secrets (`PUT`, `DELETE /agents/{key}/secrets/{name}`); the names are read with `agents.read`. |
@@ -130,7 +129,6 @@ Consequences:
 One IAM identity can be linked to only one Control Plane tenant
 (`409 iam_identity_bound_elsewhere`).
 
-
 ### Domain authorization through an external PDP
 
 With `CP_AUTHZ_MODE=policy`, the decision on a request with an IAM subject is
@@ -144,9 +142,8 @@ executed (fail closed). See
 
 ## Roles {#roles}
 
-
-A role in the platform is a Control Plane organizational role. The external
-IdP does not assign roles: it only confirms who the person is.
+A role in the platform is a Control Plane organizational role. Keycloak does
+not assign roles: it only confirms who the person is (see [Keycloak](../iam/keycloak.md)).
 
 | Where | What it is | How it is managed |
 |---|---|---|
@@ -169,7 +166,6 @@ allowed scopes of an audience are set by the IAM registry (`allowedScopes`);
 | | `memory:on-behalf` | The service reads memory on behalf of a principal with the passed visibility (with `CB_POLICY_ENABLED`). |
 | | `memory:service` | Core service scope: registry of kind domain packages, reconcile, namespace kinds. Core service account only. |
 | `iam-scim` | `scim:write` (configured by `IAM_SCIM_AUDIENCE`, `IAM_SCIM_SCOPE`) | SCIM provisioning; confidential service identity only. |
-| `openbao` | `secrets:read` | Login to the [secret store](../operations/secret-store.md) with the `jwt` method. The store does not check the scope; its policies set the permissions. |
 
 Memory namespaces available to an IAM token without `memory:tenants`:
 `tenant:<tenant_id>` and the subtree `tenant:<tenant_id>:*`, plus the
@@ -217,6 +213,7 @@ is in `deploy/state/<env>.json`).
 Bootstrap does not set up executors: an agent is described by a catalog
 package (kind `Agent`), the binding permissions come from the description's
 `identity.permissions`, and the platform issues the principal and the PAT.
+
 An agent cannot have `admin` or `approvals.decide`.
 
 !!! warning "An executor requires `task_types.read`"
@@ -229,7 +226,7 @@ An agent cannot have `admin` or `approvals.decide`.
 
 | Service account | Audiences | Scope ceiling | Control Plane permissions | Where the secret is |
 |---|---|---|---|---|
-| Control Plane (core) | `memory-service`, `openbao` | `memory:read`, `memory:write`, `memory:tenants`, `memory:on-behalf`, `memory:service`, `secrets:read` | — | `secrets/control-plane-iam.env` |
+| Control Plane (core) | `memory-service` | `memory:read`, `memory:write`, `memory:tenants`, `memory:on-behalf`, `memory:service` | — | `secrets/control-plane-iam.env` |
 
 When the ceiling of the core service account changes, bootstrap changes it in
 place (`PATCH …/service-accounts/{clientId}`, see [Service

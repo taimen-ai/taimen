@@ -29,7 +29,7 @@ Plane, а harness, модель и исполнитель — сменные.**
 
 | Исполнитель | Как подключается | Identity |
 |---|---|---|
-| Человек | MCP-плагин в Claude Code / Codex, CLI `control-plane`, собственный клиент харнесс-протокола | principal вида `human` в IAM и в Control Plane |
+| Человек | рабочее место в браузере, MCP-плагин в Claude Code / Codex, Human Harness, CLI `control-plane` | principal вида `human` в IAM и в Control Plane |
 | AI-агент | демон `control-plane-agent` (runner) с адаптерами Claude Code и Codex | principal вида `agent`; права урезаны: без `admin` и `approvals.decide` |
 | Сервис, коннектор | HTTP-клиент с service account IAM или PAT агента | principal вида `service` в Control Plane |
 | Детерминированный процесс | [процесс](../processes/index.md) пакета каталога, который исполняет само ядро; правила исхода approval в типе задачи | действует от личности процесса — описания агента вида `service` или `agent` |
@@ -96,7 +96,8 @@ flowchart LR
 ## Чем Taimen не является
 
 - **Не чат-бот и не агентный фреймворк.** Агентный цикл живёт в харнессе
-  (Claude Code, Codex); платформа даёт ему работу, права, контекст и журнал.
+  (Claude Code, Codex, Human Harness); платформа даёт ему работу, права,
+  контекст и журнал.
 - **Не трекер задач.** Задачи здесь — операционные обязательства с lease,
   fencing и аудитом, а не карточки на доске; интерфейс человека — одна из
   поверхностей, а не центр системы.
@@ -115,7 +116,9 @@ Taimen — имя сборки. Компоненты — отдельные prod
 - ядро (`core`): IAM Service, Control Plane (API, worker, context adapter),
   Memory Service и их PostgreSQL;
 - периметр (`edge`): Caddy — единственный контейнер, смотрящий наружу;
-- опциональный профиль уведомлений (`notify`).
+- опциональные профили: уведомления (`notify`), консоль со входом людей через
+  Keycloak (`console`, `idp`), ассистент (`harness`) и размещение исполнителей на
+  узлах (`fleet`).
 
 Состав и статусы — в [Составе поставки](components.md), связи — в
 [Архитектуре](architecture.md).

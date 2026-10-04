@@ -136,6 +136,7 @@ loss of the runner host, see [Emergency procedures](../operations/emergency.md).
 
 ## See also
 
+- [Installing executors](../runner/installation.md)
 - [Runner configuration](../runner/configuration.md)
 - [Working copies](../runner/execution-workspace.md)
 - [Execution: claims and runs](../control-plane/execution.md)

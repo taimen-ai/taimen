@@ -14,8 +14,8 @@
 | БД IAM | том `iam_db`, сервис `iam-db`, БД `iam` | Tenants, principals, хэши PAT, service accounts, audiences, audit, outbox | Критично |
 | БД Control Plane | том `control_plane_db`, сервис `control-plane-db`, БД `control_plane` | Задачи, claims, runs, артефакты, approvals, журнал событий и его архив, курсоры потребителей, IAM bindings | Критично |
 | БД памяти | том `memory_db`, сервис `memory-db`, БД `company_brain` | Граф знаний (Apache AGE), чанки и вектора (pgvector), наблюдения, трассы контекста | Критично; содержит данные заказчика, возможно ПДн |
+| БД Keycloak | том `keycloak_db`, сервис `keycloak-db`, БД `keycloak` | Живой realm, пользователи и их пароли | Критично при профиле `idp`: без неё людей заводят заново |
 | Объекты MinIO | том `platform_minio` | Содержимое артефактов Control Plane (бакет `CP_S3_BUCKET`) | Критично: MinIO входит в профиль `core`; бэкапить вместе с `control-plane-db` |
-| Хранилище секретов | том `openbao_data`, сервис `openbao` | Материал подключений, секреты агентов, OAuth-приложения типов, политики и роли агентов | Критично: без него подключения подключаются заново, секреты агентов задаются снова. Не копировать том, а снимать `bao operator raft snapshot` токеном `backup` — см. [Хранилище секретов](secret-store.md#backup). Ключ распечатывания `secrets/openbao-unseal.key` хранить **отдельно** от снимков |
 | Сертификаты | том `caddy_data` | Сертификаты, ключи, ACME-аккаунт | Желательно: без него сертификаты выпускаются заново |
 | Конфигурация | `.env`, `secrets/`, `deploy/state/<env>.json`, Caddyfile установки | Секреты, ключ подписи IAM, PAT, идентификаторы bootstrap | Критично; хранить отдельно и шифровать |
 
@@ -49,9 +49,9 @@ bare-зеркал, опубликованные ветки задач лежат
 | `iam-db` | `iam` | `iam` |
 | `control-plane-db` | `control_plane` | `control_plane` |
 | `memory-db` | `memory` | `company_brain` |
+| `keycloak-db` | `keycloak` | `keycloak` |
 
 ### Скрипт ежедневного бэкапа
-
 
 ```bash
 #!/usr/bin/env bash
@@ -71,6 +71,7 @@ dump() {  # dump <сервис> <пользователь> <база>
 dump iam-db           iam            iam
 dump control-plane-db control_plane  control_plane
 dump memory-db        memory         company_brain
+dump keycloak-db      keycloak       keycloak
 
 # Конфигурация (секреты!) — отдельным архивом
 tar czf "$OUT/config.tgz" .env secrets deploy/state /opt/taimen/Caddyfile
@@ -266,7 +267,6 @@ tools/compose up -d iam-service
 
 ## См. также
 
-- [Хранилище секретов](secret-store.md)
 - [Обновление и миграции](upgrades.md)
 - [Хранилище объектов (MinIO)](object-storage.md)
 - [Аварийные процедуры](emergency.md)

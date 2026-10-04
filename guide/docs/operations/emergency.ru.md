@@ -14,6 +14,7 @@ Runbook для инцидентов: что продолжает работат�
 | `iam-service` или `iam-db` | Уже выданные access token до истечения (до 300 с); проверка подписи по кэшу JWKS; статический ключ памяти | Обмен PAT и client credentials; через ~5 минут — все harness, исполнители, вход людей через федерацию; доставка в память через service account ядра |
 | `control-plane-api` / `control-plane-db` | Память и IAM сами по себе | Вся координация: задачи, claims, runs, approvals; доставка в память |
 | `memory-service` / `memory-db` | Координация полностью: claims, runs, approvals, завершение задач | Сборка контекста (отдаётся деградированным), доставка журнала копит отставание или паркуется |
+| `keycloak` / `keycloak-db` | Harness, MCP-плагин и исполнители (ходят по PAT мимо Keycloak) | Новый вход людей в рабочие места |
 | `caddy` | Всё внутри хоста; доступ через SSH-туннель к `127.0.0.1` | Любой доступ снаружи |
 | Runner-хост | Платформа целиком | Автономное исполнение задач, назначенных этому исполнителю |
 
@@ -27,12 +28,12 @@ curl -s http://127.0.0.1:18010/healthz
 tools/compose logs --since 15m iam-service | tail -50
 ```
 
-
 **Что происходит.** Control Plane проверяет подпись access token по JWKS из
 кэша (устаревший кэш допустим до `CP_IAM_JWKS_STALE_AFTER_SECONDS`, по
 умолчанию 3600 с), поэтому токены, выданные до отказа, работают до своего
 истечения. Новые токены не выдаются: harness и исполнители теряют доступ в
-пределах срока жизни access token (300 с). `context-adapter`, работающий через
+пределах срока жизни access token (300 с). Launcher рабочих мест не может
+впустить человека (`federation:exchange` недоступен). `context-adapter`, работающий через
 service account, получает отказы и копит отставание.
 
 **Шаги.**
@@ -265,10 +266,17 @@ journalctl --vacuum-size=500M
 2. Настройте DNS и Caddyfile для нового имени, дождитесь сертификата.
 3. Поменяйте `TAIMEN_PUBLIC_URL` и `TAIMEN_PUBLIC_HOST` в `.env`.
 4. Пересоздайте сервисы, чтобы они взяли новый адрес: `tools/compose … up -d`.
-5. Обновите `CONTROL_PLANE_SERVER` и `CONTROL_PLANE_IAM_URL` у исполнителей
+5. Если поднят профиль `idp`: обновите redirect URI клиентов консоли и
+   ассистента в Keycloak (для консоли —
+   `deploy/keycloak/keycloak-runtime-console-client.py` с новым `WEB_BASE_URL`,
+   для остальных — Admin API или админ-консоль Keycloak; шаблон realm на
+   существующий realm не применяется). Issuer Keycloak тоже меняется: identity
+   provider в IAM и external identities людей записаны со старым issuer, а
+   изменить провайдера через API нельзя (см. [Федерация identity](../iam/federation.md)).
+6. Обновите `CONTROL_PLANE_SERVER` и `CONTROL_PLANE_IAM_URL` у исполнителей
    и операторов. Ключ записи в `credentials.json` включает адрес IAM —
    перенесите записи под новый адрес.
-6. После проверки отзовите bindings со старым issuer.
+7. После проверки отзовите bindings со старым issuer.
 
 Если шаг 1 пропущен и вход уже закрыт, bindings переносятся SQL в базе
 Control Plane:

@@ -92,9 +92,9 @@ spec:
 - `export` выгружает `spec` текущей (или указанной `--version`) ревизии, а
   `state` и `replicas` — из желаемого состояния, опуская умолчания.
 
-Размещение исполнителей по описанию `placement` на машинах в поставку не
-входит: исполнителя, описанного агентом, можно запустить вручную демоном
-`control-plane-agent` (см. [Runner](../runner/index.md)).
+Разделы описания, жизненный цикл ревизий и события — в статье [Агенты
+описанием](../runner/declarative-agents.md), размещение на машинах — в
+[Узлах и fleet](../runner/fleet.md).
 
 ## Правило уведомления (`NotificationRule`) { #notification-rule }
 
@@ -287,5 +287,6 @@ package-sdk export --server https://platform.example.com \
 - [Правила вывода работы](work-rules.md)
 - [Правила уведомлений](../notifications/notification-rules.md)
 - [Артефакты и комментарии](artifacts.md#artifact-types)
+- [Агенты описанием](../runner/declarative-agents.md)
 - [Bootstrap](../getting-started/bootstrap.md)
 - [skill-sdk](../sdk/skill-sdk.md)

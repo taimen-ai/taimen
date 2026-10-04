@@ -88,6 +88,7 @@ JSON
 - `origin` не передан — ядро вывело его по виду пишущего principal (`human`);
 - `customFields` проверены по `fieldSchema` типа `devops` (например,
   `environment` принимает только значения из перечисления типа);
+
 - `Idempotency-Key` защищает от дубля при повторе запроса.
 
 Куда задача может перейти дальше:
@@ -337,6 +338,7 @@ Credential берётся из `~/.config/iam/credentials.json` (см. выше)
 | Добавить approval перед завершением | [Approvals](../control-plane/approvals.md) |
 | Отдать задачу автономному агенту | [Агенты и runner](../runner/index.md) |
 | Дать агенту контекст из памяти | [Контекст задачи и память](../control-plane/context.md) |
+| Говорить с ассистентом из консоли и Telegram | профили `idp` и `harness`, [Ассистент](../operator/assistant.md) |
 
 ## Типичные проблемы
 

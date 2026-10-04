@@ -154,6 +154,7 @@ tools/compose up -d control-plane-worker context-adapter
 | Rerun `deploy/bootstrap.py` | If the release changed `AUDIENCES`, service account ceilings, default agent permissions, or catalog packages. The script is idempotent: it brings the audiences' `allowedScopes` in line with the registry (`PATCH`), and if a ceiling changed it reissues the core service account and revokes the previous one |
 | Restart the core after bootstrap | If bootstrap reissued `secrets/control-plane-iam.env`: `tools/compose up -d control-plane-api control-plane-worker context-adapter` |
 | Catalog plan | `package-sdk plan --install deploy/packages.yaml --server https://platform.example.com --out plan.json` shows catalog differences before applying them (token in `CP_TOKEN`) |
+| Keycloak realm | Edits to the `platform-realm.json` template **do not reach** an existing realm: `--import-realm` imports only on the first start. Make changes through the Admin API or the `deploy/keycloak/` scripts |
 | Runner host | Upgrade separately; see below |
 | Operator workstations | Reinstall the `control-plane` package (MCP plugin, CLI) and restart the session: new `cp_*` tools appear only in a new session |
 
@@ -258,4 +259,5 @@ rollbacks and incident analysis.
 - [Backup](backup.md)
 - [Monitoring and health](monitoring.md)
 - [Emergency procedures](emergency.md)
+- [Installing executors](../runner/installation.md)
 - [Installation and startup: troubleshooting](../troubleshooting/startup.md)

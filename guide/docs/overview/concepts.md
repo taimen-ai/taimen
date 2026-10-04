@@ -233,7 +233,7 @@ from 10 to 3600), heartbeat, and statuses `active` / `stale` / `closed`. A
 claim is always taken within a session.
 
 A **Harness** is the client program through which an executor works (the MCP
-server in Claude Code, the runner daemon, or your own client). When opening a
+server in Claude Code, the runner daemon, Human Harness). When opening a
 session, the harness can declare itself with a `harness` block: `type`,
 `version`, `protocolVersion` (versions `1` and `2` of the `control-harness`
 protocol are supported), and `capabilities`, for example `tasks.interactive`,

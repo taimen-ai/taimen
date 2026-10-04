@@ -21,6 +21,7 @@ curl -s http://127.0.0.1:18000/metrics | grep -E '^(context_adapter|active_)'
   iam-service          OK  200 http://127.0.0.1:18010/healthz
   control-plane-api    OK  200 http://127.0.0.1:18000/health/ready
   memory-service       OK  200 http://127.0.0.1:18001/healthz
+  keycloak             OK  200 http://127.0.0.1:18081/auth/realms/platform
 ```
 
 Скрипт `tools/smoke.py` берёт порты из `.env`, пропускает сервисы, которых
@@ -36,6 +37,8 @@ curl -s http://127.0.0.1:18000/metrics | grep -E '^(context_adapter|active_)'
 | `control-plane-api` | `GET /health/live` | 18000 | Процесс жив (`{"status":"alive"}`) |
 | `control-plane-api` | `GET /health/ready` | 18000 | БД доступна **и** ревизия Alembic равна head; иначе `503` с `reason` |
 | `memory-service` | `GET /healthz` | 18001 | Подключение к БД, число узлов графа и чанков; `503`, если БД недоступна |
+| `keycloak` | `GET /auth/health/ready` | только внутри контейнера (порт управления 9000) | Готовность Keycloak; снаружи smoke проверяет `/auth/realms/platform` на 18081 |
+| `harness-launcher` | `GET /harness/_launcher/health` | только внутри контейнера | Healthcheck compose |
 | Базы PostgreSQL | `pg_isready` | — | Healthcheck compose |
 
 Ответы `/health/ready` Control Plane:
@@ -139,7 +142,9 @@ make logs svc=iam-service                    # tools/compose --profile "*" logs 
   возвращается в теле ошибки как `requestId`) и `run_id` (сквозная трасса
   прогона, заголовок `X-Run-Id`; тот же `run_id` виден в логах памяти).
 
-- Caddy пишет JSON в stderr (в образце промышленного Caddyfile).
+- Caddy пишет JSON в stderr (в образце промышленного Caddyfile); launcher
+  рабочих мест — JSON-строки в stdout (см. [Рабочее место](../workplace/index.md)).
+
 - Ошибки API Control Plane всегда имеют форму
   `{"error": {"code", "message", "details", "requestId"}}` — ищите в логах
   по `requestId` из ответа.

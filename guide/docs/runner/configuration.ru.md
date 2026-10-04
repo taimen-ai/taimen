@@ -1,17 +1,17 @@
 # Конфигурация исполнителя
 
 Откуда демон исполнителя `control-plane-agent` берёт настройки и какие переменные
-окружения он читает. В поставке демон запускается вручную и настраивается переменными
-окружения («режим env»). Если principal демона привязан к агенту реестра ядра (вид
-`Agent`), всё, что касается агента, демон берёт из ревизии описания. Статья-справочник
-для инженера эксплуатации.
+окружения он читает. Основной путь — агент описан видом `Agent`, и демон берёт всё, что
+касается агента, из своей ревизии, а переменные окружения задаёт узел fleet. Переменные,
+которые описаны ниже как «режим env», нужны только демону, запущенному вручную для
+principal'а без описания (локальная отладка). Статья-справочник для инженера эксплуатации.
 
 ## Два источника настроек
 
 | Что | Откуда | Кто задаёт |
 |---|---|---|
-| Что это за агент: работа, вид исполнителя, модель, режим разрешений, инструкции, рабочая копия, соседи, ревью, скиллы, срок дренажа | ревизия агента, `GET /api/v1/agents/me`; для principal'а без агента — переменные режима env | автор описания в пакете ([Пакеты каталога](../control-plane/catalog-packages.md#agent)) или тот, кто запускает демон |
-| Что принадлежит машине: адрес Control Plane и IAM, credential, каталоги рабочих копий и зеркал, бинарники CLI, проброс MCP, локальные журналы, трасса, изоляция локальных скиллов, сторож прогресса | переменные окружения | тот, кто запускает демон (unit systemd, compose, контейнер) |
+| Что это за агент: работа, вид исполнителя, модель, режим разрешений, инструкции, рабочая копия, соседи, ревью, скиллы, срок дренажа | ревизия агента, `GET /api/v1/agents/me` | автор описания в пакете ([Агенты описанием](declarative-agents.md)) |
+| Что принадлежит машине: адрес Control Plane и IAM, credential, каталоги рабочих копий и зеркал, бинарники CLI, проброс MCP, локальные журналы, трасса, изоляция локальных скиллов, сторож прогресса | переменные окружения | при запуске через fleet — узел: `agentEnv` и `executors.<вид>.env` из `node.yaml`, плюс переменные, которые узел ставит сам ([Узлы и fleet](fleet.md#agent-container)) |
 
 !!! tip "Как менять настройки агента"
     Модель, `permissionMode`, соседей, ревью или скиллы меняют правкой описания агента и
@@ -36,11 +36,11 @@ agent_revision_required`). Если прочитать `/agents/me` при ст�
 
 ### Коды выхода
 
-| Код | Когда | Что делать надзирателю процесса |
+| Код | Когда | Что делает узел fleet |
 |---|---|---|
-| `0` | агент остановлен (`state: stopped`) или выведен из оборота | не перезапускать, пока агент не запущен снова |
-| `2` | конфигурация неисполнима: нет `CONTROL_PLANE_SERVER` или credential, неизвестный вид исполнителя, неверные `executor.params`, `review` без `reviewer`, зеркало с чужим `origin` | исправить конфигурацию; перезапуск без исправления бесполезен |
-| `75` | появилась новая ревизия агента (после текущего прогона) или не удалось прочитать `/agents/me` при старте | запустить снова сразу |
+| `0` | агент остановлен (`state: stopped`) или выведен из оборота | запускает снова сразу, пока агент есть в желаемом состоянии узла |
+| `2` | конфигурация неисполнима: нет `CONTROL_PLANE_SERVER` или credential, неизвестный вид исполнителя, неверные `executor.params`, `review` без `reviewer`, зеркало с чужим `origin` | перезапуск с растущей паузой, после трёх сбоев — `crash_looping` |
+| `75` | появилась новая ревизия агента (после текущего прогона) или не удалось прочитать `/agents/me` при старте | запускает снова сразу |
 
 ## Что берётся из ревизии
 
@@ -66,21 +66,21 @@ agent_revision_required`). Если прочитать `/agents/me` при ст�
 
 ## Переменные хоста
 
-Эти переменные демон и адаптеры читают в обоих режимах. Значения по умолчанию подходят
-большинству установок.
+Эти переменные демон и адаптеры читают в обоих режимах. При запуске через fleet их
+задаёт узел; значения по умолчанию подходят большинству установок.
 
 ### Подключение и credential
 
 | Переменная | По умолчанию | Смысл |
 |---|---|---|
-| `CONTROL_PLANE_SERVER` | — (обязательна) | базовый URL Control Plane, например `https://platform.example.com` |
-| `CONTROL_PLANE_IAM_URL` | — | URL IAM; наличие включает IAM-identity |
-| `CONTROL_PLANE_IAM_TENANT` | — | IAM tenant; обязателен вместе с `CONTROL_PLANE_IAM_URL` (`iam_tenant_required`) |
+| `CONTROL_PLANE_SERVER` | — (обязательна) | базовый URL Control Plane, например `https://platform.example.com`. Через fleet — `agentEnv` |
+| `CONTROL_PLANE_IAM_URL` | — | URL IAM; наличие включает IAM-identity. Через fleet — `agentEnv` |
+| `CONTROL_PLANE_IAM_TENANT` | — | IAM tenant; обязателен вместе с `CONTROL_PLANE_IAM_URL` (`iam_tenant_required`). Через fleet ставит узел |
 | `CONTROL_PLANE_IAM_AUDIENCE` | `control-plane` | audience обмениваемого access token |
 | `CONTROL_PLANE_IAM_SCOPES` | весь потолок PAT ∩ audience | scopes через пробел или запятую |
-| `IAM_PRINCIPAL` | — | IAM principal этого процесса; нужен, если в хранилище несколько PAT одного tenant'а |
+| `IAM_PRINCIPAL` | — | IAM principal этого процесса; нужен, если в хранилище несколько PAT одного tenant'а. Через fleet ставит узел |
 | `IAM_CREDENTIAL_MODE` | — | `environment` (или `ci`) — разрешает PAT из `IAM_PLATFORM_ACCESS_TOKEN` |
-| `IAM_PLATFORM_ACCESS_TOKEN` | — | PAT в окружении; без `IAM_CREDENTIAL_MODE` — `iam_environment_mode_required` |
+| `IAM_PLATFORM_ACCESS_TOKEN` | — | PAT в окружении; без `IAM_CREDENTIAL_MODE` — `iam_environment_mode_required`. Референсный образ берёт его из `/run/secrets/agent-pat` |
 | `IAM_NO_KEYCHAIN` | — | `1` — не искать PAT в Keychain macOS |
 | `XDG_CONFIG_HOME` | `~/.config` | где искать `iam/credentials.json` |
 | `CONTROL_PLANE_API_KEY` | — | legacy API-ключ; только если IAM не настроен и сервер ещё принимает такие ключи |
@@ -94,7 +94,7 @@ agent_revision_required`). Если прочитать `/agents/me` при ст�
 |---|---|---|
 | `CONTROL_PLANE_AGENT_CONFIG` | `auto` | режим конфигурации (см. выше) |
 | `CONTROL_PLANE_AGENT_POLL` | `5` | пауза между опросами очереди без работы, секунды |
-| `CONTROL_PLANE_AGENT_WORKTREE_ROOT` | в режиме ревизии `~/.control-plane-agent/worktrees` | каталог рабочих копий |
+| `CONTROL_PLANE_AGENT_WORKTREE_ROOT` | в режиме ревизии `~/.control-plane-agent/worktrees` | каталог рабочих копий. Референсный образ ставит `/runner/worktrees` (volume реплики) |
 | `CONTROL_PLANE_AGENT_MIRRORS` | `<WORKTREE_ROOT>/.mirrors` | где лежат bare-зеркала репозиториев ревизии; недостающее зеркало клонируется |
 | `CONTROL_PLANE_AGENT_KEEP_WORKSPACES` | выкл. | `1` — не удалять копию после успеха |
 | `CONTROL_PLANE_AGENT_MAX_WORKSPACES` | `8` | сколько простаивающих копий держать на диске |
@@ -117,12 +117,12 @@ agent_revision_required`). Если прочитать `/agents/me` при ст�
 
 | Переменная | По умолчанию | Смысл |
 |---|---|---|
-| `CLAUDE_CODE_OAUTH_TOKEN` | — | токен подписки Claude Code (`claude setup-token`); наследуется CLI |
+| `CLAUDE_CODE_OAUTH_TOKEN` | — | токен подписки Claude Code (`claude setup-token`); наследуется CLI. Референсный образ берёт его из `/run/secrets/claude-oauth-token` |
 | `ANTHROPIC_API_KEY` | — | альтернатива подписке; наследуется CLI |
 | `CONTROL_PLANE_CLAUDE_BINARY` | `claude` | путь к CLI |
 | `CONTROL_PLANE_CLAUDE_MCP` | `1` | `0` — не передавать MCP `control-plane` внутрь агента |
 | `CONTROL_PLANE_CLAUDE_LOGS` | `1` | `0` — не писать локальный журнал сессии |
-| `CONTROL_PLANE_CLAUDE_RUNTIME_DIR` | `~/.claude-runner` | `mcp.json` и `sessions/` |
+| `CONTROL_PLANE_CLAUDE_RUNTIME_DIR` | `~/.claude-runner` | `mcp.json` и `sessions/`. Референсный образ ставит `/runner/claude` |
 | `CODEX_HOME` | `~/.codex` | каталог `auth.json` Codex; должен быть записываемым и постоянным |
 | `OPENAI_API_KEY` | — | альтернатива входу по подписке; наследуется CLI |
 | `CONTROL_PLANE_CODEX_BINARY` | `codex` | путь к CLI |
@@ -154,9 +154,14 @@ Principal'у исполнителя для скиллов нужно право 
 
 ## Режим env: конфигурация без описания { #env-mode }
 
-Для principal'а, который не привязан к агенту, всё берётся из окружения. Это штатный
-способ запустить демон вручную: unit systemd, сервис compose или контейнер со своими
-переменными. На агента с описанием эти переменные не действуют.
+Для principal'а, который не привязан к агенту (локальная отладка демона, собственные
+эксперименты), всё берётся из окружения. Эти переменные на агента с описанием не
+действуют.
+
+!!! warning "Не для постоянных исполнителей"
+    Постоянных исполнителей описывают видом `Agent` и запускают через fleet: так
+    конфигурация проходит ревью, версионируется и видна в прогонах (`agentRevisionId`).
+    Режим env оставлен для отладки и не даёт ничего из этого.
 
 ### Очередь
 
@@ -235,6 +240,41 @@ Principal'у исполнителя для скиллов нужно право 
 | `CONTROL_PLANE_AGENT_WORKSPACE`, `…_PROJECT`, `…_SUBPROJECTS`, `…_POLL` | как у демона | очередь |
 | `CP_LOG_LEVEL` | `INFO` | уровень журнала |
 
+## Entrypoint референсного образа
+
+Образ `deploy/agent-runner/` (пользователь uid `10001`) выбирает путь по
+окружению:
+
+| Условие | Что делает entrypoint |
+|---|---|
+| всегда | `IAM_CREDENTIAL_MODE=environment`, `IAM_PLATFORM_ACCESS_TOKEN` из `/run/secrets/agent-pat` |
+| `RUNNER_MODE=skills` | без кодового агента и зеркал: `CLAUDE_CODE_OAUTH_TOKEN` из `/run/secrets/claude-oauth-token`, если файл смонтирован (для `ctx.llm` с `SKILL_LLM_PROVIDER=claude-code`), затем демон |
+| задан `CONTROL_PLANE_AGENT_KEY` (контейнер создан узлом fleet) | `CONTROL_PLANE_AGENT_WORKTREE_ROOT=/runner/worktrees` и `CONTROL_PLANE_CLAUDE_RUNTIME_DIR=/runner/claude`, если не заданы; `CLAUDE_CODE_OAUTH_TOKEN` из `/run/secrets/claude-oauth-token`, если файл смонтирован; затем демон. Зеркала демон заводит сам по ревизии |
+| иначе (режим env) | токен подписки и `/run/secrets/github-token` обязательны; клонирует зеркала `RUNNER_REPO_URL`, `RUNNER_SDK_URL`, `RUNNER_SUPERPROJECT_URL`, `RUNNER_EXTRA_MIRRORS` (`url=путь,url=путь`) и делает им `fetch`; затем демон |
+
+## Пример: окружение агента на узле fleet
+
+Узел собирает окружение контейнера из трёх источников. В `node.yaml`:
+
+```yaml
+executors:
+  claude-code:
+    image: agent-runner:1.4.0
+    dataPath: /runner                 # рабочие копии и зеркала — на volume реплики
+    env:
+      IAM_NO_KEYCHAIN: "1"
+      CP_TEST_DATABASE_URL: postgresql+psycopg://test:test@db-test:5432/test
+agentEnv:
+  CONTROL_PLANE_SERVER: https://platform.example.com
+  CONTROL_PLANE_IAM_URL: https://platform.example.com/iam
+  CONTROL_PLANE_IAM_SCOPES: control-plane:read control-plane:write
+```
+
+Сам узел добавляет `CONTROL_PLANE_AGENT_KEY`, `CONTROL_PLANE_IAM_TENANT`,
+`IAM_PRINCIPAL`, `FLEET_REPLICA` и монтирует `/run/secrets/agent-pat` и секреты из
+описания. Всё остальное — модель, режим разрешений, репозитории, ревью — в описании
+агента.
+
 ## Ошибки конфигурации при старте
 
 | Сообщение | Что поправить |
@@ -250,8 +290,12 @@ Principal'у исполнителя для скиллов нужно право 
 | `skill executor misconfigured: …` | переменные `CONTROL_PLANE_SKILLS_*` (режим env) |
 | `neighbours require a superproject that pins their revisions` | соседи без суперпроекта: `workingCopy.superproject` или `CONTROL_PLANE_AGENT_SUPERPROJECT` |
 
+
 ## См. также
 
+- [Агенты описанием](declarative-agents.md)
+- [Узлы и fleet](fleet.md)
+- [Установка исполнителя](installation.md)
 - [Адаптеры исполнителей](adapters.md)
 - [Переменные окружения (сводный справочник)](../reference/environment.md)
 - [Права и scopes](../reference/permissions.md)

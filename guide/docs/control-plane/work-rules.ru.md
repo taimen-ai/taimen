@@ -360,6 +360,7 @@ SDK: `create_rule(identity=…)`, `update_rule(identity=…)`, `list_rules`,
 ## См. также
 
 - [Цели, приёмка и evidence](goals-and-evidence.md) — origin `rule`, `complete_work`.
+- [Агенты описанием](../runner/declarative-agents.md) — личность правила и `agent:<key>`.
 - [Пакеты каталога](catalog-packages.md) — вид `WorkRule`.
 - [События](events.md)
 - [Approvals](approvals.md) — исходы `request_decision`.

@@ -1142,3 +1142,4 @@ spec:
 - [Схема пакета: процесс](../reference/package-schema.md#process)
 - [Пакеты каталога](../control-plane/catalog-packages.md#processes)
 - [Approvals](../control-plane/approvals.md)
+- [Агенты описанием](../runner/declarative-agents.md)

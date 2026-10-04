@@ -1,9 +1,8 @@
 
 # Identity federation
 
-
 IAM stores no passwords and shows no sign-in form: an external OIDC Identity
-Provider authenticates the person, and IAM verifies its token, links the
+Provider (Keycloak in the distribution) authenticates the person, and IAM verifies its token, links the
 account to a principal, and issues platform credentials. This article
 describes IdP registration, sign-in through `federation:authenticate` and
 `federation:exchange`, identity linking, group projection, and SCIM
@@ -150,10 +149,9 @@ flowchart LR
     the public address. In `deploy/local/compose.yml`, the Caddy edge has, in the services
     network,
 
-    the alias `${TAIMEN_PUBLIC_HOST}`, so the IAM container reaches an IdP
-    published behind the same edge by its public name. If IAM cannot resolve
-    the public name in your topology, set `jwksUri` explicitly to an internal
-    address.
+    the alias `${TAIMEN_PUBLIC_HOST}`, so the IAM container reaches Keycloak
+    by its public name. If IAM cannot resolve the public name in your
+    topology, set `jwksUri` explicitly to an internal address.
 
 ## Linking to a principal
 
@@ -301,21 +299,22 @@ recorded.
     person can actually do is determined by the binding of their principal
     in Control Plane.
 
+Launcher setup is described in [Personal workspace](../workplace/index.md), and Keycloak
+setup in [Keycloak as the external IdP](keycloak.md).
 
+## Connecting Keycloak: checklist
 
-## Connecting an IdP: checklist
-
-1. The `aud` of the **access token** of the client through which people sign
-   in contains the provider's `audience` (for example, `iam-service`). IAM
-   receives the IdP access token, not the ID token.
-   Example: in Keycloak, the `iam-service` client (bearer-only) and an
-   audience mapper.
-2. The IdP issuer matches the provider's `issuer` in IAM character for
-   character (scheme, host, path).
+1. The realm has the `iam-service` client (bearer-only) and an audience mapper
+   that adds `iam-service` to the `aud` of the **access token** of the client
+   through which people sign in. IAM receives the IdP access token: in the
+   shipped realm, the audience mapper writes `iam-service` only into it, not
+   into the ID token.
+2. The realm issuer matches the provider's `issuer` in IAM character for
+   character (scheme, host, path `/auth/realms/<realm>`).
 3. The provider is registered in IAM (`POST …/identity-providers`) with the
-   same `key` that the client passes in `identityProvider`.
+   same `key` that the launcher uses (`keycloak`).
 4. For people who already exist as principals, external identities are linked
-   in advance (`subject` = the value of the user's `subjectClaim` in the IdP).
+   in advance (`subject` = the user's `sub` in Keycloak).
 5. For each person who will work in Control Plane, a binding of their IAM
    principal is created in Control Plane **before** the first request.
 6. Check: `federation:authenticate` with a test user's token returns the
@@ -423,6 +422,8 @@ the upstream token and the subject are not written to audit.
 
 ## See also
 
+- [Keycloak as the external IdP](keycloak.md)
+- [Personal workspace](../workplace/index.md)
 - [Tenants and principals](principals.md)
 - [Tokens, audiences, scopes](tokens.md)
 - [IAM API](api.md#federation)

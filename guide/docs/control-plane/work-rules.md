@@ -362,6 +362,7 @@ Worker settings (core environment variables):
 ## See also
 
 - [Goals, acceptance, and evidence](goals-and-evidence.md) — origin `rule`, `complete_work`.
+- [Declarative agents](../runner/declarative-agents.md) — the rule identity and `agent:<key>`.
 - [Catalog packages](catalog-packages.md) — the `WorkRule` kind.
 - [Events](events.md)
 - [Approvals](approvals.md) — `request_decision` outcomes.

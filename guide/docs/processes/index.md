@@ -1191,3 +1191,4 @@ part of the delivery.
 - [Package schema: process](../reference/package-schema.md#process)
 - [Catalog packages](../control-plane/catalog-packages.md#processes)
 - [Approvals](../control-plane/approvals.md)
+- [Declarative agents](../runner/declarative-agents.md)

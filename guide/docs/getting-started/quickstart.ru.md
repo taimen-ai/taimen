@@ -50,11 +50,12 @@ make secrets
 1. Если `.env` нет — копирует `.env.example` в `.env` и ставит права `600`.
 2. Заполняет **пустые** секреты случайными значениями (`secrets.token_hex`):
    пароли всех БД, `CP_BOOTSTRAP_TOKEN`, `IAM_BOOTSTRAP_TOKEN`,
-   `MEMORY_API_KEY`, ключи MinIO. Уже заданные значения не трогает —
-   повторный запуск безопасен.
+   `MEMORY_API_KEY`, пароль администратора Keycloak, ключи MinIO. Уже заданные
+   значения не трогает — повторный запуск безопасен.
 3. Создаёт каталог `secrets/`.
-4. Генерирует RSA-3072 ключ подписи `secrets/iam-signing.pem` (если его нет) и
-   ставит ему `600`.
+4. Генерирует RSA-3072 ключ подписи `secrets/iam-signing.pem` и секреты
+   консоли `secrets/runtime-console-{oidc,cookie}-secret` (если их нет) с
+   правами `600`.
 
 ```text
 создан .env
@@ -133,7 +134,7 @@ make bootstrap ARGS='--operator "Alice Operator"'
 1. ожидание сервисов
 2. IAM tenant, audience, principal оператора
    IAM tenant <tenant-id> оператор <iam-principal-id>
-   !! впишите в .env: IAM_TENANT_ID=<tenant-id>
+   !! впишите в .env: IAM_TENANT_ID=<tenant-id> (нужен launcher харнесса и fleet-controller)
 2a. service account Control Plane в IAM
    выпущен → secrets/control-plane-iam.env client <client-id>
    !! перезапустите ядро, чтобы оно взяло env-файл: tools/compose up -d control-plane-api control-plane-worker context-adapter
@@ -150,6 +151,8 @@ make bootstrap ARGS='--operator "Alice Operator"'
    выпущен → secrets/notification-iam.env client <client-id>
    !! перезапустите сервис: tools/compose --profile notify up -d notification-service
    ревизия 1 principal <principal-id>
+5d. fleet-controller: service account IAM по описанию, личность в ядре, env-файл
+   …
    legacy admin api-key отозван
 готово: deploy/state/taimen.json
 credential для MCP-плагина/CLI: ~/.config/iam/credentials.json, ключ http://taimen.localhost/iam|<tenant-id>|<iam-principal-id> → содержимое secrets/harness-pat
@@ -187,6 +190,7 @@ make smoke
   iam-service          OK  200 http://127.0.0.1:18010/healthz
   control-plane-api    OK  200 http://127.0.0.1:18000/health/ready
   memory-service       OK  200 http://127.0.0.1:18001/healthz
+  keycloak             —   не запущен
 ```
 
 `tools/smoke.py` проверяет healthz только запущенных сервисов (не поднятые

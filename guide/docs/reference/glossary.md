@@ -146,7 +146,6 @@ access token: `POST /api/v1/tenants/{t}/federation:exchange`. Humans only. →
 token are rejected with `stale_claim`, even if the process considers itself
 the owner.
 
-
 ## G
 
 **Gate**: an approval that holds a task (`approval_required`) or allows a
@@ -158,19 +157,18 @@ goals, links to tasks, acceptance, and evidence (permissions `goals.read`,
 
 ## H
 
-
 **Handoff**: passing work on: a run publishes a handoff checkpoint, and
-another executor or a human picks up the continuation
+another executor or a human in Human Harness picks up the continuation
 (`reason=human_harness_handoff`).
 
-
 **Harness**: the client through which a human or an agent works with Control
-Plane: the MCP plugin, the CLI, the runner daemon. It declares its type and
+Plane: the MCP plugin, Human Harness, the runner daemon. It declares its type and
 capabilities when a session opens. → [Harness protocol](../control-plane/harness-protocol.md)
 
 **Harness protocol**: the contract for sessions, claims, runs, and cursors
 between a harness and the core (`control-harness`, versions `1` and `2`).
 
+**Human Harness**: the human's assistant engine: a personal container the human talks to from the console panel and from Telegram. → [Assistant](../operator/assistant.md)
 
 ## I
 
@@ -201,6 +199,9 @@ services use to verify token signatures; cached with a staleness bound.
 
 ## K
 
+**Keycloak**: the external IdP for humans (profile `idp`, realm `platform`): it only
+confirms who the person is; the token goes to IAM `federation:exchange`. →
+[Keycloak as the external IdP](../iam/keycloak.md)
 
 **Knowledge pack**: a version-pinned (`name@version`) package of knowledge,
 enabled on a root workspace. → [Knowledge ingestion](../memory/ingestion.md)
@@ -235,7 +236,6 @@ AGE), vector search (pgvector), observations, ContextPack assembly. →
 **Observation**: a raw fact written to memory (`observations.write`), with a
 source and a scope.
 
-
 **Origin**: where a task in the work graph came from.
 
 **Outbox**: the table of outgoing events that the worker delivers with
@@ -252,7 +252,6 @@ agent with a scope ceiling and a list of audiences. It is never presented as
 a Bearer itself; it is only exchanged for an access token. →
 [Credentials and PAT](../iam/credentials.md)
 
-
 **PDP / PEP**: Policy Decision Point (the external PDP, which decides) and
 Policy Enforcement Point (the resource service, which enforces the decision).
 The core mode is `CP_AUTHZ_MODE`.
@@ -263,9 +262,8 @@ The core mode is `CP_AUTHZ_MODE`.
 **Principal**: a participant: `human`, `agent`, `service` in Control Plane;
 `human`, `agent`, `service_account`, `workload` in IAM. → [Tenants and principals](../iam/principals.md)
 
-
 **Profile (compose profile)**: a group of `deploy/local/compose.yml` services enabled with
-the `--profile` flag (`core`, `edge`, `notify` …). →
+the `--profile` flag (`core`, `edge`, `idp`, `harness`, `fleet` …). →
 [Services and ports](services-and-ports.md)
 
 **Project profile**: a project layer over a workspace: template,
@@ -280,7 +278,6 @@ source snapshot as a whole; only the core identity performs it.
 **Resource service**: a service that verifies tokens issued by others and
 decides on domain permissions itself (Control Plane, memory-service,
 notification-service).
-
 
 **Role**: a Control Plane organizational role (grants no permissions). →
 [Permissions and scopes](permissions.md#roles)

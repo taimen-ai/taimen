@@ -52,6 +52,7 @@ submodule pointer in the superproject is updated in a separate commit.
 |---|---|---|---|
 | **control-plane** | Authoritative operational state: tasks, types, claims, runs, approvals, artifacts, goals, event log, harness protocol; the `control-plane` CLI, the `control-plane-mcp` MCP server, the `control-plane-agent` executor daemon | `control-plane-api`, `control-plane-worker`, `context-adapter` (one image) | PostgreSQL 16 (`control-plane-db`) |
 | **iam-service** | Tenants, principals, audiences, PAT, service accounts, federation with external IdPs, SCIM, RS256 token issuance, JWKS | `iam-service` | PostgreSQL 16 (`iam-db`) |
+| **console** | Web console of the working organization: pulse, origin of work, processes, rules, agents, management actions, packages, people and roles. Submodule `console`, no database of its own; see [Console](../operator/console.md) | `console` | none (sessions in memory) |
 | **memory-service** | Knowledge graph with temporal facts and provenance, documents, hybrid search (vector + lexical + graph), Context Compiler; HTTP API, MCP server, CLI | `memory-service` | PostgreSQL 16 with Apache AGE and pgvector (`memory-db`, its own image) |
 
 ### Libraries
@@ -85,9 +86,17 @@ flowchart LR
     end
     subgraph opt["optional"]
         notify[notify]
+        idp[idp]
+        console[console]
+        harness[harness]
+        fleet[fleet]
     end
     core --> edge
     notify -.-> core
+    console -.-> idp
+    harness -.-> idp
+    idp -.-> core
+    fleet -.-> core
 ```
 
 | Profile | Services | Status | When to enable |
@@ -124,6 +133,8 @@ tools/compose --profile core --profile edge up -d   # the same without make
 | `${IMAGE_PREFIX}/memory-service` | root (`MEMORY_BUILD_CONTEXT`) | `services/memory-service/Dockerfile` |
 | `${IMAGE_PREFIX}/memory-db` | `services/memory-service/infra/memory-db` | PostgreSQL + AGE + pgvector |
 | `${IMAGE_PREFIX}/notification-service` | root (`NOTIFY_BUILD_CONTEXT`) | `services/notification-service/Dockerfile` |
+| `${IMAGE_PREFIX}/human-harness` | `./services/human-harness` | `Dockerfile` (service `harness-image`, build only) |
+| `${IMAGE_PREFIX}/harness-launcher` | `./services/human-harness` | `packages/launcher/Dockerfile` |
 
 `IMAGE_PREFIX` defaults to `taimen`, and `IMAGE_TAG` to `local`. Python service
 containers run as an unprivileged user (uid `10001` for Control Plane and IAM),

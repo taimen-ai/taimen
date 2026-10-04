@@ -320,6 +320,17 @@ history stays. How the plan and its application work is covered in
 
 ## For the administrator { #admin }
 
+### The Settings screen { #console }
+
+In the console, package settings are the Packages section of the Settings screen
+(`/console/settings`): one item for each installed package that has settings. The
+form is built from the package's schema and layout, with labels and hints in the
+user's language. Each value shows whether it is the default, saved, or changed.
+Save writes a new version under your name; core errors are shown next to the
+fields. Change history shows the author, the time, and the changed fields of any
+version, and you can restore it: the restore is written as a new version. Without
+the `packages.settings.manage` permission the form opens read-only.
+
 ### Permissions { #permissions }
 
 | Permission | What it allows |

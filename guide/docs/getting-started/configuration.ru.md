@@ -28,6 +28,7 @@ flowchart LR
   `MEMORY_API_KEY`, а `deploy/local/compose.yml` сам раскладывает его в `CB_SERVER_API_KEY`
   памяти и `CP_CONTEXT_API_KEY` ядра. Код сервисов для смены окружения менять
   не нужно.
+
 - **Локальный и промышленный стенд различаются только `.env` и Caddyfile.**
   DNS-имена сервисов внутри сети одинаковые.
 - **Секреты — только в `.env` и `secrets/`.** Оба пути в `.gitignore`.
@@ -47,7 +48,7 @@ flowchart LR
 
 | Переменная | По умолчанию | Смысл |
 |---|---|---|
-| `TAIMEN_PUBLIC_URL` | `http://taimen.localhost` | Публичный адрес платформы без завершающего `/`. Из него выводится issuer IAM (`${TAIMEN_PUBLIC_URL}/iam`). Попадает в каждый токен и в bindings Control Plane |
+| `TAIMEN_PUBLIC_URL` | `http://taimen.localhost` | Публичный адрес платформы без завершающего `/`. Из него выводятся issuer IAM (`${TAIMEN_PUBLIC_URL}/iam`), issuer Keycloak (`…/auth/realms/platform`) и адреса рабочих мест (`…/harness`). Попадает в каждый токен и в bindings Control Plane |
 | `TAIMEN_PUBLIC_HOST` | `taimen.localhost` | Имя хоста из адреса выше. Становится сетевым alias Caddy, чтобы контейнеры ходили на публичный адрес через него |
 | `COMPOSE_PROJECT_NAME` | `taimen` | Имя compose-проекта: префикс контейнеров и volumes, имя tenant (slug) и файла состояния bootstrap по умолчанию |
 | `TAIMEN_NETWORK` | `taimen_default` | Имя docker-сети всех сервисов |
@@ -66,7 +67,7 @@ flowchart LR
 
 | Переменная | Смысл |
 |---|---|
-| `IAM_TENANT_ID` | UUID tenant в IAM. Известен только после bootstrap (он напечатает строку `впишите в .env: IAM_TENANT_ID=…`). Сервисам профилей `core`, `edge` и `notify` не нужен |
+| `IAM_TENANT_ID` | UUID tenant в IAM. Известен только после bootstrap (он напечатает строку `впишите в .env: IAM_TENANT_ID=…`). Нужен `fleet-controller`, launcher'у рабочих мест (`LAUNCHER_IAM_TENANT`) и `git-connector`. Ядру (`core`) не нужен |
 
 Остальные идентификаторы (tenant Control Plane, оператор, проект, workspace)
 bootstrap хранит в `deploy/state/<имя>.json`.
@@ -80,14 +81,16 @@ bootstrap хранит в `deploy/state/<имя>.json`.
 | `CP_POSTGRES_PASSWORD` | `control-plane-db`, `CP_DATABASE_URL` | пароль БД Control Plane |
 | `IAM_POSTGRES_PASSWORD` | `iam-db`, `IAM_DATABASE_URL` | пароль БД IAM |
 | `MEMORY_POSTGRES_PASSWORD` | `memory-db`, `CB_DATABASE_URL` | пароль БД памяти |
+| `KEYCLOAK_DB_PASSWORD` | `keycloak-db`, `keycloak` | пароль БД Keycloak (профиль `idp`) |
 | `CP_BOOTSTRAP_TOKEN` | `control-plane-api` | однократный `POST /api/v1/bootstrap` (`Authorization: Bearer`). Пустое значение выключает bootstrap-эндпоинт |
 | `IAM_BOOTSTRAP_TOKEN` | `iam-service` | административные операции IAM (`X-IAM-Bootstrap-Token`): tenants, principals, PAT, service accounts |
 | `MEMORY_API_KEY` | `CB_SERVER_API_KEY`, `CP_CONTEXT_API_KEY` | статический ключ памяти с полным доступом; ядро пользуется им только до появления service account |
+| `KEYCLOAK_ADMIN`, `KEYCLOAK_ADMIN_PASSWORD` | `keycloak` | администратор Keycloak (realm `master`), им же ходят скрипты `deploy/keycloak/` |
+| `KEYCLOAK_HOSTNAME_STRICT` | `KC_HOSTNAME_STRICT` | `false` локально (http без домена), `true` на промышленном стенде |
 | `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` | `minio`, `minio-bootstrap` | root-учётка MinIO; ею пользуется только `minio-bootstrap` |
 | `CP_S3_ACCESS_KEY_ID`, `CP_S3_SECRET_ACCESS_KEY` | `minio-bootstrap`, процессы Control Plane | пользователь MinIO ядра с правами только на бакет артефактов |
 | `CP_S3_BUCKET` | `minio-bootstrap`, процессы Control Plane | бакет содержимого артефактов (по умолчанию `artifacts`) |
 | `IAM_SIGNING_KEY_FILE`, `IAM_SIGNING_KEY_ID` | docker-секрет `iam_signing_key`, `IAM_SIGNING_KEY_ID` | путь к приватному RSA-ключу подписи токенов и его `kid` в JWKS |
-
 
 !!! warning "`IAM_SIGNING_KEY_ID` при ротации ключа"
     `kid` публикуется в JWKS и стоит в заголовке каждого токена. При замене
@@ -171,6 +174,7 @@ tools/compose up -d memory-service
 | `MEMORY_HOST_PORT` | `18001` | memory-service |
 | `IAM_HOST_PORT` | `18010` | iam-service |
 | `NOTIFY_HOST_PORT` | `18045` | notification-service |
+| `KEYCLOAK_HOST_PORT` | `18081` | keycloak |
 
 Bootstrap и `make smoke` ходят в сервисы именно по этим портам — при смене
 значения меняйте его в `.env`, а не в `deploy/local/compose.yml`.
@@ -189,6 +193,7 @@ Bootstrap и `make smoke` ходят в сервисы именно по эти�
 | `IAM_MEM_LIMIT` | `256m` | iam-service |
 | `CP_MEM_LIMIT` | `512m` | control-plane-api |
 | `CP_WORKER_MEM_LIMIT` | `256m` | control-plane-worker, context-adapter |
+| `KEYCLOAK_MEM_LIMIT` | `768m` | keycloak |
 | `MINIO_MEM_LIMIT` | `256m` | minio |
 | `NOTIFY_MEM_LIMIT` | `256m` | notification-service |
 
@@ -196,7 +201,8 @@ Bootstrap и `make smoke` ходят в сервисы именно по эти�
 
 По умолчанию volume называется `${COMPOSE_PROJECT_NAME}_<имя>`. Переменные
 `VOLUME_CONTROL_PLANE_DB`, `VOLUME_IAM_DB`, `VOLUME_MEMORY_DB`,
-`VOLUME_CADDY_DATA`, `VOLUME_CADDY_CONFIG`, `VOLUME_NOTIFY_DB`,
+`VOLUME_CADDY_DATA`, `VOLUME_CADDY_CONFIG`, `VOLUME_NOTIFY_DB`, `VOLUME_KEYCLOAK_DB`,
+`VOLUME_REALM_IMPORT`, `VOLUME_HARNESS_LAUNCHER`, `VOLUME_FLEET_DATA`,
 `VOLUME_PLATFORM_MINIO` (том MinIO с содержимым артефактов) позволяют указать
 уже существующие volumes — например, при переводе стенда, поднятого раньше
 другими compose-файлами, на `deploy/local/compose.yml` без потери данных.
@@ -235,6 +241,7 @@ Bootstrap и `make smoke` ходят в сервисы именно по эти�
 | `TAIMEN_PUBLIC_URL` | `http://taimen.localhost` | `https://platform.example.com` |
 | `TAIMEN_PUBLIC_HOST` | `taimen.localhost` | `platform.example.com` |
 | `CADDYFILE` | `./deploy/caddy/Caddyfile.local` | Caddyfile с доменом и автоматическим TLS |
+| `KEYCLOAK_HOSTNAME_STRICT` | `false` | `true` |
 | `MEMORY_EMBEDDING_PROVIDER` / `MEMORY_LLM_PROVIDER` | `fake` / `echo` | `openai` / `openai` |
 | `*_MEM_LIMIT` | не заданы | по ресурсам машины |
 | `COMPOSE_PROJECT_NAME`, `VOLUME_*` | по умолчанию | по договорённости об именах |

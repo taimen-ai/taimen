@@ -42,6 +42,7 @@ reads their values from `.env`.
 | `--secrets-dir` | `secrets` | where to write PATs and service account env files |
 | `--packages` | `deploy/packages.yaml` | catalog installation file (`kind: Installation`), step 5b |
 | `--no-packages` | off | skip step 5b: a human installs the packages with a plan (`plan --out` → `apply --plan`) |
+| `--harness-people` | off | registry of people with a personal harness; without it, step 8 is skipped |
 
 ### Dependencies
 
@@ -65,7 +66,8 @@ in line with its description:
 
 - `PATCH` of the scope ceilings of all audiences according to the script's registry;
 - installation of catalog packages (a new type version is published only when something differs);
-- publishing the notification service's description and binding its identity in the core (step 5c).
+- publishing the descriptions of the notification service and fleet-controller and binding
+  their identities in the core (steps 5c, 5d).
 
 Secrets never go into the state file: PATs and client secrets are written only
 to `secrets/` with mode `0600`, and stdout shows only prefixes and IDs.
@@ -152,13 +154,15 @@ All calls carry the header `X-IAM-Bootstrap-Token: ${IAM_BOOTSTRAP_TOKEN}`.
     | `memory-service` | `memory:read`, `memory:write`, `memory:pii`, `memory:tenants`, `memory:on-behalf`, `memory:service` |
     | `notification-service` | `notifications:send`, `notifications:read`, `notifications:admin` |
     | `iam` | `iam:channel-links`, `iam:agents` |
+    | `human-harness` | `harness:use`, `harness:inbound` |
+    | `fleet` | `fleet:read`, `fleet:admin` |
 
 3. `POST /api/v1/tenants/{t}/principals` `{"kind": "human", "displayName": <--operator>}`
    → `iamOperatorPrincipalId`.
 
 If `IAM_TENANT_ID` in `.env` does not match the created tenant, the script
-prints `!! add to .env: IAM_TENANT_ID=… (needed by clients and runners)`. Do it, so that
-`.env` fully describes the deployment.
+prints `!! add to .env: IAM_TENANT_ID=…`. Do it (the variable is needed by the
+harness launcher, fleet-controller, and connectors).
 
 ### 2a. Control Plane service account
 
@@ -334,17 +338,20 @@ installs the packages — `package-sdk lock` → `plan --out` → review of the 
 → `apply --plan` (see [Installation and
 release](../packages/install-and-release.md#plan)).
 
-### 5c. Notification service
+### 5c, 5d. Platform services
 
-`notification-service` calls the core with IAM client credentials and is
-described as an agent without placement (`placement: none`,
-`identity.kind: service`). This step always runs, even if the `notify` profile
-is not up (it touches only IAM and Control Plane):
+Services that call the core with IAM client credentials are described as agents
+without placement (`placement: none`, `identity.kind: service`); the
+descriptions are defined by `deploy/bootstrap.py`. For each of them —
+`notification-service` (5c) and `fleet-controller` (5d) — the step always runs,
+even if the service's profile is not up (it touches only IAM and Control Plane):
 
 1. An IAM service account with the audiences and ceiling from the
    description's `identity.iam` → `secrets/notification-iam.env`
-   (`NS_SERVICE_CLIENT_ID`, `NS_SERVICE_CLIENT_SECRET`). If the ceiling in the
-   description changed, the account is reissued and the previous one revoked.
+   (`NS_SERVICE_CLIENT_ID`, `NS_SERVICE_CLIENT_SECRET`) or
+   `secrets/fleet-iam.env` (`FLEET_CLIENT_ID`, `FLEET_CLIENT_SECRET`). If the
+   ceiling in the description changed, the account is reissued and the previous
+   one revoked.
 2. `POST /api/v1/agents`: publishes the description in the core.
 3. `PUT /api/v1/agents/{key}/identity`: binds the account's IAM principal; the
    core derives the core principal and the binding with permissions from the
@@ -356,7 +363,8 @@ is not up (it touches only IAM and Control Plane):
    of the current revision of the description.
 
 After issuing the file, the script reminds you to recreate the service
-(`tools/compose --profile notify up -d notification-service`).
+(`tools/compose --profile notify up -d notification-service`,
+`tools/compose --profile fleet up -d fleet-controller`).
 
 The script then revokes the legacy administrator API key from step 3
 (`POST /api/v1/api-keys/{id}:revoke`): the deployment works only through IAM.
@@ -382,6 +390,7 @@ How to use it is described in [First task](first-task.md).
 | `secrets/control-plane-iam.env` | 2a | core client credentials | Control Plane processes |
 | `secrets/harness-pat` | 4 | operator PAT | a person: CLI, MCP plugin, curl |
 | `secrets/notification-iam.env` | 5c | notification service client credentials | `notification-service` |
+| `secrets/fleet-iam.env` | 5d | fleet controller client credentials | `fleet-controller` |
 
 ## Rerunning and reissuing
 
@@ -392,6 +401,7 @@ How to use it is described in [First task](first-task.md).
 | Start over after resetting volumes | `make reset-state`, then `make bootstrap` |
 | Reissue the operator PAT (expiring) | delete `secrets/harness-pat` and run bootstrap: a new PAT is issued with a fresh authentication context; revoke the old PAT separately |
 | Reissue the core service account | delete `secrets/control-plane-iam.env` and run bootstrap, then restart the core |
+| Add executors | describe the agent in a package and place it through fleet — [Declarative agents](../runner/declarative-agents.md) |
 
 ## Common errors
 

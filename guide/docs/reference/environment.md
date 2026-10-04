@@ -41,6 +41,7 @@ flowchart LR
 | `IAM_` | iam-service | `iam_service/config.py` |
 | `CB_` | memory-service | `platform_memory/core/config.py` |
 | `NS_` | notification-service | `notification_service/config.py` |
+| `FLEET_` | fleet-controller | `fleet_controller/wiring.py` (read directly from the environment) |
 | `CONTROL_PLANE_*`, `IAM_*` (client-side) | runner, CLI, MCP server, SDK client | `control_plane_agent`, `control_plane_client` |
 
 !!! warning "Required variables are checked for all profiles"
@@ -60,11 +61,10 @@ interpolation variables. The "Default" column is the substitution value in
 
 ### Environment and edge
 
-
 | Variable | Default | Required | Purpose |
 |---|---|---|---|
-| `TAIMEN_PUBLIC_URL` | — (in `.env.example`: `http://taimen.localhost`) | yes | Public address of the platform without a trailing `/`. The IAM issuer (`${TAIMEN_PUBLIC_URL}/iam`) and the public addresses of services behind Caddy are built from it. Changing the address changes the issuer; see the warning in [Permissions and scopes](permissions.md#iam-principal-bindings). |
-| `TAIMEN_PUBLIC_HOST` | `taimen.localhost` | no | Network alias of the `caddy` container: containers reach IAM by the public name (hairpin) so that the issuer matches what the browser sees. |
+| `TAIMEN_PUBLIC_URL` | — (in `.env.example`: `http://taimen.localhost`) | yes | Public address of the platform without a trailing `/`. The IAM issuer (`${TAIMEN_PUBLIC_URL}/iam`), the Keycloak issuer (`…/auth/realms/platform`), the workplace launcher addresses (`…/harness`), and the redirect URIs of the `human-harness` client in the realm template are built from it. Changing the address changes the issuer; see the warning in [Permissions and scopes](permissions.md#iam-principal-bindings). |
+| `TAIMEN_PUBLIC_HOST` | `taimen.localhost` | no | Network alias of the `caddy` container: containers reach IAM and Keycloak by the public name (hairpin) so that the issuer matches what the browser sees. |
 | `COMPOSE_PROJECT_NAME` | `taimen` | no | Compose project name. The default prefix of volume names. Also read by `deploy/bootstrap.py` (environment name and tenant slug). |
 | `TAIMEN_NETWORK` | `taimen_default` | no | Name of the `taimen` docker network. |
 | `CADDYFILE` | `./deploy/caddy/Caddyfile.local` | no | Caddy configuration file, mounted into the `caddy` container. For a TLS deployment, use your own file with the same path layout. |
@@ -77,10 +77,9 @@ interpolation variables. The "Default" column is the substitution value in
 
 ### Tenant and identifiers
 
-
 | Variable | Default | Required | Purpose |
 |---|---|---|---|
-| `IAM_TENANT_ID` | `""` | no | The IAM tenant UUID for clients that need it during credential exchange. `make bootstrap` prints the value to put here. Also read by `deploy/bootstrap.py`. |
+| `IAM_TENANT_ID` | `""` | no | The IAM tenant UUID. Needed by fleet-controller and the workplace launcher (`LAUNCHER_IAM_TENANT`, `HARNESS_IAM_TENANT` of people's containers). `make bootstrap` prints the value to put here. Also read by `deploy/bootstrap.py`. |
 
 ### Secrets
 
@@ -94,10 +93,14 @@ missing from `.env`.
 | `CP_POSTGRES_PASSWORD` | — | yes | Password of the `control_plane` database (role `control_plane`). |
 | `IAM_POSTGRES_PASSWORD` | — | yes | Password of the `iam` database. |
 | `MEMORY_POSTGRES_PASSWORD` | — | yes | Password of the `company_brain` database (role `memory`). |
+| `KEYCLOAK_DB_PASSWORD` | — | yes | Password of the `keycloak` database and role in `keycloak-db`. |
 | `NOTIFY_POSTGRES_PASSWORD` | — | yes | Password of the `notify` database (notification-service). |
 | `CP_BOOTSTRAP_TOKEN` | — | yes | Token for the Control Plane `POST /api/v1/bootstrap` (`Authorization: Bearer`). |
 | `IAM_BOOTSTRAP_TOKEN` | — | yes | Token for the IAM bootstrap endpoints (header `X-IAM-Bootstrap-Token`). |
 | `MEMORY_API_KEY` | — | yes | Static memory key: `CB_SERVER_API_KEY` of memory-service, `CP_CONTEXT_API_KEY` of the core (used until the service account exists; see `CP_CONTEXT_AUTH`). |
+| `KEYCLOAK_ADMIN` | `admin` | no | Login of the Keycloak bootstrap administrator. |
+| `KEYCLOAK_ADMIN_PASSWORD` | — | yes | Password of the Keycloak bootstrap administrator. |
+| `KEYCLOAK_HOSTNAME_STRICT` | `true` | no | `KC_HOSTNAME_STRICT`. Locally over HTTP without a domain, `false`. |
 | `S3_ACCESS_KEY_ID` | — | yes | MinIO root user; only `minio-bootstrap` uses it. |
 | `S3_SECRET_ACCESS_KEY` | — | yes | MinIO root password. |
 | `CP_S3_ACCESS_KEY_ID`, `CP_S3_SECRET_ACCESS_KEY` | — | yes | The core's MinIO user with the `cp-artifacts` policy (created by `minio-bootstrap`); Control Plane processes use it to write and read artifact content. |
@@ -112,19 +115,7 @@ missing from `.env`.
     `secrets/*.pem` files must be owned by that uid with mode `600`:
     otherwise the service gets a `PermissionError` when reading the key.
 
-### Secret store { #openbao }
-
-The `openbao` and `openbao-bootstrap` services of the `core` profile; see
-[Secret store](../operations/secret-store.md) for details.
-
-| Variable | Default | Required | Purpose |
-|---|---|---|---|
-| `OPENBAO_UNSEAL_KEY_FILE` | `./secrets/openbao-unseal.key` | no | The unseal key file (the `static` seal): 64 hex characters without a newline, `0600`, owned by uid 10001 on Linux. `make secrets` creates it if the file is missing and never overwrites it; it is mounted as the `openbao_unseal_key` docker secret. |
-| `OPENBAO_UNSEAL_KEY_ID` | `unseal-1` | no | Identifier of the unseal key (`BAO_STATIC_SEAL_CURRENT_KEY_ID`); changes only when the key is rotated. |
-| `OPENBAO_CORE_CIDRS` | empty | no | `token_bound_cidrs` of the core's `control-plane` role: where the core may log in to the store from. Empty means the compose network's subnet without its gateways (`openbao-bootstrap` determines it); a set value is taken as is. |
-
 ### LLM and memory
-
 
 | Variable | Default | Required | Purpose |
 |---|---|---|---|
@@ -157,6 +148,48 @@ The `openbao` and `openbao-bootstrap` services of the `core` profile; see
 | `NOTIFY_SMTP_HOST` | `localhost` | `NS_SMTP_HOST`. |
 | `NOTIFY_SMTP_PORT` | `587` | `NS_SMTP_PORT`. |
 
+### Workplaces (`harness`)
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `HARNESS_MEM_LIMIT_MB` | `1536` | Memory limit of a person's container (`LAUNCHER_HARNESS_MEMORY_MB`). |
+| `HARNESS_CPUS` | `1` | CPU limit of a person's container, in cores (`LAUNCHER_HARNESS_CPUS`). |
+| `HARNESS_PIDS_LIMIT` | `512` | Process limit of a person's container (`LAUNCHER_HARNESS_PIDS`). |
+| `HARNESS_PEOPLE_NETWORK` | `<COMPOSE_PROJECT_NAME>_harness-people` | Network of people's containers (`LAUNCHER_NETWORK`): the launcher, the core, notifications, caddy; no databases and no Docker proxy. |
+| `HARNESS_CONTROL_NETWORK` | `<COMPOSE_PROJECT_NAME>_harness-control` | Internal network of the Docker proxy and the launcher. See [Workplace isolation](../workplace/index.md#isolation). |
+| `HARNESS_IDLE_MINUTES` | `30` | After how many minutes without requests a person's container goes to sleep (`LAUNCHER_IDLE_MINUTES`). |
+| `HARNESS_APP_NAME` | `Human Harness` | Application name of the workplace (`appName` in the assistant engine's `whoami` response). |
+| `HARNESS_COOKIE_SECRET_FILE` | `./secrets/harness/cookie-secret` | The launcher cookie key file (docker secret `harness_cookie_secret`, written by bootstrap step 8). |
+| `NOTIFY_HARNESS_LAUNCHER_URL` | `http://harness-launcher:8080/harness` | Launcher address for the notification service (the assistant in Telegram). |
+
+Details are in [Personal workspace](../workplace/index.md).
+
+### Runtime console (OIDC)
+
+The console signs in through an OIDC IdP (Authorization Code + PKCE, confidential client) and
+exchanges the IdP id token in IAM `federation:exchange` for tokens of the audiences
+`control-plane`, `iam`, `human-harness`. About the IdP itself, the console knows only
+the issuer, the client id, and the secret.
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `RUNTIME_CONSOLE_OIDC_ISSUER` | `${TAIMEN_PUBLIC_URL}/auth/realms/platform` | Issuer of the OIDC IdP. |
+| `RUNTIME_CONSOLE_OIDC_CLIENT_ID` | `runtime-console` | Client id of the console in the IdP. |
+| `RUNTIME_CONSOLE_OIDC_SECRET_FILE` | `./secrets/runtime-console-oidc-secret` | Client secret file (0600, docker secret `runtime_console_oidc_secret`). Written by `make secrets` or `deploy/keycloak/keycloak-runtime-console-client.py`. |
+| `RUNTIME_CONSOLE_IDENTITY_PROVIDER` | `keycloak` | Identity provider key in IAM for `federation:exchange`. |
+| `RUNTIME_CONSOLE_OIDC_SCOPES` | `openid profile email` | Scopes of the IdP request. Keycloak issues a refresh token even without `offline_access`. |
+| `RUNTIME_CONSOLE_COOKIE_SECRET_FILE` | `./secrets/runtime-console-cookie-secret` | Console cookie secret, at least 32 bytes (0600, written by `make secrets`): the session signing key and the encryption key of the unfinished-sign-in cookie are derived from it. The cookie holds only a random session id; the tokens stay on the console server. |
+| `RUNTIME_CONSOLE_CP_SCOPES` | `control-plane:read control-plane:write` | Scopes the console explicitly requests from federation. What a person may do in a given case is decided by their bindings in the core. |
+| `RUNTIME_CONSOLE_SESSION_TTL_HOURS` | `12` | Console session lifetime. |
+| `RUNTIME_CONSOLE_PRODUCT_NAME`, `RUNTIME_CONSOLE_ORG_NAME` | `Console`, empty | Product and organization name in the console interface (white-label): the console server hands them to the interface at startup; the console code contains no product name. |
+| `RUNTIME_CONSOLE_LOCALES`, `RUNTIME_CONSOLE_DEFAULT_LOCALE` | `en,ru`, `en` | Interface languages and the default language. |
+
+Federation issues privileged scopes only to members of an IAM group and only on explicit
+request: `iam:people` (managing people) to the `people-admins` group, `fleet:admin`
+(fleet node registration keys) to the `fleet-admins` group. The groups and the owner's
+membership are created by `deploy/bootstrap.py` (step 2b). By default the console requests `fleet:read`;
+to get `fleet:admin`, a person must be a member of `fleet-admins`.
+
 
 ### Catalog package variables { #package-variables }
 
@@ -172,6 +205,7 @@ access token for the `control-plane` audience) and `NOTIFY_TOKEN` (audience
 `notification-service`, scope `notifications:admin`, required for
 `NotificationRule`). Without them, the installer exchanges the IAM credential
 of the Control Plane client (see [Catalog packages](../control-plane/catalog-packages.md)).
+
 ### Ports on 127.0.0.1
 
 All services except `caddy` are published only on loopback. Details are in
@@ -183,13 +217,13 @@ All services except `caddy` are published only on loopback. Details are in
 | `MEMORY_HOST_PORT` | `18001` | `memory-service` (8077) |
 | `IAM_HOST_PORT` | `18010` | `iam-service` (8010). Read by `deploy/bootstrap.py`. |
 | `NOTIFY_HOST_PORT` | `18045` | `notification-service` (8000) |
+| `KEYCLOAK_HOST_PORT` | `18081` | `keycloak` (8080) |
 
 ### Container memory limits
 
-
 | Variable | Default | Containers |
 |---|---|---|
-| `PG_MEM_LIMIT` | `256m` | `iam-db`, `control-plane-db` |
+| `PG_MEM_LIMIT` | `256m` | `iam-db`, `control-plane-db`, `keycloak-db` |
 | `IAM_MEM_LIMIT` | `256m` | `iam-service` |
 | `CP_MEM_LIMIT` | `512m` | `control-plane-api` |
 | `CP_WORKER_MEM_LIMIT` | `256m` | `control-plane-worker`, `context-adapter` |
@@ -197,8 +231,9 @@ All services except `caddy` are published only on loopback. Details are in
 | `MEMORY_MEM_LIMIT` | `512m` | `memory-service` |
 | `NOTIFY_MEM_LIMIT` | `256m` | `notification-service` |
 | `NOTIFY_DB_MEM_LIMIT` | `128m` | `notification-db` |
+| `KEYCLOAK_MEM_LIMIT` | `768m` | `keycloak` |
 | `MINIO_MEM_LIMIT` | `256m` | `minio` |
-| `OPENBAO_MEM_LIMIT` | `256m` | `openbao` (it also sets `memswap_limit`: the container gets no swap) |
+| `FLEET_MEM_LIMIT` | `128m` | `fleet-controller` |
 
 ### Build contexts
 
@@ -211,6 +246,7 @@ from a separate release clone).
 | `CP_BUILD_CONTEXT` | `.` (Dockerfile `services/control-plane/Dockerfile`) |
 | `MEMORY_BUILD_CONTEXT` | `.` for `memory-service` (Dockerfile `services/memory-service/Dockerfile`); `./services/memory-service` + `/infra/memory-db` for `memory-db` |
 | `NOTIFY_BUILD_CONTEXT` | `.` (Dockerfile `services/notification-service/Dockerfile`) |
+| `FLEET_BUILD_CONTEXT` | `.` (Dockerfile `services/fleet/Dockerfile`) |
 
 !!! warning "One variable, two defaults"
     `MEMORY_BUILD_CONTEXT` is used both for `memory-db`
@@ -226,10 +262,10 @@ example, when moving a deployment to the root compose).
 
 
 `VOLUME_IAM_DB`, `VOLUME_CONTROL_PLANE_DB`, `VOLUME_MEMORY_DB`,
-`VOLUME_NOTIFY_DB`, `VOLUME_PLATFORM_MINIO` (the MinIO volume with artifact content),
-`VOLUME_CADDY_DATA`, `VOLUME_CADDY_CONFIG`,
-`VOLUME_OPENBAO_DATA` and `VOLUME_OPENBAO_AUDIT` (the raft data and audit log
-volumes of the secret store).
+`VOLUME_NOTIFY_DB`,
+`VOLUME_KEYCLOAK_DB`, `VOLUME_PLATFORM_MINIO` (the MinIO volume with artifact content),
+`VOLUME_REALM_IMPORT`, `VOLUME_HARNESS_LAUNCHER`,
+`VOLUME_CADDY_DATA`, `VOLUME_CADDY_CONFIG` and `VOLUME_FLEET_DATA`.
 
 ## Control Plane (`CP_`)
 
@@ -270,27 +306,6 @@ value that `deploy/local/compose.yml` sets.
 | `CP_IDEMPOTENCY_TTL_SECONDS` | `86400` | How long the response for an `Idempotency-Key` is kept. |
 | `CP_IDEMPOTENCY_WAIT_TIMEOUT_SECONDS` | `10.0` | How long a concurrent duplicate waits for the first request to finish; after that, `409 idempotency_in_flight`. |
 | `CP_IDEMPOTENCY_PENDING_TTL_SECONDS` | `60` | Lifetime of a record without a stored response (protection against a "stuck" key after a process crash). |
-
-### Secret store and connections { #cp-secret-store }
-
-See [Connections](../control-plane/connections.md#configuration). `deploy/local/compose.yml`
-does not set these variables for the core processes: the store address and the
-OAuth addresses are set in `compose.override.yml` (see [Secret
-store](../operations/secret-store.md#env)).
-
-| Variable | Default | Purpose |
-|---|---|---|
-| `CP_SECRET_STORE_URL` | empty | Address of the secret store in the network (`http://openbao:8200`). Empty means the routes that need the store answer `503 secret_store_unavailable`. |
-| `CP_SECRET_STORE_AUDIENCE` | `openbao` | Audience of the core's IAM token for logging in to the store. |
-| `CP_SECRET_STORE_ROLE` | `control-plane` | The core's `jwt` role in the store. |
-| `CP_SECRET_STORE_TIMEOUT_SECONDS` | `10.0` | Timeout of a request to the store. |
-| `CP_OAUTH_REDIRECT_URI` | empty | Public `https` address of the OAuth callback (`…/api/v1/connections:callback`). Empty means `:authorize` answers `409 oauth_not_configured`. |
-| `CP_CONNECTIONS_RETURN_URL` | empty | Where the callback returns the browser (`?connection=…&result=…`). Empty means `:authorize` answers `409`, and the callback answers `200 text/plain`. |
-| `CP_OAUTH_STATE_TTL_SECONDS` | `600` | Lifetime of the one-time OAuth state. |
-| `CP_CONNECTIONS_SYNC_SECONDS` | `300.0` | Period of the full pass of the `connections-policy-sync` worker. |
-
-Non-empty `CP_OAUTH_REDIRECT_URI` and `CP_CONNECTIONS_RETURN_URL` without
-`https` fail at startup.
 
 ### Worker and outbox
 
@@ -365,7 +380,6 @@ Non-empty `CP_OAUTH_REDIRECT_URI` and `CP_CONNECTIONS_RETURN_URL` without
 | `CP_ENTITLEMENT_TIMEOUT_SECONDS` | `3.0` | — | Request timeout. |
 
 ### Policy Decision Point
-
 
 | Variable | Default | In the stack | Purpose |
 |---|---|---|---|
@@ -459,7 +473,6 @@ The "In the stack" column is the value from `deploy/local/compose.yml`.
 
 ### IAM, policy, PII
 
-
 | Variable | Default | In the stack | Purpose |
 |---|---|---|---|
 | `CB_IAM_ENABLED` | `false` | `${MEMORY_IAM_ENABLED:-true}` | Accept IAM tokens for the `memory-service` audience. |
@@ -544,14 +557,40 @@ Profile `notify`. See [Notifications](../notifications/index.md) and
 | `NS_INBOX_POLL_SECONDS` | `5.0` | — | How often an idle SSE stream checks the database. |
 | `NS_INBOX_KEEPALIVE_SECONDS` | `15.0` | — | SSE stream keep-alive. |
 
-## Runner agent and Control Plane clients {#runner-and-clients}
+## fleet-controller (`FLEET_`) {#fleet-controller}
 
+The `fleet` profile. The variables are read directly from the environment
+(`fleet_controller/wiring.py`); `deploy/local/compose.yml` sets the values, and the client
+credentials come from `secrets/fleet-iam.env`.
+
+| Variable | In `deploy/local/compose.yml` | Default in code | Purpose |
+|---|---|---|---|
+| `FLEET_DATA_DIR` | `/data` | `/data` | Directory of the `fleet.sqlite` SQLite database (volume `fleet_data`). |
+| `FLEET_CONTROL_PLANE_URL` | `http://control-plane-api:8000` | — | Control Plane inside the network. |
+| `FLEET_IAM_URL` | `http://iam-service:8010` | — | IAM inside the network: client credentials, agents, and their PATs (`iam:agents`). |
+| `FLEET_IAM_ISSUER` | `${TAIMEN_PUBLIC_URL}/iam` | — (required) | Public IAM issuer: agent identities are bound with it, and administrative tokens are verified against it. |
+| `FLEET_IAM_TENANT` | `${IAM_TENANT_ID:-}` | — | IAM tenant of the agents. |
+| `FLEET_JWKS_URL` | `http://iam-service:8010/.well-known/jwks.json` | — (required) | JWKS for verifying administrative tokens. |
+| `FLEET_CLIENT_ID`, `FLEET_CLIENT_SECRET` | from `secrets/fleet-iam.env` | empty | The controller's service account. Without them, every route except `/healthz` returns `503 not_configured`. |
+| `FLEET_AUDIENCE` | — | `fleet` | Audience of administrative tokens (`fleet:read`, `fleet:admin`). |
+| `FLEET_TOKEN_AUDIENCES` | see `deploy/local/compose.yml` | `control-plane` | Audiences an agent PAT may receive (space-separated); beyond `control-plane`, only those the agent requests in `skills.audiences` or `identity.iam.audiences`. |
+| `FLEET_TOKEN_SCOPES` | see `deploy/local/compose.yml` | `control-plane:read control-plane:write` | Scope ceiling of agent PATs (space-separated). An agent gets only the scopes of the audiences issued to it, and, when `identity.iam.scopeCeiling` is declared, the intersection with it; a privileged scope (`iam:…`) goes only to the agent that declared it; a scope whose prefix does not match its audience is written as `audience=scope`. |
+| `FLEET_TOKEN_TTL_SECONDS` | — | `604800` (7 days) | Agent PAT lifetime; no more than `IAM_AGENT_PAT_MAX_TTL_SECONDS`, otherwise IAM responds `422 expiry_too_long`. A new PAT is issued 2 days before expiry and recreates the agent container. |
+
+The `fleet-node` node reads no prefixed variables: its whole configuration is the
+`node.yaml` file, in which `${NAME}` is substituted from the node process environment (see
+[Nodes and fleet](../runner/fleet.md#node-yaml)).
+
+
+## Runner agent and Control Plane clients {#runner-and-clients}
 
 Processes outside the platform compose: the `control-plane-agent` daemon, the
 OpenCode adapter, the `control-plane` CLI, the `control-plane-mcp` MCP server,
 and the `control_plane_client` library. Variables are read directly from the
-environment; which variables apply in which mode is described in [Executor
-configuration](../runner/configuration.md).
+environment. The daemon of an agent described by the `Agent` kind takes the agent
+settings from its revision, and the host variables are set for it by the fleet node
+(`agentEnv` and `executors.<kind>.env` in `node.yaml`); which variables apply in
+which mode is described in [Executor configuration](../runner/configuration.md).
 
 ### Connection and identity
 
@@ -660,10 +699,10 @@ configuration](../runner/configuration.md).
 
 ## Other processes
 
-
 | Process | Variables |
 |---|---|
 | skill-sdk (skill hosting) | `SKILL_SDK_IAM_ISSUER`, `SKILL_SDK_AUDIENCE`, `SKILL_SDK_JWKS_URL`: IAM token verification in the `http` and `mcp-http` modes (without them, only `--allow-anonymous`); `SKILL_LLM_BASE_URL`, `SKILL_LLM_API_KEY`, `SKILL_LLM_MODELS` (CSV): the LLM of the skill context. |
+| Human Harness | `IAM_CREDENTIAL_MODE`, `IAM_PLATFORM_ACCESS_TOKEN`: the same environment PAT contract as the Control Plane client. |
 | `deploy/bootstrap.py` | Reads from `.env`: `TAIMEN_PUBLIC_URL`, `COMPOSE_PROJECT_NAME`, `CP_HOST_PORT`, `IAM_HOST_PORT`, `IAM_TENANT_ID`, `CP_BOOTSTRAP_TOKEN`, `IAM_BOOTSTRAP_TOKEN`. |
 
 ## `secrets/*.env` files written by bootstrap
@@ -672,6 +711,7 @@ configuration](../runner/configuration.md).
 |---|---|---|
 | `secrets/control-plane-iam.env` | `CP_IAM_CLIENT_ID`, `CP_IAM_CLIENT_SECRET` | `control-plane-api`, `control-plane-worker`, `context-adapter` |
 | `secrets/notification-iam.env` | `NS_SERVICE_CLIENT_ID`, `NS_SERVICE_CLIENT_SECRET` | `notification-service` |
+| `secrets/fleet-iam.env` | `FLEET_CLIENT_ID`, `FLEET_CLIENT_SECRET` | `fleet-controller` |
 
 Bootstrap does not write the `secrets/notification-telegram.env` file
 (`NS_TELEGRAM_BOT_TOKEN`, `NS_TELEGRAM_WEBHOOK_SECRET`,
@@ -684,7 +724,6 @@ with an external PDP connection, which is not part of the delivery.
 After the file appears, recreate the corresponding container
 (`tools/compose up -d <service>`): `env_file` is read when the container is
 created.
-
 
 ## Summary: all `deploy/local/compose.yml` and `.env.example` variables
 
@@ -701,8 +740,8 @@ Total variables: 148 (in `deploy/local/compose.yml`: 123, in `.env.example`: 110
 
 | Variable | Compose default | Services | Profiles | `.env.example` | Described above |
 |---|---|---|---|---|---|
-| `ACCOUNTING_ROLE_ID` | — | — | — | yes | yes |
 | `CADDYFILE` | `./deploy/caddy/Caddyfile.local` | caddy | edge | yes | yes |
+| `COMPOSE_PROJECT_NAME` | `taimen` | (volumes) | — | yes | yes |
 | `CP_AUTHZ_MODE` | `local` | context-adapter, control-plane-api, control-plane-worker | core | yes | yes |
 | `CP_BOOTSTRAP_TOKEN` | — | control-plane-api | core | yes | yes |
 | `CP_BUILD_CONTEXT` | `.` | control-plane-api | core | — | yes |
@@ -723,15 +762,32 @@ Total variables: 148 (in `deploy/local/compose.yml`: 123, in `.env.example`: 110
 | `CP_WORKER_MEM_LIMIT` | `256m` | context-adapter, control-plane-worker | core | — | yes |
 | `EDGE_HTTPS_PORT` | `443` | caddy | edge | yes | yes |
 | `EDGE_HTTP_PORT` | `80` | caddy | edge | yes | yes |
+| `FLEET_BUILD_CONTEXT` | `.` | fleet-controller | fleet | — | yes |
+| `FLEET_MEM_LIMIT` | `128m` | fleet-controller | fleet | yes | yes |
+| `HARNESS_APP_NAME` | `Human Harness` | harness-launcher | harness | — | yes |
+| `HARNESS_CONTROL_NETWORK` | `${COMPOSE_PROJECT_NAME:-taimen` | (networks) | — | — | yes |
 | `HARNESS_COOKIE_SECRET_FILE` | `./secrets/harness/cookie-secret` | (secrets) | — | — | yes |
-| `IAM_BUILD_CONTEXT` | `./iam-service` | iam-service | core | — | yes |
+| `HARNESS_CPUS` | `1` | harness-launcher | harness | — | yes |
+| `HARNESS_IDLE_MINUTES` | `30` | harness-launcher | harness | — | yes |
+| `HARNESS_MEM_LIMIT_MB` | `1536` | harness-launcher | harness | — | yes |
+| `HARNESS_PEOPLE_NETWORK` | `${COMPOSE_PROJECT_NAME:-taimen` | (networks), harness-launcher | harness | — | yes |
+| `HARNESS_PIDS_LIMIT` | `512` | harness-launcher | harness | — | yes |
+| `IAM_BOOTSTRAP_TOKEN` | — | iam-service | core | yes | yes |
+| `IAM_BUILD_CONTEXT` | `./services/iam-service` | iam-service | core | — | yes |
 | `IAM_HOST_PORT` | `18010` | iam-service | core | yes | yes |
 | `IAM_MEM_LIMIT` | `256m` | iam-service | core | — | yes |
 | `IAM_POSTGRES_PASSWORD` | — | iam-db, iam-service | core | yes | yes |
 | `IAM_SIGNING_KEY_FILE` | `./secrets/iam-signing.pem` | (secrets) | — | yes | yes |
 | `IAM_SIGNING_KEY_ID` | `local-dev` | iam-service | core | yes | yes |
-| `INVOICE_WORKSPACE_ID` | — | — | — | yes | yes |
-| `KNOWLEDGE_WORKSPACE_ID` | — | — | — | yes | yes |
+| `IAM_TENANT_ID` | empty | console, fleet-controller, harness-launcher | core, fleet, harness | yes | yes |
+| `KEYCLOAK_ADMIN` | `admin` | keycloak | idp | yes | yes |
+| `KEYCLOAK_ADMIN_PASSWORD` | — | keycloak | idp | yes | yes |
+| `KEYCLOAK_DB_PASSWORD` | — | keycloak, keycloak-db | idp | yes | yes |
+| `KEYCLOAK_HOSTNAME_STRICT` | `true` | keycloak | idp | yes | yes |
+| `KEYCLOAK_HOST_PORT` | `18081` | keycloak | idp | yes | yes |
+| `KEYCLOAK_IMAGE` | `quay.io/keycloak/keycloak:26.5.2` | keycloak | idp | yes | **no** |
+| `KEYCLOAK_MEM_LIMIT` | `768m` | keycloak | idp | yes | yes |
+| `LOG_LEVEL` | `INFO` | context-adapter, control-plane-api, control-plane-worker | core | yes | yes |
 | `LOG_RENDERER` | — | — | — | yes | yes |
 | `MEMORY_BUILD_CONTEXT` | `.` | memory-db, memory-service | core | — | yes |
 | `MEMORY_CONSOLE_ENABLED` | `false` | memory-service | core | yes | yes |
@@ -750,48 +806,46 @@ Total variables: 148 (in `deploy/local/compose.yml`: 123, in `.env.example`: 110
 | `NOTIFY_BUILD_CONTEXT` | `.` | notification-service | notify | — | yes |
 | `NOTIFY_DB_MEM_LIMIT` | `128m` | notification-db | notify | — | yes |
 | `NOTIFY_EMAIL_FROM` | `notifications@localhost` | notification-service | notify | — | yes |
+| `NOTIFY_HARNESS_LAUNCHER_URL` | `http://harness-launcher:8080/harness` | notification-service | notify | — | yes |
 | `NOTIFY_HOST_PORT` | `18045` | notification-service | notify | — | yes |
 | `NOTIFY_MEM_LIMIT` | `256m` | notification-service | notify | — | yes |
 | `NOTIFY_POSTGRES_PASSWORD` | — | notification-db, notification-service | notify | yes | yes |
 | `NOTIFY_SMTP_HOST` | `localhost` | notification-service | notify | — | yes |
 | `NOTIFY_SMTP_PORT` | `587` | notification-service | notify | — | yes |
-| `OPENBAO_CORE_CIDRS` | empty | openbao-bootstrap | core | yes | yes |
-| `OPENBAO_MEM_LIMIT` | `256m` | openbao | core | yes | yes |
-| `OPENBAO_UNSEAL_KEY_FILE` | `./secrets/openbao-unseal.key` | (secrets) | — | yes | yes |
-| `OPENBAO_UNSEAL_KEY_ID` | `unseal-1` | openbao | core | yes | yes |
+| `PG_MEM_LIMIT` | `256m` | control-plane-db, iam-db, keycloak-db | core, idp | — | yes |
+| `RUNTIME_CONSOLE_COOKIE_SECRET_FILE` | `./secrets/runtime-console-cookie-secret` | (secrets) | — | yes | yes |
+| `RUNTIME_CONSOLE_CP_SCOPES` | `control-plane:read control-plane:write` | console | core | yes | yes |
+| `RUNTIME_CONSOLE_DEFAULT_LOCALE` | `en` | console | core | yes | yes |
+| `RUNTIME_CONSOLE_IDENTITY_PROVIDER` | `keycloak` | console | core | yes | yes |
+| `RUNTIME_CONSOLE_IDP_ADMIN` | `off` | console | core | yes | **no** |
+| `RUNTIME_CONSOLE_KEYCLOAK_URL` | empty | console | core | yes | **no** |
+| `RUNTIME_CONSOLE_LOCALES` | `en,ru` | console | core | yes | yes |
+| `RUNTIME_CONSOLE_OIDC_CLIENT_ID` | `runtime-console` | console | core | yes | yes |
+| `RUNTIME_CONSOLE_OIDC_ISSUER` | `${TAIMEN_PUBLIC_URL` | console | core | yes | yes |
+| `RUNTIME_CONSOLE_OIDC_SCOPES` | `openid profile email` | console | core | yes | yes |
+| `RUNTIME_CONSOLE_OIDC_SECRET_FILE` | `./secrets/runtime-console-oidc-secret` | (secrets) | — | yes | yes |
+| `RUNTIME_CONSOLE_ORG_NAME` | empty | console | core | yes | yes |
+| `RUNTIME_CONSOLE_PEOPLE_SECRET_FILE` | `./secrets/runtime-console-people-secret` | (secrets) | — | — | **no** |
+| `RUNTIME_CONSOLE_PRODUCT_NAME` | `Console` | console | core | yes | yes |
+| `RUNTIME_CONSOLE_SESSION_TTL_HOURS` | `12` | console | core | yes | yes |
 | `S3_ACCESS_KEY_ID` | — | minio, minio-bootstrap | core | yes | yes |
 | `S3_SECRET_ACCESS_KEY` | — | minio, minio-bootstrap | core | yes | yes |
-| `SELFDEV_CONTROL_PLANE_URL` | — | — | — | yes | yes |
-| `SELFDEV_FLEET_URL` | — | — | — | yes | yes |
-| `SELFDEV_HUMAN_HARNESS_URL` | — | — | — | yes | yes |
-| `SELFDEV_IAM_SERVICE_URL` | — | — | — | yes | yes |
-| `SELFDEV_MEMORY_SERVICE_URL` | — | — | — | yes | yes |
-| `SELFDEV_NOTIFICATION_SERVICE_URL` | — | — | — | yes | yes |
-| `SELFDEV_PACKAGE_SDK_URL` | — | — | — | yes | yes |
-| `SELFDEV_PLATFORM_AUTH_SDK_URL` | — | — | — | yes | yes |
-| `SELFDEV_PLATFORM_LLM_URL` | — | — | — | yes | yes |
-| `SELFDEV_REVIEWER_PRINCIPAL` | — | — | — | yes | yes |
-| `SELFDEV_SKILLS_EXECUTOR` | — | — | — | yes | yes |
-| `SELFDEV_SKILL_SDK_URL` | — | — | — | yes | yes |
-| `SELFDEV_SUPERPROJECT_URL` | — | — | — | yes | yes |
-| `SELFDEV_WORKSPACE_ID` | — | — | — | yes | yes |
+| `TAIMEN_NETWORK` | `taimen_default` | (networks) | — | yes | yes |
+| `TAIMEN_PUBLIC_HOST` | `taimen.localhost` | caddy, harness-launcher | edge, harness | yes | yes |
+| `TAIMEN_PUBLIC_URL` | — | console, control-plane-api, dex-render, fleet-controller, harness-launcher, iam-service, keycloak, memory-service, notification-service, realm-render | core, fleet, harness, idp, idp-dex, notify | yes | yes |
 | `TASK_URL_BASE` | — | — | — | yes | yes |
-| `TENDERS_COMPANY_INN` | — | — | — | yes | yes |
-| `TENDERS_WORKSPACE_ID` | — | — | — | yes | yes |
 | `VOLUME_CADDY_CONFIG` | `${COMPOSE_PROJECT_NAME:-taimen` | (volumes) | — | yes | yes |
 | `VOLUME_CADDY_DATA` | `${COMPOSE_PROJECT_NAME:-taimen` | (volumes) | — | yes | yes |
+| `VOLUME_CONSOLE_SESSIONS` | `${COMPOSE_PROJECT_NAME:-taimen` | (volumes) | — | — | **no** |
 | `VOLUME_CONTROL_PLANE_DB` | `${COMPOSE_PROJECT_NAME:-taimen` | (volumes) | — | yes | yes |
 | `VOLUME_FLEET_DATA` | `${COMPOSE_PROJECT_NAME:-taimen` | (volumes) | — | yes | yes |
 | `VOLUME_HARNESS_LAUNCHER` | `${COMPOSE_PROJECT_NAME:-taimen` | (volumes) | — | — | yes |
 | `VOLUME_IAM_DB` | `${COMPOSE_PROJECT_NAME:-taimen` | (volumes) | — | yes | yes |
+| `VOLUME_KEYCLOAK_DB` | `${COMPOSE_PROJECT_NAME:-taimen` | (volumes) | — | yes | yes |
 | `VOLUME_MEMORY_DB` | `${COMPOSE_PROJECT_NAME:-taimen` | (volumes) | — | yes | yes |
 | `VOLUME_NOTIFY_DB` | `${COMPOSE_PROJECT_NAME:-taimen` | (volumes) | — | — | yes |
-| `VOLUME_OPENBAO_AUDIT` | `${COMPOSE_PROJECT_NAME:-taimen` | (volumes) | — | yes | yes |
-| `VOLUME_OPENBAO_DATA` | `${COMPOSE_PROJECT_NAME:-taimen` | (volumes) | — | yes | yes |
 | `VOLUME_PLATFORM_MINIO` | `${COMPOSE_PROJECT_NAME:-taimen` | (volumes) | — | yes | yes |
-| `VOLUME_POLICY_DB` | `${COMPOSE_PROJECT_NAME:-taimen` | (volumes) | — | — | yes |
 | `VOLUME_REALM_IMPORT` | `${COMPOSE_PROJECT_NAME:-taimen` | (volumes) | — | yes | yes |
-| `VOLUME_SUPPORT_DATA` | `${COMPOSE_PROJECT_NAME:-taimen` | (volumes) | — | yes | yes |
 <!-- /generated:env-summary -->
 
 ## See also
@@ -802,4 +856,5 @@ Total variables: 148 (in `deploy/local/compose.yml`: 123, in `.env.example`: 110
 - [IAM configuration](../iam/configuration.md)
 - [Memory configuration](../memory/configuration.md)
 - [Runner configuration](../runner/configuration.md)
+- [Nodes and fleet](../runner/fleet.md)
 - [Secrets and rotation](../operations/secrets.md)

@@ -41,6 +41,7 @@ python3 deploy/bootstrap.py --env .env
 | `--secrets-dir` | `secrets` | куда писать PAT и env-файлы service accounts |
 | `--packages` | `deploy/packages.yaml` | файл установки каталога (`kind: Installation`) — шаг 5b |
 | `--no-packages` | выкл. | пропустить шаг 5b: пакеты ставит человек планом (`plan --out` → `apply --plan`) |
+| `--harness-people` | выкл. | реестр людей с персональным харнессом; без него шаг 8 пропускается |
 
 ### Зависимости
 
@@ -62,7 +63,8 @@ python3 deploy/bootstrap.py --env .env
 
 - `PATCH` потолков scopes всех audiences по реестру скрипта;
 - установка пакетов каталога (новая версия типа — только при расхождении);
-- публикация описания сервиса уведомлений и привязка его личности в ядре (шаг 5c).
+- публикация описаний сервиса уведомлений и fleet-controller и привязка их личностей
+  в ядре (шаги 5c, 5d).
 
 Секреты в файл состояния не попадают: PAT и client secrets пишутся только в
 `secrets/` с правами `0600`, в stdout печатаются лишь префиксы и id.
@@ -148,13 +150,15 @@ flowchart TB
     | `memory-service` | `memory:read`, `memory:write`, `memory:pii`, `memory:tenants`, `memory:on-behalf`, `memory:service` |
     | `notification-service` | `notifications:send`, `notifications:read`, `notifications:admin` |
     | `iam` | `iam:channel-links`, `iam:agents` |
+    | `human-harness` | `harness:use`, `harness:inbound` |
+    | `fleet` | `fleet:read`, `fleet:admin` |
 
 3. `POST /api/v1/tenants/{t}/principals` `{"kind": "human", "displayName": <--operator>}`
    → `iamOperatorPrincipalId`.
 
 Если `IAM_TENANT_ID` в `.env` не совпадает с созданным tenant, скрипт печатает
-`!! впишите в .env: IAM_TENANT_ID=…` — сделайте это, чтобы `.env` описывал
-стенд полностью.
+`!! впишите в .env: IAM_TENANT_ID=…` — сделайте это (переменная нужна launcher'у
+харнесса, fleet-controller и коннекторам).
 
 ### 2a. Service account Control Plane
 
@@ -322,16 +326,18 @@ Plane, замкнутость ссылок, `engines`, переменные ус
 человек — `package-sdk lock` → `plan --out` → просмотр плана → `apply --plan`
 (см. [Установку и выпуск](../packages/install-and-release.md#plan)).
 
-### 5c. Сервис уведомлений
+### 5c, 5d. Сервисы платформы
 
-`notification-service` ходит в ядро по client credentials IAM и описан агентом
-без размещения (`placement: none`, `identity.kind: service`). Шаг выполняется
-всегда, даже если профиль `notify` не поднят (затрагивает только IAM и Control
-Plane):
+Сервисы, которые ходят в ядро по client credentials IAM, описаны агентами без
+размещения (`placement: none`, `identity.kind: service`); описания задаёт
+`deploy/bootstrap.py`. Для каждого — `notification-service` (5c) и
+`fleet-controller` (5d) — шаг выполняется всегда, даже если профиль сервиса не
+поднят (затрагивает только IAM и Control Plane):
 
 1. Service account IAM с audiences и потолком из `identity.iam` описания →
    `secrets/notification-iam.env` (`NS_SERVICE_CLIENT_ID`,
-   `NS_SERVICE_CLIENT_SECRET`). Если потолок в описании изменился, учётка
+   `NS_SERVICE_CLIENT_SECRET`) или `secrets/fleet-iam.env` (`FLEET_CLIENT_ID`,
+   `FLEET_CLIENT_SECRET`). Если потолок в описании изменился, учётка
    перевыпускается, прежняя отзывается.
 2. `POST /api/v1/agents` — публикация описания в ядре.
 3. `PUT /api/v1/agents/{key}/identity` — привязка IAM principal учётки;
@@ -344,7 +350,8 @@ Plane):
    описания.
 
 После выпуска файла скрипт напоминает пересоздать сервис
-(`tools/compose --profile notify up -d notification-service`).
+(`tools/compose --profile notify up -d notification-service`,
+`tools/compose --profile fleet up -d fleet-controller`).
 
 Затем скрипт отзывает legacy API-ключ администратора из шага 3
 (`POST /api/v1/api-keys/{id}:revoke`) — стенд работает только через IAM.
@@ -369,6 +376,7 @@ credential для MCP-плагина/CLI: ~/.config/iam/credentials.json, клю
 | `secrets/control-plane-iam.env` | 2a | client credentials ядра | процессы Control Plane |
 | `secrets/harness-pat` | 4 | PAT оператора | человек: CLI, MCP-плагин, curl |
 | `secrets/notification-iam.env` | 5c | client credentials сервиса уведомлений | `notification-service` |
+| `secrets/fleet-iam.env` | 5d | client credentials контроллера fleet | `fleet-controller` |
 
 ## Повторный запуск и перевыпуск
 
@@ -379,6 +387,7 @@ credential для MCP-плагина/CLI: ~/.config/iam/credentials.json, клю
 | Начать заново после сброса volumes | `make reset-state`, затем `make bootstrap` |
 | Перевыпустить PAT оператора (истекает) | удалить `secrets/harness-pat` и запустить bootstrap: новый выпуск со свежим контекстом аутентификации; старый PAT отзовите отдельно |
 | Перевыпустить service account ядра | удалить `secrets/control-plane-iam.env` и запустить bootstrap, затем перезапустить ядро |
+| Добавить исполнителей | описать агента в пакете и разместить через fleet — [Декларативные агенты](../runner/declarative-agents.md) |
 
 ## Типичные ошибки
 

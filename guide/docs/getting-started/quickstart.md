@@ -53,11 +53,12 @@ What the target does (`Makefile`, `tools/fill_secrets.py`):
 1. If `.env` does not exist, copies `.env.example` to `.env` and sets mode `600`.
 2. Fills **empty** secrets with random values (`secrets.token_hex`): passwords
    for all databases, `CP_BOOTSTRAP_TOKEN`, `IAM_BOOTSTRAP_TOKEN`,
-   `MEMORY_API_KEY`, MinIO keys. Values that are already set are left
-   untouched, so running it again is safe.
+   `MEMORY_API_KEY`, the Keycloak administrator password, MinIO keys. Values
+   that are already set are left untouched, so running it again is safe.
 3. Creates the `secrets/` directory.
-4. Generates the RSA-3072 signing key `secrets/iam-signing.pem` (if missing)
-   and sets its mode to `600`.
+4. Generates the RSA-3072 signing key `secrets/iam-signing.pem` and the
+   console secrets `secrets/runtime-console-{oidc,cookie}-secret` (if missing)
+   with mode `600`.
 
 Output:
 
@@ -141,7 +142,7 @@ own. Expected output (IDs and paths shortened; the lines of step 5b come from
 1. waiting for services
 2. IAM tenant, audiences, operator principal
    IAM tenant <tenant-id> operator <iam-principal-id>
-   !! add to .env: IAM_TENANT_ID=<tenant-id> (needed by clients and runners)
+   !! add to .env: IAM_TENANT_ID=<tenant-id> (needed by the harness launcher and fleet-controller)
 2a. Control Plane service account in IAM
    issued → secrets/control-plane-iam.env client <client-id>
    !! restart the core so that it picks up the env file: tools/compose up -d control-plane-api control-plane-worker context-adapter
@@ -158,6 +159,8 @@ own. Expected output (IDs and paths shortened; the lines of step 5b come from
    issued → secrets/notification-iam.env client <client-id>
    !! restart the service: tools/compose --profile notify up -d notification-service
    revision 1 principal <principal-id>
+5d. fleet-controller: IAM service account from the description, identity in the core, env file
+   …
    legacy admin api-key revoked
 done: deploy/state/taimen.json
 credential for the MCP plugin and CLI: ~/.config/iam/credentials.json, key http://taimen.localhost/iam|<tenant-id>|<iam-principal-id> → contents of secrets/harness-pat
@@ -195,6 +198,7 @@ make smoke
   iam-service          OK  200 http://127.0.0.1:18010/healthz
   control-plane-api    OK  200 http://127.0.0.1:18000/health/ready
   memory-service       OK  200 http://127.0.0.1:18001/healthz
+  keycloak             —   not running
 ```
 
 `tools/smoke.py` checks healthz only for running services (services that are

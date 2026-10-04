@@ -128,7 +128,7 @@ Package settings: values an organization administrator changes in the live syste
 | Field | Type | Required | Description |
 |---|---|---|---|
 | `schema` | [`settingsSchema`](#schema-settingsschema) | yes |  |
-| `uischema` | [`settingsUiElement`](#schema-settingsuielement) |  | Form layout: the closed subset of JSON Forms the console renders — VerticalLayout, HorizontalLayout, Group, Control and Label with SHOW/HIDE/ENABLE/DISABLE rules; anything else is rejected. Labels are keys of the package dictionaries, not texts: label of a Group and of a Control, text of a Label. Unlike the uischema of process step forms, which is open and whose label is a text. Without it the console lays the fields out in schema order |
+| `uischema` | [`settingsUiElement`](#schema-settingsuielement) |  | Form layout: the closed subset of JSON Forms the console renders — VerticalLayout, HorizontalLayout, Group, Control and Label with SHOW/HIDE/ENABLE/DISABLE rules; anything else, options of a Control included, is rejected. Labels are keys of the package dictionaries, not texts: label of a Group and of a Control, text of a Label. Unlike the uischema of process step forms, which is open and whose label is a text. Without it the console lays the fields out in schema order |
 
 ### `settingsSchema` { #schema-settingsschema }
 
@@ -139,6 +139,7 @@ Schema of the settings: a subset of JSON Schema, as for process data. The root i
 | `type` | = `object` | yes |  |
 | `properties` | map → [`settingsField1`](#schema-settingsfield1) | yes |  |
 | `required` | [`settingsRequired`](#schema-settingsrequired) |  |  |
+| `additionalProperties` | = `false` |  | Implied on every object: a value with an undeclared member is refused |
 
 ### `settingsFieldName` { #schema-settingsfieldname }
 
@@ -164,6 +165,7 @@ One settings field: only the keywords listed here; secret markers (writeOnly, fo
 | `type` | `string` \| `integer` \| `number` \| `boolean` \| `array` \| `object` | yes |  |
 | `properties` | `object` |  |  |
 | `required` | [`settingsRequired`](#schema-settingsrequired) |  |  |
+| `additionalProperties` | = `false` |  |  |
 | `enum` | array of [`settingsScalar`](#schema-settingsscalar) |  |  |
 | `minimum` | `number` |  |  |
 | `maximum` | `number` |  |  |
@@ -172,6 +174,8 @@ One settings field: only the keywords listed here; secret markers (writeOnly, fo
 | `pattern` | `string` |  | ECMA-262 regular expression |
 | `format` | `date` \| `uri` \| `email` \| `uuid` |  |  |
 | `items` | `object` |  |  |
+| `minItems` | `integer` |  |  |
+| `maxItems` | `integer` |  |  |
 | `default` | any |  | Value in effect until an administrator saves another; every optional field must have one (package-sdk check) |
 | `x-ref` | `role` \| `principal` \| `workspace` \| `calendar` \| `taskType` |  | The string references a platform object of this kind in the organization: the id of a role, principal or workspace, the key of a task type or calendar; the core rejects a value that references a missing object |
 
@@ -180,9 +184,9 @@ Conditions:
 | Condition | Consequence |
 |---|---|
 | `type` = `object` | required `properties` |
-| otherwise | `properties`: not allowed; `required`: not allowed |
+| otherwise | `properties`: not allowed; `required`: not allowed; `additionalProperties`: not allowed |
 | `type` = `array` | required `items` |
-| otherwise | `items`: not allowed |
+| otherwise | `items`: not allowed; `minItems`: not allowed; `maxItems`: not allowed |
 | otherwise | `minLength`: not allowed; `maxLength`: not allowed; `pattern`: not allowed; `format`: not allowed; `x-ref`: not allowed |
 | otherwise | `minimum`: not allowed; `maximum`: not allowed |
 
@@ -230,17 +234,8 @@ Conditions:
 |---|---|
 | `type` ∈ `VerticalLayout`, `HorizontalLayout` | required `elements`; `elements`: [`settingsUiElements`](#schema-settingsuielements); `rule`: [`settingsUiRule`](#schema-settingsuirule) |
 | `type` = `Group` | required `label`, `elements`; `label`: [`settingsLabelKey`](#schema-settingslabelkey); `elements`: [`settingsUiElements`](#schema-settingsuielements); `rule`: [`settingsUiRule`](#schema-settingsuirule) |
-| `type` = `Control` | required `scope`; `scope`: [`settingsScope`](#schema-settingsscope); `label`: [`settingsLabelKey`](#schema-settingslabelkey); `options`: [object](#schema-settingsuielement-options); `rule`: [`settingsUiRule`](#schema-settingsuirule) |
+| `type` = `Control` | required `scope`; `scope`: [`settingsScope`](#schema-settingsscope); `label`: [`settingsLabelKey`](#schema-settingslabelkey); `rule`: [`settingsUiRule`](#schema-settingsuirule) |
 | `type` = `Label` | required `text`; `text`: [`settingsLabelKey`](#schema-settingslabelkey); `rule`: [`settingsUiRule`](#schema-settingsuirule) |
-
-### `settingsUiElement.options` { #schema-settingsuielement-options }
-
-Only the options the console renders
-
-| Field | Type | Required | Description |
-|---|---|---|---|
-| `multi` | `boolean` |  | Multi-line text input |
-| `format` | = `radio` |  | Radio buttons for an enum |
 
 ### `settingsUiElements` { #schema-settingsuielements }
 
@@ -260,19 +255,26 @@ JSON Forms rule: the effect applies while the value at condition.scope matches c
 | Field | Type | Required | Description |
 |---|---|---|---|
 | `scope` | [`settingsScope`](#schema-settingsscope) | yes |  |
-| `schema` | [object](#schema-settingsuirule-condition-schema) | yes | Condition on the value: const, enum or a numeric range |
+| `schema` | [object](#schema-settingsuirule-condition-schema) | yes | Condition on the value: the keywords of a settings field without x-ref and default, and const |
 | `failWhenUndefined` | `boolean` |  |  |
 
 ### `settingsUiRule.condition.schema` { #schema-settingsuirule-condition-schema }
 
-Condition on the value: const, enum or a numeric range
+Condition on the value: the keywords of a settings field without x-ref and default, and const
 
 | Field | Type | Required | Description |
 |---|---|---|---|
+| `type` | `string` \| `integer` \| `number` \| `boolean` \| `array` \| `object` |  |  |
 | `const` | [`settingsScalar`](#schema-settingsscalar) |  |  |
 | `enum` | array of [`settingsScalar`](#schema-settingsscalar) |  |  |
 | `minimum` | `number` |  |  |
 | `maximum` | `number` |  |  |
+| `minLength` | `integer` |  |  |
+| `maxLength` | `integer` |  |  |
+| `pattern` | `string` |  |  |
+| `format` | `date` \| `uri` \| `email` \| `uuid` |  |  |
+| `minItems` | `integer` |  |  |
+| `maxItems` | `integer` |  |  |
 
 ### `settingsScope` { #schema-settingsscope }
 
@@ -387,6 +389,7 @@ Source: `sdk/package-sdk/schema/v1/object.schema.json`.
 | `completionSchema` | `object` |  | Work after the task completes: {onComplete: {when?, actions}} — ensureWork (customFields, relation, requestApproval) and comment. The core checks the grammar. |
 | `instructions` | `string` |  | Instructions for the executor: Markdown ≤ 16 KiB, the task type layer after the platform contract and the project. The core checks the size in bytes and the absence of secrets. |
 | `artifactSchema` | [`artifactSchema`](#schema-artifactschema) |  |  |
+| `executorRoles` | array of [`slug`](#schema-slug) |  | Keys of the roles a person needs to take work of this type: a Role of the package, its requires, or the tenant. Absent or empty means people are not restricted. The core rejects a role the tenant does not have (422 unknown_role). |
 | `acceptance` | array of [`acceptanceCriterion`](#schema-acceptancecriterion) |  | Default acceptance criteria for all tasks of the type: they run after the required outputs and before the task's own criteria; a task cannot replace a type criterion — its criterion with the same key is rejected (422). A deterministic criterion with an external_write skill runs only after a human criterion of the same attempt. |
 | `contextSchema` | [object](#schema-tasktypespec-contextschema) |  | Task context profile: anchors, traverse, asOf, budgetTokens. The core checks the grammar. |
 
@@ -896,7 +899,7 @@ Agent: who it is, what work it takes, with what and how it executes that work, w
 | `executor` | [object](#schema-agentspec-executor) |  | What the agent executes work with. The kind is data (a string for the core); the node chooses the default image, and an image from the description is allowed only from the node's list. |
 | `workingCopy` | `object` |  | Task working copy. The executor daemon interprets it, the core stores the object as data; its shape is set by the executor kind: shapes per kind are in agentWorkingCopies: for the coding executor kind, one repository or a catalog with a task field; for other kinds, one repository |
 | `skills` | [object](#schema-agentspec-skills) |  | Which skills the agent executes itself and where they may connect |
-| `placement` | = `none` or [object `{requires, secrets, resources, replicas, drainSeconds}`](#schema-agentspec-placement-2) |  | Where and how many: none means identity only, without a process (a service account) |
+| `placement` | = `none` or [object](#schema-agentspec-placement) — by condition |  | Where and how many: none means identity only, without a process (a service account) |
 | `state` | `running` \| `stopped` |  | Default: `running`. |
 | `connections` | array of [`connectionKey`](#schema-connectionkey) |  | Keys of the tenant's connections whose access material the agent may read. Whether such a connection exists is not checked on publish; a non-empty list needs connections.manage of whoever applies it |
 
@@ -976,21 +979,21 @@ Which skills the agent executes itself and where they may connect
 | `concurrency` | `integer` |  |  |
 | `invoke` | array of `string` |  | Skill versions that the agent invokes through the core (name@version) instead of executing them itself; the registry assigns them to the agent's principal |
 
-### `agentSpec.placement (2)` { #schema-agentspec-placement-2 }
+### `agentSpec.placement` { #schema-agentspec-placement }
 
 | Field | Type | Required | Description |
 |---|---|---|---|
 | `requires` | array of [`nodeLabel`](#schema-nodelabel) |  | Labels the node must have |
 | `secrets` | array of [`secretName`](#schema-secretname) |  | Secrets that must be on the node: static ones (a file in the node's secrets directory) and issued ones — the node issues and refreshes them itself, for example an hourly forge-token from the forge app installation. Both are declared the same way, by name; the secret material is not written into the description |
-| `resources` | [object](#schema-agentspec-placement-2-resources) |  |  |
+| `resources` | [object](#schema-agentspec-placement-resources) |  |  |
 | `replicas` | `integer` |  | Default: `1`. |
 | `drainSeconds` | `integer` |  | How long to wait for the current run before switching to a new revision. Default: `14400`. |
 
-### `agentSpec.placement (2).resources` { #schema-agentspec-placement-2-resources }
+### `agentSpec.placement.resources` { #schema-agentspec-placement-resources }
 
 | Field | Type | Required | Description |
 |---|---|---|---|
-| `cpus` | `number` |  |  |
+| `cpus` | `integer` |  | Whole CPUs: the core's canonical revision hash rejects fractional numbers (non_canonical_value) |
 | `memoryMb` | `integer` |  |  |
 
 ### `permission` { #schema-permission }

@@ -88,6 +88,14 @@ Additionally, depending on the situation:
 
 ## Creating the identity step by step
 
+!!! note "Agents with a description do not need these steps"
+    For an agent described by the `Agent` kind, the platform sets up the identity:
+    fleet-controller creates the principal in IAM (scope `iam:agents`) and issues a PAT for
+    each placement, and the core derives the Control Plane principal and the binding with
+    the permissions from `identity.permissions` (`PUT /api/v1/agents/{key}/identity`).
+    Revocation is retiring the agent. See [Agents by
+    description](declarative-agents.md#lifecycle) and [Nodes and fleet](fleet.md#identity-and-pat).
+    The manual steps below are for principals without a description.
 
 Below is the sequence of API calls. You repeat it manually when you add an executor without
 a description to an already deployed system.
@@ -265,4 +273,5 @@ belongs to a human, not to the agent, and is revoked at the provider. Details:
 - [Tenants and principals](../iam/principals.md)
 - [Tokens, audiences, scopes](../iam/tokens.md)
 - [Authorization and permissions](../control-plane/authorization.md)
+- [Installing the runner](installation.md)
 - [Secrets and rotation](../operations/secrets.md)

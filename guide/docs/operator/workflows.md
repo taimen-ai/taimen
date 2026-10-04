@@ -3,8 +3,9 @@
 
 Step-by-step procedures for the operator: create a task, give it to an agent, follow a run,
 accept a review, claim a task yourself, hand work off to another harness, and recover after
-losing ownership. The workflows are shown for the Claude Code MCP plugin; the `cp_*` calls
-are what the assistant does on your command, after your explicit decision.
+losing ownership. The workflows are shown for the Claude Code MCP plugin and for the
+[assistant](assistant.md) in the console; the `cp_*` calls are what the assistant does on
+your command, after your explicit decision.
 
 ## The big picture
 
@@ -23,23 +24,32 @@ flowchart LR
 
 ## Create a task
 
-Ask the assistant to create a task. It shows you a draft and calls the tool only after you
-say "yes":
+=== "Personal workspace"
 
-```text
-cp_list_task_types()                       # which type to choose
-cp_create_task(
-  title="Add a due date filter to the task list",
-  description="Context… Definition of done: …",
-  type_key="coding-task",
-  priority="high",
-  assignee_id="<cp-principal-id>",
-  due_date="2026-10-01"
-)
-```
+    Describe the task to the assistant: context, definition of done, type (for example
+    `coding-task`), Workspace, due date, and assignee. It shows you a draft and creates the
+    task (`cp_create_task`, or `cp_delegate` if you assign it right away) only after you
+    confirm.
 
-`workspace_id` and the project are filled in from the repository binding; the plugin guard
-does not let you create a task in someone else's project.
+=== "Claude Code"
+
+    Ask the assistant to create a task. It shows you a draft and calls the tool only after
+    you say "yes":
+
+    ```text
+    cp_list_task_types()                       # which type to choose
+    cp_create_task(
+      title="Add a due date filter to the task list",
+      description="Context… Definition of done: …",
+      type_key="coding-task",
+      priority="high",
+      assignee_id="<cp-principal-id>",
+      due_date="2026-10-01"
+    )
+    ```
+
+    `workspace_id` and the project are filled in from the repository binding; the plugin
+    guard does not let you create a task in someone else's project.
 
 !!! tip "A good description for an agent"
     An agent reads the description literally. State **what** to do and how to verify the
@@ -53,15 +63,23 @@ does not let you create a task in someone else's project.
 A runner in `CONTROL_PLANE_AGENT_ONLY_ASSIGNED=1` mode claims only tasks assigned to its
 principal. So "give a task to an agent" means making the agent's CP principal the assignee.
 
-1. Get the executor's CP principal id from your administrator.
+1. Get the executor's CP principal id from your administrator or from the personal
+   workspace assistant (`cp_agents`).
 2. Check that the task is in the Workspace (project) this runner serves
    (`CONTROL_PLANE_AGENT_WORKSPACE`) and that its type is one the runner takes.
 3. Assign it:
 
-    ```text
-    cp_get_task("<publicId>")        # find out the version
-    cp_update_task(task="<publicId>", expected_version=4, assignee_id="<agent's cp-principal-id>")
-    ```
+    === "Personal workspace"
+
+        Ask the assistant to assign the task to the agent (`cp_delegate` or
+        `cp_update_task`) and confirm the draft.
+
+    === "Claude Code"
+
+        ```text
+        cp_get_task("<publicId>")        # find out the version
+        cp_update_task(task="<publicId>", expected_version=4, assignee_id="<agent's cp-principal-id>")
+        ```
 
 4. Within the runner's polling interval (5 s by default) the task moves to the type's claim
    status (for example, `in_progress`), and the task gets the agent's claim and a run.
@@ -75,7 +93,8 @@ principal. So "give a task to an agent" means making the agent's CP principal th
 
 ## Follow an agent's run
 
-1. Find the task's run: `cp_get_task` in Claude Code.
+1. Find the task's run: `cp_get_task` in Claude Code or `cp_run_progress` in the personal
+   workspace.
 2. In the run:
     - **Actions** update live: every tool call the agent makes (`tool.Bash`,
       `tool.Read`, `tool.Edit`…) with an input summary and a status;
@@ -275,5 +294,7 @@ expired or someone else took over the task.
 ## See also
 
 - [MCP plugin for Claude Code](mcp-plugin.md)
+- [Assistant](assistant.md)
+- [Personal workspace](../workplace/index.md)
 - [Execution: claims and runs](../control-plane/execution.md)
 - [Approvals](../control-plane/approvals.md)

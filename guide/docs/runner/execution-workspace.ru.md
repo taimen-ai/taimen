@@ -273,6 +273,7 @@ URL remote и локальные пути.
 
 ## См. также
 
+- [Установка runner](installation.md)
 - [Адаптеры исполнителей](adapters.md)
 - [Цели, приёмка и evidence](../control-plane/goals-and-evidence.md)
 - [Артефакты и комментарии](../control-plane/artifacts.md)

@@ -7,13 +7,17 @@ Caddyfile установки и отвечает за сертификаты.
 
 ## Как устроен периметр
 
-
 ```mermaid
 flowchart LR
-    client([Браузер, harness, runner]) ==>|443| caddy[caddy]
-    caddy ==>|/iam/*, префикс срезается| iam[iam-service:8010]
-    caddy ==>|/api/v1/*, /health/*, /docs, /openapi.json| cp[control-plane-api:8000]
-    caddy ==>|/notify/*, /guide/*| other[сервисы профилей]
+    client([Браузер, harness, runner]) -->|443| caddy[caddy]
+    caddy -->|/iam/*, префикс срезается| iam[iam-service:8010]
+    caddy -->|/auth/*, префикс сохраняется| kc[keycloak:8080]
+    caddy -->|/api/v1/*, /health/*, /docs, /openapi.json| cp[control-plane-api:8000]
+    caddy -->|/console/*| console[console:8090]
+    caddy -->|/harness/_launcher/internal/*, health| hl[harness-launcher:8080]
+    caddy -->|/notify/*, /fleet/*| other[сервисы профилей]
+    caddy -->|/harness, /harness/* прочее| asst[302 → /console/?assistant=open]
+    caddy -->|всё остальное| root[302 → /console/]
 ```
 
 - Контейнер `caddy` публикует `${EDGE_HTTP_PORT:-80}` и `${EDGE_HTTPS_PORT:-443}`.
@@ -37,22 +41,25 @@ flowchart LR
 | Путь | Upstream | Префикс | Профиль | Назначение |
 |---|---|---|---|---|
 | `/iam/*` | `iam-service:8010` | срезается (`handle_path`) | `core` | IAM для клиентов: JWKS, обмен/интроспекция/отзыв PAT, `tokens/exchange`, `federation:*`, SCIM; issuer `${TAIMEN_PUBLIC_URL}/iam`. Административные пути — 404 (см. ниже) |
+| `/auth/*` | `keycloak:8080` | **сохраняется** (`handle`) | `idp` | Keycloak живёт под `KC_HTTP_RELATIVE_PATH=/auth` |
 | `/api/v1/*`, `/health/*`, `/docs*`, `/redoc*`, `/openapi.json` | `control-plane-api:8000` | нет | `core` | Control Plane API, WebSocket-подписки идут тем же маршрутом. `/metrics` наружу не выводится |
-| `/secrets/*` | `openbao:8200` | срезается | `core` | [Хранилище секретов](secret-store.md#perimeter): только `POST /v1/auth/jwt/login`, `GET /v1/kv/data/tenants/…` и `GET /v1/oauth2/creds/tenants/…`, всё прочее — `404`; `X-Vault-Token` в журнал не пишется |
+| `/harness/_launcher/internal/*`, `/harness/_launcher/health` | `harness-launcher:8080` | **сохраняется** (`handle @harness_service`; префикс срезает сам launcher) | `harness` | Служебные маршруты движка ассистента: поверхность беседы и вход каналов (Bearer IAM). Заголовки `X-Harness-Launcher` и `X-Harness-Principal` снаружи срезаются — их ставит только launcher; `flush_interval -1` — поток беседы без буферизации |
+| `/harness`, `/harness/*` (прочее) | — | — | `edge` | Веб-интерфейса у движка ассистента нет: редирект `302` на `/console/?assistant=open` — консоль с открытой панелью [ассистента](../operator/assistant.md) |
+| `/fleet/*` | `fleet-controller:8040` | срезается | `fleet` | Регистрация узлов fleet и их исходящие запросы желаемого состояния |
 | `/notify/*` | `notification-service:8000` | срезается | `notify` | Сервис уведомлений: API и инбокс, вебхук бота Telegram (`/notify/channels/telegram/webhook`, проверяется секретом вебхука), точка приёма скилла `notify.send@1` |
+| `/console/*` | `console:8090` | **сохраняется** (`handle`; сервер консоли сам живёт под `/console`) | `core` (в открытой поставке — `console`) | [Консоль](../operator/console.md): вход OIDC, API, WebSocket событий, интерфейс. `flush_interval -1` — потоки без буферизации. `/console` без слэша — редирект `301` на `/console/` |
 | `/guide/*` | `guide:8080` | срезается | `edge` | Это руководство: статический сайт MkDocs (`guide/Dockerfile`) |
-
+| `/` (всё прочее) | — | — | `edge` | Редирект `302` на `/console/` |
 
 !!! warning "Порядок блоков важен"
-    Маршрут Control Plane объявлен именованным матчером `@cp_api`. Если в
-    файле есть общий `handle` без матчера (запасной маршрут корня), свои
-    маршруты объявляйте до него, иначе запрос уйдёт в запасной маршрут.
+    Маршрут Control Plane объявлен именованным матчером `@cp_api` раньше
+    общего `handle` корня. Если добавляете свои маршруты, объявляйте их до
+    блока корня, иначе запрос получит редирект на `/console/`.
 
 Маршрут профиля, который не поднят, отвечает `502` — это ожидаемо. Лишние
 маршруты лучше убрать из файла установки.
 
 ## Минимальный Caddyfile установки
-
 
 ```caddyfile
 platform.example.com {
@@ -69,6 +76,13 @@ platform.example.com {
 		reverse_proxy iam-service:8010
 	}
 
+	handle /auth/* {
+		reverse_proxy keycloak:8080 {
+			header_up X-Forwarded-Host {host}
+			header_up X-Forwarded-Proto {scheme}
+		}
+	}
+
 	# /metrics намеренно не входит в список: см. «Закрытие служебных путей»
 	@cp_api path /api/v1/* /health/* /docs /docs/* /redoc /redoc/* /openapi.json
 	handle @cp_api {
@@ -78,6 +92,31 @@ platform.example.com {
 		}
 	}
 
+	redir /console /console/ 301
+	handle /console/* {
+		reverse_proxy console:8090 {
+			flush_interval -1
+		}
+	}
+
+	@harness_service path /harness/_launcher/internal/* /harness/_launcher/health
+	handle @harness_service {
+		request_header -X-Harness-Launcher
+		request_header -X-Harness-Principal
+		reverse_proxy harness-launcher:8080 {
+			flush_interval -1
+		}
+	}
+
+	@harness_ui path /harness /harness/*
+	handle @harness_ui {
+		redir * /console/?assistant=open 302
+	}
+
+	handle {
+		redir * /console/ 302
+	}
+
 	log {
 		output stderr
 		format json
@@ -85,8 +124,9 @@ platform.example.com {
 }
 ```
 
-
-Путь к файлу задаётся в `.env` переменной `CADDYFILE`.
+Путь к файлу задаётся в `.env` переменной `CADDYFILE`. Если профили
+`idp` и `harness` не поднимаются, уберите блоки `/auth/*`, `@harness_service` и
+`@harness_ui`.
 
 ## TLS и сертификаты
 
@@ -174,6 +214,11 @@ providers, выпуск и отзыв PAT, service accounts, журнал `/api/
 публичный адрес, переведите его на внутренний адрес или SSH-туннель — через
 периметр такие запросы больше не проходят.
 
+### Консоль администратора Keycloak
+
+Маршрут `/auth/*` открывает и `/auth/admin/`. Если администраторы Keycloak
+работают из известной сети, ограничьте этот путь матчером `remote_ip` или
+выполняйте администрирование через SSH-туннель к `127.0.0.1:18081`.
 
 ## Изменение Caddyfile без простоя
 
@@ -222,9 +267,14 @@ nmap -Pn -p 1-65535 platform.example.com
 |---|---|---|
 | Браузер получает ошибку TLS, в логах `caddy` — `challenge failed` / `429` | Имя не указывает на хост или порт 80/443 закрыт; превышены лимиты ACME | Проверить `dig`, открыть порты, убрать неготовые имена; после `429` ждать окна лимита |
 | После правки Caddyfile ничего не изменилось | Файл заменён новым inode | Записать на месте или `up -d --force-recreate caddy` |
+| Свой маршрут отвечает `302` на `/console/` | Маршрут объявлен после блока корня | Перенести блок выше `handle { redir * /console/ 302 }` |
+| Issuer в токенах Keycloak не совпадает с ожидаемым, IAM отвечает `401 invalid_issuer` на `federation:exchange` | Контейнеры резолвят публичное имя мимо `caddy` | Проверить `TAIMEN_PUBLIC_HOST` (alias сети) и `KC_HOSTNAME` |
 
 ## См. также
 
 - [Промышленное развёртывание](deployment.md)
 - [Мониторинг и здоровье](monitoring.md)
+- [Keycloak — внешний IdP](../iam/keycloak.md)
+- [Рабочее место человека](../workplace/index.md)
+- [Ассистент](../operator/assistant.md)
 - [Сервисы и порты](../reference/services-and-ports.md)

@@ -99,9 +99,9 @@ the author, see [Package agents](../packages/agents.md).
   revision, and `state` and `replicas` from the desired state, omitting
   defaults.
 
-Placement of executors on machines according to the `placement` description is
-not part of the delivery: you can start an executor described by an agent
-manually with the `control-plane-agent` daemon (see [Runner](../runner/index.md)).
+The description sections, the revision lifecycle, and the events are in the
+[Declarative agents](../runner/declarative-agents.md) article; placement on machines
+is in [Nodes and fleet](../runner/fleet.md).
 
 ## Notification rule (`NotificationRule`) { #notification-rule }
 
@@ -305,5 +305,6 @@ do not live in the packages themselves. For details, see the article
 - [Work rules](work-rules.md)
 - [Notification rules](../notifications/notification-rules.md)
 - [Artifacts and comments](artifacts.md#artifact-types)
+- [Declarative agents](../runner/declarative-agents.md)
 - [Bootstrap](../getting-started/bootstrap.md)
 - [skill-sdk](../sdk/skill-sdk.md)

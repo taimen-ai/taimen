@@ -16,8 +16,8 @@ few files on the host.
 | IAM database | volume `iam_db`, service `iam-db`, database `iam` | Tenants, principals, PAT hashes, service accounts, audiences, audit, outbox | Critical |
 | Control Plane database | volume `control_plane_db`, service `control-plane-db`, database `control_plane` | Tasks, claims, runs, artifacts, approvals, the event log and its archive, consumer cursors, IAM bindings | Critical |
 | Memory database | volume `memory_db`, service `memory-db`, database `company_brain` | Knowledge graph (Apache AGE), chunks and vectors (pgvector), observations, context traces | Critical; contains customer data, possibly personal data |
+| Keycloak database | volume `keycloak_db`, service `keycloak-db`, database `keycloak` | The live realm, users and their passwords | Critical with the `idp` profile: without it, people are onboarded again |
 | MinIO objects | volume `platform_minio` | Control Plane artifact content (the `CP_S3_BUCKET` bucket) | Critical: MinIO is part of the `core` profile; back it up together with `control-plane-db` |
-| Secret store | volume `openbao_data`, service `openbao` | Connection material, agent secrets, OAuth applications of connection types, agent policies and roles | Critical: without it, connections are connected again and agent secrets are set again. Do not copy the volume; take `bao operator raft snapshot` with the `backup` token, see [Secret store](secret-store.md#backup). Keep the unseal key `secrets/openbao-unseal.key` **apart** from the snapshots |
 | Certificates | volume `caddy_data` | Certificates, keys, ACME account | Recommended: without it, certificates are issued again |
 | Configuration | `.env`, `secrets/`, `deploy/state/<env>.json`, the installation's Caddyfile | Secrets, the IAM signing key, PATs, bootstrap identifiers | Critical; store separately and encrypt |
 
@@ -52,9 +52,9 @@ and are consistent within one dump.
 | `iam-db` | `iam` | `iam` |
 | `control-plane-db` | `control_plane` | `control_plane` |
 | `memory-db` | `memory` | `company_brain` |
+| `keycloak-db` | `keycloak` | `keycloak` |
 
 ### Daily backup script
-
 
 ```bash
 #!/usr/bin/env bash
@@ -74,6 +74,7 @@ dump() {  # dump <service> <user> <database>
 dump iam-db           iam            iam
 dump control-plane-db control_plane  control_plane
 dump memory-db        memory         company_brain
+dump keycloak-db      keycloak       keycloak
 
 # Configuration (secrets!) as a separate archive
 tar czf "$OUT/config.tgz" .env secrets deploy/state /opt/taimen/Caddyfile
@@ -275,7 +276,6 @@ and [Control Plane events](../control-plane/events.md).
 
 ## See also
 
-- [Secret store](secret-store.md)
 - [Upgrades and migrations](upgrades.md)
 - [Object storage (MinIO)](object-storage.md)
 - [Emergency procedures](emergency.md)

@@ -108,7 +108,10 @@ accounts is a path the platform does not recommend (TAI-ADR-0062, "Rejected").
 A package needs no interface of its own. The package's tasks, approvals, and
 cases are regular core objects, and humans see them wherever they see any
 work:
-in the [operator MCP plugin](../operator/mcp-plugin.md), the CLI, and
+in the [console](../operator/console.md) (its screens are built from core objects,
+not from the subject area), in the [assistant](../operator/assistant.md) (Waiting
+for you on the console's Today screen), in the [personal workspace](../workplace/index.md),
+the [operator MCP plugin](../operator/mcp-plugin.md), the CLI, and
 [notifications](notifications.md).
 An approval is decided in the core, so decisions need no separate interface
 either: the task type sets the decision form, and the package's notification

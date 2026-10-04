@@ -13,9 +13,9 @@ what sets a production installation apart.
 
 | Node | What runs there | Where the code comes from |
 |---|---|---|
-| Platform host | One compose project on the `deploy/local/compose.yml`: core (`core`), edge (`edge`), and notifications (`notify`) if needed | Superproject clone with submodules; a release is a superproject commit |
-| Runner host (optional) | The `control-plane-agent` daemon with a coding agent, bare repository mirrors, working copies | The `control-plane` package from the superproject: in a container or as a systemd service |
-| Operator workstations | MCP plugin / `control-plane` CLI | The `control-plane` package from the superproject |
+| Platform host | One compose project on the `deploy/local/compose.yml`: core (`core`), edge (`edge`), and, if needed, the console with sign-in for people (`console`, `idp`), the assistant (`harness`), notifications (`notify`), and the executor controller (`fleet`) | Superproject clone with submodules; a release is a superproject commit |
+| Executor nodes (optional) | `fleet-node` and agent containers with the `control-plane-agent` daemon, working copies and mirrors on replica volumes | The node compose `deploy/node/`, the executor image `deploy/agent-runner/` |
+| Operator workstations | Console in the browser, MCP plugin / `control-plane` CLI | The `control-plane` package from the superproject |
 
 The platform host and the runner host are connected only through the
 platform's public address: the runner exchanges its PAT for an access token
@@ -83,9 +83,13 @@ The recommended layout on the platform host:
 | `core` | `iam-db`, `iam-service`, `control-plane-db`, `control-plane-api`, `control-plane-worker`, `context-adapter`, `memory-db`, `memory-service`, `minio`, `minio-bootstrap` | Always (MinIO stores artifact content; see [Object storage](object-storage.md)) |
 | `edge` | `caddy` | Always: the only entry point from outside |
 | `notify` | `notification-db`, `notification-service` | Notifying people about platform events |
+| `idp` | `keycloak-db`, `realm-render`, `keycloak` | Sign-in for people through Keycloak (external IdP); see [Keycloak as the external IdP](../iam/keycloak.md) |
+| `console` | `console` and the `idp` services | [Console](../operator/console.md): work, decisions, organization settings |
+| `harness` | `harness-image`, `harness-docker-proxy`, `harness-launcher` | The people's assistant engine (console panel, Telegram); requires `idp`; see [Personal workspace](../workplace/index.md) |
+| `fleet` | `fleet-controller` | Placing agents on nodes; see [Nodes and fleet](../runner/fleet.md) |
 
 `make up` without arguments starts only `core edge`; you enable the other
-profiles explicitly.
+profiles explicitly, for example `make up PROFILES="core edge console"`.
 
 ## First deployment procedure
 
@@ -121,7 +125,6 @@ The `make secrets` target:
 
 Then edit `.env` for your installation:
 
-
 ```dotenv
 TAIMEN_PUBLIC_URL=https://platform.example.com
 TAIMEN_PUBLIC_HOST=platform.example.com
@@ -129,6 +132,7 @@ COMPOSE_PROJECT_NAME=taimen
 TAIMEN_NETWORK=taimen_default
 CADDYFILE=/opt/taimen/Caddyfile
 LOG_RENDERER=json
+KEYCLOAK_HOSTNAME_STRICT=true
 IAM_SIGNING_KEY_ID=prod-2026-01        # a meaningful kid; changes when the key is rotated
 CP_LEGACY_API_KEYS_ENABLED=false
 ```
@@ -195,12 +199,11 @@ make up PROFILES="core edge"     # tools/compose --profile ... up -d --build
 tools/compose --profile "*" ps
 ```
 
-
 The startup order is set by `depends_on` with `service_healthy` conditions:
 databases → IAM and memory → `control-plane-api` (runs `alembic upgrade head`,
 then becomes healthy once the database revision matches head) →
 `control-plane-worker` and `context-adapter`. The first start with empty
-volumes takes 1–3 minutes.
+volumes takes 1–3 minutes (Keycloak alone takes up to a minute).
 
 ### 7. Bootstrap
 
@@ -223,9 +226,8 @@ python3 deploy/bootstrap.py --env .env --name prod --operator "Platform Operator
 
 After the first run, do what the script prints marked with `!!`:
 
-
 ```bash
-# 1. Services that call IAM on their own behalf need the IAM tenant
+# 1. The workplace launcher, fleet-controller, and package executors need the IAM tenant
 sed -i "s/^IAM_TENANT_ID=.*/IAM_TENANT_ID=<tenant-id>/" .env
 
 # 2. The core must pick up the service account env file (CP_CONTEXT_AUTH=auto)
@@ -265,12 +267,23 @@ last line. See the [MCP plugin](../operator/mcp-plugin.md) and
     copies. Do not paste the token into chats, tickets, or a command line
     that keeps history.
 
+### 10. Sign-in for people and workplaces (the `idp` and `harness` profiles)
+
+For people to sign in through Keycloak, after bootstrap you register the
+realm in IAM as an identity provider once, and then for each person create:
+an IAM principal, a Keycloak user, the external identity link, a principal
+and binding in the Control Plane, and an entry in the workplace registry. The
+procedure is in [Keycloak as the external IdP](../iam/keycloak.md#onboarding).
 
 ## Runner host
 
 
-An autonomous executor is installed separately from the platform host, in a
-container or as a systemd service.
+Autonomous executors are launched by fleet: the executor machine runs a node
+(`fleet-node`, the reference compose is `deploy/node/`) that starts agent
+containers from the `deploy/agent-runner/` image according to their
+descriptions in packages (see [Installing executors](../runner/installation.md)).
+For debugging, the daemon can also be installed manually, in a container or
+as a systemd service.
 
 === "Container"
 

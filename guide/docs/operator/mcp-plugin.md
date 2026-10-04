@@ -355,3 +355,4 @@ survives this thanks to its lease.
 - [CLI and MCP server](../control-plane/cli-and-mcp.md)
 - [Harness protocol](../control-plane/harness-protocol.md)
 - [Credentials and PATs](../iam/credentials.md)
+- [Assistant](assistant.md)

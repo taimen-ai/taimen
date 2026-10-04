@@ -31,6 +31,22 @@ restarts it according to `restart: unless-stopped`.
 | `guide` | — | 64m |
 | **Total of ceilings** | | **≈ 3.1 GiB** |
 
+### Sign-in for people and workplaces (`idp`, `harness`)
+
+| Service | Variable | Default |
+|---|---|---|
+| `keycloak-db` | `PG_MEM_LIMIT` | 256m |
+| `keycloak` | `KEYCLOAK_MEM_LIMIT` | 768m |
+| `realm-render`, `harness-image` | — | one-shot, exit after startup |
+| `harness-launcher` | — | 128m |
+| `harness-docker-proxy` | — | 64m |
+| **Total of ceilings** | | **≈ 1.2 GiB** |
+| workplace container, per active person | `HARNESS_MEM_LIMIT_MB` | 1536 MiB |
+
+A workplace container goes to sleep after `HARNESS_IDLE_MINUTES` (30) without
+requests, so memory is estimated by the number of people working at the same
+time.
+
 
 !!! note "`PG_MEM_LIMIT` is shared"
     One variable sets the ceiling for all databases on the `postgres:16-alpine`
@@ -52,13 +68,15 @@ docker stats --no-stream        # actual usage against the limit
 | Composition | vCPU | RAM | Swap | Disk | Comment |
 |---|---|---|---|---|---|
 | `core edge` (minimum) | 2 | 4 GiB | 2 GiB | 40 GB | Coordination, IAM, memory on small knowledge bases |
+| `core idp harness edge` | 2 | 6 GiB | 2 GiB | 80 GB | The core with sign-in for people and one or two active workplaces |
+| `core idp harness edge` + a vertical package | 4 | 8 GiB | 4 GiB | 100 GB | With package executors, several workplaces, and experimental profiles |
 
 How to estimate:
 
-
 - The sum of ceilings is an upper bound. At rest the services use noticeably
-  less, but under load `memory-db` and `memory-service` approach their
-  ceilings. Check actual usage with `docker stats`.
+  less, but under load `memory-db`, `memory-service`, and `keycloak` approach
+  their ceilings. Check actual usage with `docker stats`.
+
 - Leave at least 1 GiB for the OS, Docker, the file cache, and **image builds**:
   `tools/compose build` on the host briefly needs more memory and CPU than
   the running stack. On a 2 vCPU machine, run the build ahead of time, before
@@ -66,6 +84,10 @@ How to estimate:
 - Swap does not replace memory, but it saves you from OOM during builds and
   peaks.
 
+!!! warning "Keycloak is the most memory-hungry"
+    Keycloak runs on the JVM, takes up to a minute to start, and gets the
+    highest ceiling in the stack (768m). On a 4 GiB machine, do not start the
+    `idp` and `harness` profiles.
 
 ## Disk
 
@@ -148,4 +170,5 @@ Other executor consumption parameters:
 
 - [Production deployment](deployment.md)
 - [Monitoring and health](monitoring.md)
+- [Installing executors](../runner/installation.md)
 - [Requirements](../getting-started/requirements.md)

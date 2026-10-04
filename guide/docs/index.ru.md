@@ -60,7 +60,8 @@ AI-агенты, автоматические процессы и сервисы
     ---
 
     Tenants и principals, Platform Access Tokens, обмен на токены audience,
-    scopes, service accounts и федерация внешних identity.
+    scopes, service accounts, федерация внешних identity и Keycloak как IdP
+    людей.
 
 -   **[Память](memory/index.md)**
 

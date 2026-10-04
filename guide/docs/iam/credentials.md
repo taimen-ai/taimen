@@ -9,9 +9,8 @@ set up a local harness or a runner.
 
 ## What a PAT is
 
-
 A Platform Access Token is a principal-bound credential for a local harness
-(MCP plugin, CLI) and for an autonomous agent. The main rule:
+(MCP plugin, CLI, Human Harness) and for an autonomous agent. The main rule:
 **a PAT is presented only to IAM**, and only in the request body. It is never
 passed to any resource service; instead, the service receives a short-lived
 access token for its own audience (see [Tokens](tokens.md)).

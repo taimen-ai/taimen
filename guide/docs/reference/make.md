@@ -57,12 +57,11 @@ Internal component lists:
 make secrets
 ```
 
-
 1. If there is no `.env`, copies `.env.example` to `.env` and sets mode `600`.
 2. `tools/fill_secrets.py .env` fills **only empty** values from a fixed list
    with random hex strings (`secrets.token_hex`): database passwords (`CP_`,
-   `IAM_`, `MEMORY_`, `NOTIFY_`), bootstrap tokens (`CP_`, `IAM_`),
-   `MEMORY_API_KEY`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`,
+   `IAM_`, `MEMORY_`, `KEYCLOAK_DB_`, `NOTIFY_`), bootstrap tokens (`CP_`,
+   `IAM_`), `MEMORY_API_KEY`, `KEYCLOAK_ADMIN_PASSWORD`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`,
    `CP_S3_ACCESS_KEY_ID`, `CP_S3_SECRET_ACCESS_KEY`. Existing values are left
    untouched; running it again is safe.
 3. Creates the `secrets` directory.
@@ -80,10 +79,9 @@ works right after `make secrets`; see [Environment variables](environment.md).
 
 ### make config
 
-
 ```bash
 make config
-make config PROFILES="core notify edge"
+make config PROFILES="core idp harness edge"
 ```
 
 `tools/compose … config --quiet`; on success it prints
@@ -92,10 +90,10 @@ launch.
 
 ### make build / make up
 
-
 ```bash
 make up                                   # core edge
-make up PROFILES="core notify edge"      # with notifications
+make up PROFILES="core idp harness edge" # with human sign-in and workplaces
+make up PROFILES="core fleet edge"
 make build PROFILES="core"
 ```
 
@@ -128,7 +126,6 @@ code is `1` if at least one running service responded with `≥ 400`. The list
 of checks is in [Services and ports](services-and-ports.md#healthchecks).
 
 ### make bootstrap
-
 
 ```bash
 make bootstrap

@@ -87,7 +87,6 @@ plugins:
             Harness protocol: Харнесс-протокол
             Task context and memory: Контекст задачи и память
             Catalog packages: Пакеты каталога
-            Connections: Подключения
             Authorization and permissions: Авторизация и права
             CLI and MCP server: CLI и MCP-сервер
             Configuration: Конфигурация
@@ -116,19 +115,27 @@ plugins:
             Credentials and PATs: Credentials и PAT
             Tokens, audiences, scopes: Токены, audiences, scopes
             Identity federation: Федерация identity
+            Keycloak as the external IdP: Keycloak — внешний IdP
             Memory: Память
             Knowledge model: Модель знаний
             Namespaces and access: Namespaces и доступ
             Knowledge ingestion: Загрузка знаний
             Retrieval and context assembly: Поиск и сборка контекста
+            Personal workspace: Рабочее место человека
+            Assistant in Telegram: Ассистент в Telegram
             Notifications: Уведомления
             Notification rules: Правила уведомлений
             Agents and runner: Агенты и runner
+            Declarative agents: Агенты описанием
+            Nodes and fleet: Узлы и fleet
             Agent identity: Identity агента
+            Installing executors: Установка исполнителя
             Executor adapters: Адаптеры исполнителей
             Execution workspaces: Рабочие копии
             Run trace: Трасса прогонов
             Operator guide: Работа оператора
+            Console: Консоль
+            Assistant: Ассистент
             MCP plugin for Claude Code: MCP-плагин для Claude Code
             Everyday workflows: Повседневные сценарии
             SDKs and integrations: SDK и интеграции
@@ -138,7 +145,6 @@ plugins:
             Edge and TLS: Периметр и TLS
             Upgrades and migrations: Обновление и миграции
             Secrets and rotation: Секреты и ротация
-            Secret store: Хранилище секретов
             Backup: Резервное копирование
             Object storage (MinIO): Хранилище объектов (MinIO)
             Monitoring and health: Мониторинг и здоровье
@@ -227,7 +233,6 @@ nav:
       - Harness protocol: control-plane/harness-protocol.md
       - Task context and memory: control-plane/context.md
       - Catalog packages: control-plane/catalog-packages.md
-      - Connections: control-plane/connections.md
       - Authorization and permissions: control-plane/authorization.md
       - CLI and MCP server: control-plane/cli-and-mcp.md
       - API: control-plane/api.md
@@ -262,6 +267,7 @@ nav:
       - Tokens, audiences, scopes: iam/tokens.md
       - Service accounts: iam/service-accounts.md
       - Identity federation: iam/federation.md
+      - Keycloak as the external IdP: iam/keycloak.md
       - API: iam/api.md
       - Configuration: iam/configuration.md
   - Memory:
@@ -272,19 +278,27 @@ nav:
       - Retrieval and context assembly: memory/retrieval.md
       - API: memory/api.md
       - Configuration: memory/configuration.md
+  - Personal workspace:
+      - workplace/index.md
+      - Assistant in Telegram: workplace/telegram.md
   - Notifications:
       - notifications/index.md
       - Notification rules: notifications/notification-rules.md
       - Telegram: notifications/telegram.md
   - Agents and runner:
       - runner/index.md
+      - Declarative agents: runner/declarative-agents.md
+      - Nodes and fleet: runner/fleet.md
       - Agent identity: runner/agent-identity.md
+      - Installing executors: runner/installation.md
       - Executor adapters: runner/adapters.md
       - Execution workspaces: runner/execution-workspace.md
       - Run trace: runner/trace.md
       - Configuration: runner/configuration.md
   - Operator guide:
       - operator/index.md
+      - Console: operator/console.md
+      - Assistant: operator/assistant.md
       - MCP plugin for Claude Code: operator/mcp-plugin.md
       - Everyday workflows: operator/workflows.md
   - SDKs and integrations:
@@ -299,7 +313,6 @@ nav:
       - Edge and TLS: operations/edge-and-tls.md
       - Upgrades and migrations: operations/upgrades.md
       - Secrets and rotation: operations/secrets.md
-      - Secret store: operations/secret-store.md
       - Backup: operations/backup.md
       - Object storage (MinIO): operations/object-storage.md
       - Monitoring and health: operations/monitoring.md

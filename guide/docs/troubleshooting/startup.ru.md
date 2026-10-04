@@ -18,9 +18,8 @@
 
 Проверить итоговую конфигурацию после интерполяции:
 
-
 ```bash
-make config PROFILES="core notify edge"
+make config PROFILES="core idp harness edge"
 tools/compose --profile core --profile edge config | less
 ```
 
@@ -46,8 +45,11 @@ tools/compose --profile core --profile edge config | less
 | `/health/ready` → `503 migrations_pending`, ревизия БД **новее** head | Поверх новой схемы запущен старый образ | Вернуть образ нового релиза или выполнить downgrade новым образом |
 | `/health/ready` → `503 database_unreachable` | База не поднялась, неверный пароль, закончился диск | `tools/compose logs control-plane-db`, `df -h` |
 | `password authentication failed for user "…"` после смены пароля в `.env` | `POSTGRES_PASSWORD` применяется только при инициализации пустого тома | Сменить пароль роли `ALTER ROLE` в базе или вернуть прежнее значение в `.env`, см. [Секреты и ротация](../operations/secrets.md) |
+| `keycloak-db` не стартует: `set KEYCLOAK_DB_PASSWORD` | Не задан пароль БД Keycloak | `make secrets` или задать вручную |
+| `keycloak` долго `starting` | Нормально: JVM и импорт realm, `start_period` 40 с, до 20 попыток | Ждать; при OOM — поднять `KEYCLOAK_MEM_LIMIT` |
 | `control-plane-api` не стартует: зависимость `minio-bootstrap` завершилась с ошибкой | Одноразовый контейнер упал | `tools/compose logs minio minio-bootstrap` |
 | `memory-service` падает с `graph with oid … does not exist` | База памяти восстановлена логическим дампом в новый кластер | Исправление OID каталога AGE, см. [Резервное копирование](../operations/backup.md) |
+| `harness-launcher` не пускает людей или сервис профиля `harness` не стартует без `idp` | Профиль `harness` требует `idp` (вход через Keycloak) | Поднимать профили вместе: `make up PROFILES="core idp harness edge"` |
 
 ## Периметр (Caddy)
 
@@ -56,6 +58,7 @@ tools/compose --profile core --profile edge config | less
 | `caddy` в логах: `challenge failed`, `no valid A records`, `429` | Имя не указывает на хост, закрыт 80/443 или превышены лимиты ACME-центра после серии неудач | Проверить `dig`, файрвол; убрать из Caddyfile имена без DNS; после `429` ждать окна лимита |
 | Правка Caddyfile не применилась после `caddy reload` | Файл заменён новым inode (`mv`, атомарная запись), bind-mount видит старый | Писать в тот же файл (`cat new > Caddyfile`) или `tools/compose up -d --force-recreate caddy` |
 | `502` на маршруте | Upstream не поднят (профиль выключен) или упал | `tools/compose ps <upstream>`; убрать лишний маршрут |
+| Свой маршрут отвечает `302` на `/console/` | Маршрут объявлен после блока корня (`handle { redir * /console/ 302 }`) | Перенести его выше блока корня |
 
 Подробнее — в [Периметре и TLS](../operations/edge-and-tls.md).
 

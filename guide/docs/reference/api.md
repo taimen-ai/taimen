@@ -16,7 +16,7 @@ for IAM; memory-service, from inside the compose network.
 <!-- generated:api-control-plane -->
 _This section is generated from code; do not edit it by hand._
 
-API version `0.9.0`, operations: 256.
+API version `0.10.0`, operations: 256.
 
 | Method | Path | Description | Edge |
 |---|---|---|---|

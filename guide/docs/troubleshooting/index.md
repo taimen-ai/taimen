@@ -61,6 +61,7 @@ for searching the tables in this section.
 | [Execution and runner](runner.md) | The executor does not claim tasks, crashes, does not publish branches, OOM, credential errors on the runner host |
 | [Memory and context](memory.md) | Delivery to memory has stalled, context is degraded, `401/403/503` from memory, slow search |
 | [IAM federation](../iam/federation.md) | People sign in through an external IdP: provider registration in IAM, `federation:exchange` errors |
+| [Keycloak as the external IdP](../iam/keycloak.md) | Signing in to the personal workspace: the realm, the `human-harness` client, registration in IAM, `federation:exchange` errors |
 
 ## What to collect before asking for help
 

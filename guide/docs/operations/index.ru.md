@@ -19,6 +19,11 @@ flowchart LR
         caddy[Caddy<br/>единственный периметр]
         caddy ==> iam[iam-service]
         caddy ==> cp[control-plane-api]
+        caddy ==> con[console]
+        caddy ==> kc[keycloak]
+        caddy ==> hl[harness-launcher]
+        caddy ==> fc[fleet-controller]
+        kc --- kcdb[(keycloak-db)]
         cp --- worker[control-plane-worker]
         cp --- adapter[context-adapter]
         adapter ==> mem[memory-service]
@@ -26,15 +31,16 @@ flowchart LR
         cp --- cpdb[(control-plane-db)]
         mem --- memdb[(memory-db<br/>AGE + pgvector)]
     end
-    runner[Runner-хост<br/>control-plane-agent] ==>|HTTPS: PAT → access token| caddy
+    runner[Узел fleet<br/>контейнеры агентов] ==>|HTTPS: PAT → access token| caddy
 ```
 
 Ключевые принципы:
 
 
 - **Один файл описания** — `deploy/local/compose.yml` суперпроекта с профилями
-  (`core`, `edge`, `notify`). Локальная установка и промышленная различаются
-  только файлом `.env` и Caddyfile.
+  (`core`, `edge`, `notify`, `idp`, `console`, `harness`, `fleet`). Локальная
+  установка и промышленная различаются только файлом `.env` и Caddyfile.
+
 - **Один периметр** — наружу публикует порты только контейнер `caddy` (80/443).
   Все прочие сервисы слушают на `127.0.0.1` хоста или только во внутренней сети.
 - **Релиз = коммит суперпроекта.** Версии компонентов закреплены указателями

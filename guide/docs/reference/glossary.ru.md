@@ -145,7 +145,6 @@ access token IAM: `POST /api/v1/tenants/{t}/federation:exchange`. Только
 токеном отвергаются кодом `stale_claim`, даже если процесс считает себя
 владельцем.
 
-
 ## G
 
 **Gate** — approval, который удерживает задачу (`approval_required`) или
@@ -157,19 +156,18 @@ access token IAM: `POST /api/v1/tenants/{t}/federation:exchange`. Только
 
 ## H
 
-
 **Handoff** — передача работы: run публикует checkpoint handoff, и
-продолжение берёт другой исполнитель или человек
+продолжение берёт другой исполнитель или человек в Human Harness
 (`reason=human_harness_handoff`).
 
-
 **Harness (харнесс)** — клиент, через который человек или агент работает
-с Control Plane: MCP-плагин, CLI, демон runner. Объявляет тип и
+с Control Plane: MCP-плагин, Human Harness, демон runner. Объявляет тип и
 capabilities при открытии сессии. → [Харнесс-протокол](../control-plane/harness-protocol.md)
 
 **Harness protocol** — контракт сессий, claims, runs и курсоров между
 харнессом и ядром (`control-harness`, версии `1` и `2`).
 
+**Human Harness** — движок ассистента человека: персональный контейнер, с которым человек говорит из панели консоли и из Telegram. → [Ассистент](../operator/assistant.md)
 
 ## I
 
@@ -200,6 +198,9 @@ resource services проверяют подпись токенов; кэширу
 
 ## K
 
+**Keycloak** — внешний IdP людей (профиль `idp`, realm `platform`): только
+подтверждает, кто человек; токен уходит в IAM `federation:exchange`. →
+[Keycloak — внешний IdP](../iam/keycloak.md)
 
 **Knowledge pack** — закреплённый по версии (`name@version`) пакет знаний,
 включаемый на корневом workspace. → [Загрузка знаний](../memory/ingestion.md)
@@ -234,7 +235,6 @@ resource services проверяют подпись токенов; кэширу
 **Observation (наблюдение)** — сырой факт, записываемый в память
 (`observations.write`), с источником и scope.
 
-
 **Origin** — происхождение задачи в work graph (откуда она возникла).
 
 **Outbox** — таблица исходящих событий, которые worker доставляет с
@@ -251,7 +251,6 @@ bootstrap приводит в Control Plane. → [Пакеты каталога]
 предъявляется — только обменивается на access token. →
 [Credentials и PAT](../iam/credentials.md)
 
-
 **PDP / PEP** — Policy Decision Point (внешний PDP, решает) и Policy
 Enforcement Point (resource service, применяет решение). Режим ядра —
 `CP_AUTHZ_MODE`.
@@ -262,9 +261,8 @@ Enforcement Point (resource service, применяет решение). Реж�
 **Principal** — участник: `human`, `agent`, `service` в Control Plane;
 `human`, `agent`, `service_account`, `workload` в IAM. → [Tenants и principals](../iam/principals.md)
 
-
 **Profile (профиль compose)** — группа сервисов `deploy/local/compose.yml`, включаемая
-флагом `--profile` (`core`, `edge`, `notify` …). →
+флагом `--profile` (`core`, `edge`, `idp`, `harness`, `fleet` …). →
 [Сервисы и порты](services-and-ports.md)
 
 **Project profile** — проектная надстройка над workspace: шаблон,
@@ -279,7 +277,6 @@ Enforcement Point (resource service, применяет решение). Реж�
 **Resource service** — сервис, который проверяет чужие токены и сам
 решает о доменных правах (Control Plane, memory-service,
 notification-service).
-
 
 **Role (роль)** — организационная роль Control Plane (не даёт прав). →
 [Права и scopes](permissions.md#roles)

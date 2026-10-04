@@ -494,6 +494,39 @@ SCIM endpoints respond in the SCIM format (`scimType`): `invalidFilter`,
 active provisioning source, 502/503 when the upstream provider is
 unavailable.
 
+## Console: people { #console-people }
+
+The console flows "Settings" → "People and roles" and the person page (add, disable,
+enable a person) are orchestration by the console BFF over IAM and the core. The response
+takes one of two forms.
+
+- **Rejection of the request body**: an immediate `422` in the Control Plane envelope
+  `{"error": {"code"}}`; the flow does not start: `invalid_person` ("Add"),
+  `invalid_permissions` ("Enable").
+- **Flow report**: `200`, with the denial inside the report:
+    - "Disable" and "Enable": the top-level `error` field is
+      `{"service": "iam"|"cp", "status", "code", "missing"?}`, and the step fields (`iam`, `cp`,
+      plus `binding` for enabling) show where the flow stopped (`failed`);
+    - "Add": there is no top-level `error`; the denial is in the flow step with `status: "failed"`:
+      `steps[i].error = {"status", "code", "missing"?}`, without `service`.
+
+Besides the IAM and core codes (see [above](#principal-disable-enable) and
+[iam-service](#iam-people)), the BFF returns its own:
+
+| Code | HTTP | Cause | What to do |
+|---|---|---|---|
+| `iam_login_closed` | 403 | "Enable": the core participant is active, but IAM sign-in is closed (partial disabling), and the caller has no `admin`. Only an administrator can reopen sign-in, and not when IAM responds with `principal_provisioned` (disabled by HR sync, SCIM) or `principal_paused` (paused in IAM): an administrator gets these denials too. | Repeat "Enable" as an administrator. |
+| `iam_principal_unknown` | 409 | "Enable": the core principal has no binding rows with this console's IAM, so there is nothing to put a new binding on. | Enable through the core API: `:enable`, then the binding `POST /api/v1/principals/{principal_id}/iam-bindings` with explicit permissions. |
+| `invalid_permissions` | 422 | "Enable": the permissions of the new binding are not a non-empty list of core permissions. A direct response, not a report. | Choose the previous permissions or a set. |
+| `invalid_person` | 422 | "Add": the request body is unusable: an empty or too long field, an invalid e-mail, workspace, or roles, permissions not given as a list. A direct response, not a report. | Fill in the form. |
+| `permission_escalation` | 403 | "Add" and "Enable": the chosen permissions exceed the caller's (`missing`). Checked before IAM. | Choose a narrower set or act as an administrator. |
+| `person_disabled` | 409 | "Add": the person with this e-mail is disabled, their IAM account is not active, or it is already bound to a disabled core participant. | Bring them back with the "Enable" button. |
+| `identity_disabled` | 409 | "Add": the IdP identity is disabled in IAM. | Sort out the identity in IAM. |
+| `identity_mismatch` | 409 | "Add": the IdP identity from the form does not match the one already linked to this person, or the IAM principal found by the IdP identity or by the person's record is not a human (`kind` is not `human`). | Check the IdP identifier. |
+| `identity_bound_elsewhere` | 409 | "Add": the IAM account is already bound to another active core participant, or the IdP identity is linked to a principal outside the tenant. | Sort out the link in IAM and the core. |
+| `identity_unverifiable` | 501, 502 | "Add": IAM does not allow reading the IdP links; the flow is stopped. | Check the IAM version and its response. |
+| `lookup_incomplete` | 409 | "Add": the list of core participants is too long to check them all; the console refuses so as not to create a duplicate. | A limitation of the current console version. |
+
 ## platform-auth-sdk codes (resource services)
 
 The common deny contract of all resource services that use the SDK. The

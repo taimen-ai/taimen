@@ -51,7 +51,7 @@ curl -s -X POST "$IAM_URL/api/v1/tenants" -H "$BT" \
     Plane называли одну организацию одним идентификатором
     (`TAI-ADR-0030`). `make bootstrap` сначала создаёт tenant в IAM, а затем
     передаёт его UUID в bootstrap Control Plane. Полученный id нужно вписать в
-    `.env` как `IAM_TENANT_ID` — его используют сервисы и исполнители, которым нужен tenant.
+    `.env` как `IAM_TENANT_ID` — его используют launcher рабочих мест, fleet-controller и runner'ы.
 
 Ошибки: `409 tenant_id_exists` (такой `id` уже есть), `409 tenant_slug_exists`,
 `422` — невалидный `slug`/`name`.
@@ -198,7 +198,6 @@ Membership (`tenant_memberships`) — пара `(tenant_id, principal_id)` со
 
 ## Группы
 
-
 Группы — глобальные для tenant наборы principals. IAM хранит их и проецирует
 в них членство из внешних источников, но **сам по себе** доступ группы не
 дают: их используют сервисы-потребители (например, внешний PDP).
@@ -258,8 +257,8 @@ identity provider, дописывается стабильный external ID, а
 !!! tip "Как узнать `subject`"
 
     `subject` — это значение claim, указанного у провайдера как
-    `subjectClaim` (по умолчанию `sub`). Обычно это неизменяемый
-    идентификатор пользователя у IdP.
+    `subjectClaim` (по умолчанию `sub`). В Keycloak это UUID пользователя
+    realm.
 
 ## Связь с principal в сервисах
 

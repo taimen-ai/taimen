@@ -20,20 +20,24 @@ claims, runs, approvals, checkpoints, артефакты и события — �
 | Поверхность | Для чего | Как говорит с Control Plane |
 |---|---|---|
 | [MCP-плагин для Claude Code](mcp-plugin.md) | работа с задачами прямо из репозитория: взять задачу, сделать её в коде, записать evidence, передать | MCP-сервер `control-plane-mcp` (инструменты `cp_*`) |
-| [CLI `control-plane`](../control-plane/cli-and-mcp.md) | обзор из терминала и скриптов: очередь работы, задачи, claims и runs, список approvals | REST API ядра, PAT человека |
+| [Консоль](console.md) | видимость работающей организации: пульс и «Ждёт вас», происхождение работы, процессы, правила, агенты; управляющие действия, пакеты, люди и роли | вход через OIDC IdP организации и IAM federation, в ядро — короткий токен человека |
+| [Ассистент](assistant.md) | беседа из панели консоли и из Telegram: вопросы про то, что на экране, поручения, решения по approvals, своя работа | персональный контейнер человека ([рабочее место](../workplace/index.md)); в ядро — PAT человека, каждая мутация — с подтверждением |
 
-Обе — клиенты одного API под одной identity человека. Очередь можно
-просмотреть из CLI, задачу взять и завершить в Claude Code, там же решить
-approval — сервер видит один principal и одни правила.
+Все они — клиенты одного API под одной identity человека. Задачу можно поручить ассистенту,
+взять в Claude Code и завершить там же, а approval решить в консоли — сервер видит
+один principal и одни правила.
 
 ```mermaid
 flowchart TB
     H(("Оператор"))
-    H ==> P["Claude Code + плагин<br/>control-plane-operator"]
-    H ==> L["CLI control-plane"]
-    P == "MCP: control-plane-mcp<br/>PAT: IAM exchange" ==> CP["Control Plane"]
-    L == "PAT: IAM exchange" ==> CP
-    R["Runner (агенты)"] == "PAT агента" ==> CP
+    H --> P["Claude Code + плагин<br/>control-plane-operator"]
+    P -- "MCP → control-plane-mcp<br/>PAT → IAM exchange" --> CP["Control Plane"]
+    H --> K["Консоль<br/>(браузер)"]
+    K -- "вход: OIDC IdP → IAM federation" --> CP
+    K -- "панель ассистента" --> A["Ассистент<br/>(контейнер человека)"]
+    H -- "Telegram" --> A
+    A -- "PAT человека → IAM exchange" --> CP
+    R["Runner (агенты)"] -- "PAT агента" --> CP
 ```
 
 ## Решения, которые принимает только человек
@@ -57,12 +61,16 @@ flowchart TB
    [Tenants и principals](../iam/principals.md)).
 2. Для работы из репозитория — выпустите PAT и настройте
    [MCP-плагин](mcp-plugin.md).
-3. Для обзора из терминала и скриптов — настройте
-   [CLI `control-plane`](../control-plane/cli-and-mcp.md).
-4. Прочитайте [Повседневные сценарии](workflows.md).
+
+3. Чтобы видеть организацию целиком, решать и управлять — откройте [консоль](console.md)
+   (`/console/`).
+4. Для вопросов и поручений — откройте в консоли [ассистента](assistant.md) (⌘J / Ctrl+J).
+   Та же беседа продолжается в Telegram.
+5. Прочитайте [Повседневные сценарии](workflows.md).
 
 ## См. также
 
+- [Консоль](console.md)
 - [Ключевые понятия](../overview/concepts.md)
 - [Модель работы](../control-plane/work-model.md)
 - [Approvals](../control-plane/approvals.md)

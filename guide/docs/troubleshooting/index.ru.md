@@ -60,6 +60,7 @@ curl -s http://127.0.0.1:18000/metrics | grep context_adapter
 | [Исполнение и runner](runner.md) | Исполнитель не берёт задачи, падает, не публикует ветки, OOM, ошибки credential на runner-хосте |
 | [Память и контекст](memory.md) | Доставка в память встала, контекст деградирован, `401/403/503` от памяти, медленный поиск |
 | [Федерация IAM](../iam/federation.md) | Вход людей через внешний IdP: регистрация провайдера в IAM, ошибки `federation:exchange` |
+| [Keycloak — внешний IdP](../iam/keycloak.md) | Вход в рабочее место: realm, клиент `human-harness`, регистрация в IAM, ошибки `federation:exchange` |
 
 ## Что собрать перед обращением за помощью
 

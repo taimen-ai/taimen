@@ -224,7 +224,7 @@ claim — `in_progress`). Типы и другие объекты каталог
 Claim всегда берётся в рамках сессии.
 
 **Harness** — клиентская программа, через которую работает исполнитель (MCP-
-сервер в Claude Code, runner-демон или собственный клиент). При открытии сессии харнесс
+сервер в Claude Code, runner-демон, Human Harness). При открытии сессии харнесс
 может объявить себя блоком `harness`: `type`, `version`, `protocolVersion`
 (поддерживаются `1` и `2` протокола `control-harness`), `capabilities` —
 например `tasks.interactive`, `checkpoints`, `events.realtime`,

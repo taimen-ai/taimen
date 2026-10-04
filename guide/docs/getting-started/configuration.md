@@ -49,7 +49,7 @@ Principles:
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `TAIMEN_PUBLIC_URL` | `http://taimen.localhost` | Public address of the platform without a trailing `/`. The IAM issuer is derived from it (`${TAIMEN_PUBLIC_URL}/iam`). It ends up in every token and in Control Plane bindings |
+| `TAIMEN_PUBLIC_URL` | `http://taimen.localhost` | Public address of the platform without a trailing `/`. The IAM issuer (`${TAIMEN_PUBLIC_URL}/iam`), the Keycloak issuer (`…/auth/realms/platform`), and the personal workspace addresses (`…/harness`) are derived from it. It ends up in every token and in Control Plane bindings |
 | `TAIMEN_PUBLIC_HOST` | `taimen.localhost` | Host name from the address above. It becomes a network alias of Caddy so that containers reach the public address through it |
 | `COMPOSE_PROJECT_NAME` | `taimen` | Compose project name: prefix for containers and volumes, default tenant name (slug), and default bootstrap state file name |
 | `TAIMEN_NETWORK` | `taimen_default` | Name of the Docker network for all services |
@@ -68,7 +68,7 @@ Principles:
 
 | Variable | Meaning |
 |---|---|
-| `IAM_TENANT_ID` | UUID of the tenant in IAM. Known only after bootstrap (it prints the line `!! add to .env: IAM_TENANT_ID=…`). Services of the `core`, `edge`, and `notify` profiles do not need it |
+| `IAM_TENANT_ID` | UUID of the tenant in IAM. Known only after bootstrap (it prints the line `!! add to .env: IAM_TENANT_ID=…`). Needed by `fleet-controller`, the personal workspace launcher (`LAUNCHER_IAM_TENANT`), and `git-connector`. The core (`core`) does not need it |
 
 Bootstrap stores the other IDs (Control Plane tenant, operator, project,
 workspace) in `deploy/state/<name>.json`.
@@ -82,14 +82,16 @@ workspace) in `deploy/state/<name>.json`.
 | `CP_POSTGRES_PASSWORD` | `control-plane-db`, `CP_DATABASE_URL` | Control Plane database password |
 | `IAM_POSTGRES_PASSWORD` | `iam-db`, `IAM_DATABASE_URL` | IAM database password |
 | `MEMORY_POSTGRES_PASSWORD` | `memory-db`, `CB_DATABASE_URL` | memory database password |
+| `KEYCLOAK_DB_PASSWORD` | `keycloak-db`, `keycloak` | Keycloak database password (`idp` profile) |
 | `CP_BOOTSTRAP_TOKEN` | `control-plane-api` | one-time `POST /api/v1/bootstrap` (`Authorization: Bearer`). An empty value disables the bootstrap endpoint |
 | `IAM_BOOTSTRAP_TOKEN` | `iam-service` | IAM administrative operations (`X-IAM-Bootstrap-Token`): tenants, principals, PATs, service accounts |
 | `MEMORY_API_KEY` | `CB_SERVER_API_KEY`, `CP_CONTEXT_API_KEY` | static memory key with full access; the core uses it only until a service account exists |
+| `KEYCLOAK_ADMIN`, `KEYCLOAK_ADMIN_PASSWORD` | `keycloak` | Keycloak administrator (realm `master`); the `deploy/keycloak/` scripts use it too |
+| `KEYCLOAK_HOSTNAME_STRICT` | `KC_HOSTNAME_STRICT` | `false` locally (http without a domain), `true` on a production deployment |
 | `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` | `minio`, `minio-bootstrap` | MinIO root account; only `minio-bootstrap` uses it |
 | `CP_S3_ACCESS_KEY_ID`, `CP_S3_SECRET_ACCESS_KEY` | `minio-bootstrap`, Control Plane processes | the core's MinIO user with access only to the artifacts bucket |
 | `CP_S3_BUCKET` | `minio-bootstrap`, Control Plane processes | bucket for artifact content (default `artifacts`) |
 | `IAM_SIGNING_KEY_FILE`, `IAM_SIGNING_KEY_ID` | Docker secret `iam_signing_key`, `IAM_SIGNING_KEY_ID` | path to the private RSA token signing key and its `kid` in JWKS |
-
 
 !!! warning "`IAM_SIGNING_KEY_ID` when rotating the key"
     The `kid` is published in JWKS and appears in the header of every token.
@@ -174,6 +176,7 @@ defaults in code and are described in
 | `MEMORY_HOST_PORT` | `18001` | memory-service |
 | `IAM_HOST_PORT` | `18010` | iam-service |
 | `NOTIFY_HOST_PORT` | `18045` | notification-service |
+| `KEYCLOAK_HOST_PORT` | `18081` | keycloak |
 
 Bootstrap and `make smoke` reach the services on exactly these ports. To change
 a value, change it in `.env`, not in `deploy/local/compose.yml`.
@@ -191,6 +194,7 @@ values for a 2 vCPU / 6 GB machine; add the other variables as needed.
 | `IAM_MEM_LIMIT` | `256m` | iam-service |
 | `CP_MEM_LIMIT` | `512m` | control-plane-api |
 | `CP_WORKER_MEM_LIMIT` | `256m` | control-plane-worker, context-adapter |
+| `KEYCLOAK_MEM_LIMIT` | `768m` | keycloak |
 | `MINIO_MEM_LIMIT` | `256m` | minio |
 | `NOTIFY_MEM_LIMIT` | `256m` | notification-service |
 
@@ -198,7 +202,8 @@ values for a 2 vCPU / 6 GB machine; add the other variables as needed.
 
 By default, a volume is named `${COMPOSE_PROJECT_NAME}_<name>`. The variables
 `VOLUME_CONTROL_PLANE_DB`, `VOLUME_IAM_DB`, `VOLUME_MEMORY_DB`,
-`VOLUME_CADDY_DATA`, `VOLUME_CADDY_CONFIG`, `VOLUME_NOTIFY_DB`, and
+`VOLUME_CADDY_DATA`, `VOLUME_CADDY_CONFIG`, `VOLUME_NOTIFY_DB`, `VOLUME_KEYCLOAK_DB`,
+`VOLUME_REALM_IMPORT`, `VOLUME_HARNESS_LAUNCHER`, `VOLUME_FLEET_DATA`, and
 `VOLUME_PLATFORM_MINIO` (the MinIO volume with artifact content) let you point
 to existing volumes, for example when moving a deployment that was brought up
 earlier with other compose files to the `deploy/local/compose.yml` without losing data.
@@ -237,6 +242,7 @@ created.
 | `TAIMEN_PUBLIC_URL` | `http://taimen.localhost` | `https://platform.example.com` |
 | `TAIMEN_PUBLIC_HOST` | `taimen.localhost` | `platform.example.com` |
 | `CADDYFILE` | `./deploy/caddy/Caddyfile.local` | a Caddyfile with your domain and automatic TLS |
+| `KEYCLOAK_HOSTNAME_STRICT` | `false` | `true` |
 | `MEMORY_EMBEDDING_PROVIDER` / `MEMORY_LLM_PROVIDER` | `fake` / `echo` | `openai` / `openai` |
 | `*_MEM_LIMIT` | not set | according to machine resources |
 | `COMPOSE_PROJECT_NAME`, `VOLUME_*` | defaults | per your naming conventions |

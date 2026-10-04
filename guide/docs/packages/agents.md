@@ -9,9 +9,10 @@ for which role, which permissions to give it, and how to describe placement and
 the image so that the package installs on someone else's installation without
 edits. Rationale: TAI-ADR-0052, TAI-ADR-0062 (item 9), and CP-ADR-0073.
 
-The sections of the description and the rules for applying the kind are in the
-[Catalog packages](../control-plane/catalog-packages.md#agent) article. This page
-covers what a package author needs.
+The full reference for the description sections, revisions, events, and the
+registry API is in the [Declarative agents](../runner/declarative-agents.md) article;
+placement on machines is in [Nodes and fleet](../runner/fleet.md). This page covers
+what a package author needs.
 
 ## Which agent you need
 
@@ -344,6 +345,12 @@ spec:
 
 Naming an image does not grant the right to run it.
 
+A node runs the named image only if the `executors.<kind>.images` list in that node's
+`node.yaml` allows it: an exact reference or a pattern with a single `*` in the tag.
+Otherwise the agent waits with the placement reason `image_not_allowed`, and a node
+that is sent the image anyway does not run it. How the node checks the list is
+described in [Nodes and fleet](../runner/fleet.md#images).
+
 The image is built from the `package-sdk image observer` or `package-sdk image
 skills` scaffold (see [Integrations](integrations.md#images)). The package pins
 the image version with a tag: a running container does not pick up an image
@@ -422,5 +429,7 @@ retired agent is not reused (`409 agent_retired`).
 - [Package skills](skills.md)
 - [Integrations](integrations.md)
 - [Catalog packages](../control-plane/catalog-packages.md#agent)
+- [Declarative agents](../runner/declarative-agents.md)
+- [Nodes and fleet](../runner/fleet.md)
 - [Work rules](../control-plane/work-rules.md#identity): the rules identity
 - [Processes](../processes/index.md): the process owner and identity

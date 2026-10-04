@@ -16,6 +16,7 @@ What stops working when a component fails:
 | `iam-service` or `iam-db` | Already issued access tokens until they expire (up to 300 s); signature verification against the JWKS cache; the static memory key | PAT and client credentials exchange; after ~5 minutes, every harness, executor, and people's sign-in through federation; delivery to memory through the core service account |
 | `control-plane-api` / `control-plane-db` | Memory and IAM on their own | All coordination: tasks, claims, runs, approvals; delivery to memory |
 | `memory-service` / `memory-db` | Coordination entirely: claims, runs, approvals, task completion | Context assembly (returned degraded); log delivery accumulates lag or gets parked |
+| `keycloak` / `keycloak-db` | Harnesses, the MCP plugin, and executors (they use PATs and bypass Keycloak) | New sign-ins of people to workplaces |
 | `caddy` | Everything inside the host; access through an SSH tunnel to `127.0.0.1` | Any access from outside |
 | Runner host | The whole platform | Autonomous execution of tasks assigned to this executor |
 
@@ -29,13 +30,13 @@ curl -s http://127.0.0.1:18010/healthz
 tools/compose logs --since 15m iam-service | tail -50
 ```
 
-
 **What happens.** Control Plane verifies the access token signature against
 JWKS from its cache (a stale cache is acceptable up to
 `CP_IAM_JWKS_STALE_AFTER_SECONDS`, 3600 s by default), so tokens issued
 before the outage keep working until they expire. No new tokens are issued:
 harnesses and executors lose access within the access token lifetime
-(300 s). `context-adapter`, which works through a service account, gets
+(300 s). The workplace launcher cannot let a person in (`federation:exchange`
+is unavailable). `context-adapter`, which works through a service account, gets
 refusals and accumulates lag.
 
 **Steps.**
@@ -276,10 +277,18 @@ binding by the pair `(issuer, iam_principal_id)`.
 3. Change `TAIMEN_PUBLIC_URL` and `TAIMEN_PUBLIC_HOST` in `.env`.
 4. Recreate the services so they pick up the new address:
    `tools/compose … up -d`.
-5. Update `CONTROL_PLANE_SERVER` and `CONTROL_PLANE_IAM_URL` for executors
+5. If the `idp` profile is running, update the redirect URIs of the console
+   and assistant clients in Keycloak (for the console, run
+   `deploy/keycloak/keycloak-runtime-console-client.py` with the new
+   `WEB_BASE_URL`; for the others, use the Admin API or the Keycloak admin
+   console; the realm template is not applied to an existing realm). The
+   Keycloak issuer changes too: the identity provider in IAM and the people's
+   external identities are recorded with the old issuer, and the provider
+   cannot be changed through the API (see [Identity federation](../iam/federation.md)).
+6. Update `CONTROL_PLANE_SERVER` and `CONTROL_PLANE_IAM_URL` for executors
    and operators. The record key in `credentials.json` includes the IAM
    address, so move the records under the new address.
-6. After verification, revoke the bindings with the old issuer.
+7. After verification, revoke the bindings with the old issuer.
 
 If step 1 was skipped and access is already closed, move the bindings with
 SQL in the Control Plane database:

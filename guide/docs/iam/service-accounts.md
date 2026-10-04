@@ -8,7 +8,6 @@ engineers who connect a service and for installation administrators.
 
 ## Why a service needs its own identity
 
-
 An IAM token is issued for exactly one audience. When Control Plane needs to
 call memory or another service, it cannot "forward" the user's token: that
 token is issued for the `control-plane` audience and is rejected by any other
@@ -136,7 +135,7 @@ the files through `env_file` in `deploy/local/compose.yml`.
 
 | Service account | Audiences | Ceiling | File | Used by |
 |---|---|---|---|---|
-| Control Plane | `memory-service`, `openbao` | `memory:read`, `memory:write`, `memory:tenants`, `memory:on-behalf`, `memory:service`, `secrets:read` | `control-plane-iam.env` (`CP_IAM_CLIENT_ID`, `CP_IAM_CLIENT_SECRET`) | control-plane-api, worker, context-adapter |
+| Control Plane | `memory-service` | `memory:read`, `memory:write`, `memory:tenants`, `memory:on-behalf`, `memory:service` | `control-plane-iam.env` (`CP_IAM_CLIENT_ID`, `CP_IAM_CLIENT_SECRET`) | control-plane-api, worker, context-adapter |
 
 !!! note "A service account is also a principal in Control Plane"
     If a service account calls Control Plane (as a connector or the
@@ -188,8 +187,9 @@ recreate the service containers.
 
 ### How bootstrap does it
 
-For the core and `notification-service` accounts, `deploy/bootstrap.py` keeps
-a fingerprint (scopes and audiences) in its state and, on every run:
+For the core, `notification-service`, and `fleet-controller` accounts,
+`deploy/bootstrap.py` keeps a fingerprint (scopes and audiences) in its state
+and, on every run:
 
 1. checks the account against IAM with an empty `PATCH {}`; if the principal in
    the response is not the one in the state, it stops before any write;

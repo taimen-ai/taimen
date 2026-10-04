@@ -7,9 +7,8 @@
 
 ## Что такое PAT
 
-
 Platform Access Token — principal-bound credential для локального harness
-(MCP-плагин, CLI) и для автономного агента. Главное правило:
+(MCP-плагин, CLI, Human Harness) и для автономного агента. Главное правило:
 **PAT предъявляется только IAM** и только в теле запроса. Ни одному resource
 service он не передаётся — вместо него сервис получает короткоживущий access
 token своего audience (см. [Токены](tokens.md)).

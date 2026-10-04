@@ -135,6 +135,7 @@ systemctl stop <юнит>
 
 ## См. также
 
+- [Установка runner](../runner/installation.md)
 - [Конфигурация runner](../runner/configuration.md)
 - [Рабочие копии](../runner/execution-workspace.md)
 - [Исполнение — claims и runs](../control-plane/execution.md)

@@ -64,7 +64,8 @@ of integrations and executors.
     ---
 
     Tenants and principals, Platform Access Tokens, exchange for audience
-    tokens, scopes, service accounts, and federation of external identities.
+    tokens, scopes, service accounts, federation of external identities, and
+    Keycloak as the IdP for people.
 
 -   **[Memory](memory/index.md)**
 

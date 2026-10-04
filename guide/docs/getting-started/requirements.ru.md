@@ -14,22 +14,29 @@
 | Набор профилей | Контейнеров | Сумма `mem_limit` по умолчанию | Рекомендуемая машина |
 |---|---|---|---|
 | `core edge` (по умолчанию) | 9 | ≈ 2,8 ГБ (без Caddy, у него лимита нет) | 2 vCPU, 4 ГБ RAM |
+| `+ idp` (Keycloak) | +3 (1 одноразовый) | +1 ГБ | по месту |
+| `+ harness` | +3 (1 одноразовый) и контейнер на каждого активного человека | +0,2 ГБ и `HARNESS_MEM_LIMIT_MB` (1,5 ГБ) на человека | 4 vCPU, 8 ГБ RAM для нескольких человек |
 | `+ notify` | +2 | +0,5 ГБ | по месту |
 
 Ориентиры из практики:
 
 - стек `core edge` в покое занимает около **0,7 ГБ RSS**;
+- набор `core idp harness edge` работает на машине с **2 vCPU и
+  6 ГБ RAM**, если задать лимиты из `.env.example` (секция «лимиты памяти»)
+  и включить swap; это нижняя граница, а не рекомендация;
 - **первая сборка образов** занимает несколько минут (Python-зависимости,
-  образ `memory-db` с Apache AGE и pgvector); повторная с кэшем — десятки
-  секунд.
+  образ `memory-db` с Apache AGE и pgvector, для `harness` — образ рабочего места);
+  повторная с кэшем — десятки секунд.
 
 Диск: образы ядра — несколько гигабайт, плюс данные PostgreSQL в volumes.
-Закладывайте **не меньше 20 ГБ** свободного места под Docker для `core edge`.
+Закладывайте **не меньше 20 ГБ** свободного места под Docker для `core edge` и
+40 ГБ для набора с `idp` и `harness`.
 
 !!! note "Docker Desktop"
     На macOS и Windows ресурсы ограничены настройками Docker Desktop, а не
-    машиной. Выделите VM не меньше 4 ГБ памяти для `core edge`, иначе
-    контейнеры будут убиты по OOM без явной ошибки в `make up`.
+    машиной. Выделите VM не меньше 4 ГБ памяти для `core edge` и 8 ГБ для
+    набора с `idp` и `harness`, иначе контейнеры будут убиты по OOM без явной ошибки
+    в `make up`.
 
 ## Программное обеспечение
 
@@ -91,6 +98,7 @@ python3 -c 'import yaml, jsonschema; print("ok")'
 | `127.0.0.1:18001` | `memory-service` | `MEMORY_HOST_PORT` | `core` |
 | `127.0.0.1:18010` | `iam-service` | `IAM_HOST_PORT` | `core` |
 | `127.0.0.1:18045` | `notification-service` | `NOTIFY_HOST_PORT` | `notify` |
+| `127.0.0.1:18081` | `keycloak` | `KEYCLOAK_HOST_PORT` | `idp` |
 
 `make check` дополнительно поднимает тестовую базу на `5434` (Control Plane).
 
@@ -106,8 +114,8 @@ lsof -nP -iTCP -sTCP:LISTEN | grep -E ':(80|443|18000|18001|18010) '
 ## Имя хоста для локального стенда
 
 По умолчанию публичный адрес платформы — `http://taimen.localhost`
-(`TAIMEN_PUBLIC_URL`). Из него же выводится issuer IAM
-(`http://taimen.localhost/iam`).
+(`TAIMEN_PUBLIC_URL`). Он же issuer IAM (`http://taimen.localhost/iam`) и
+Keycloak.
 
 - Chrome и Firefox резолвят `*.localhost` в `127.0.0.1` сами.
 - Для `curl`, Safari и системных резолверов добавьте строку в `/etc/hosts`:

@@ -66,33 +66,13 @@ spec:
 - Контракт класса считается доказанным, когда его без изменений реализовал второй
   провайдер.
 
-## Подключения { #connections }
-
-Учётка внешней системы — это [подключение](../control-plane/connections.md), а не
-секрет в описании агента. Провайдерский пакет приносит вид каталога
-`ConnectionType`: способы подключения (`oauth2`, `token`), адреса OAuth, поле
-учётки и схему несекретных настроек. Администратор заводит подключение и
-подключает его; материал доступа живёт в хранилище секретов, ядро хранит только
-сведения.
-
-- **Агент называет подключение** ключом в `spec.connections`; по умолчанию —
-  `defaultKey` типа.
-- **Код интеграции получает его** через `ctx.connection(<ключ>)` skill-sdk (хост
-  скиллов) или `skill_sdk.ConnectionClient` (наблюдатель): `type`, `account`,
-  `settings` и `await access_token()`. Токены обновляет хранилище, код их не хранит.
-- **Потерю доступа** — отказ внешней системы после обновления токена —
-  наблюдатель сообщает ядру (`PUT /connections/{key}/status` → `expired`), и пакет
-  `connections` заводит задачу переподключения.
-- **Настройки** (`settings`) — несекретный JSON по `settingsSchema` типа: роли
-  этапов, поля внешней системы. Код читает их из того же `ctx.connection`.
 
 ## Секреты интеграции { #secrets }
 
-Секрет, который не является учёткой внешней системы, — имя в `placement.secrets`
-агентов интеграции. Значение задаётся через ядро (`PUT /agents/{key}/secrets/{name}`,
-см. [Подключения](../control-plane/connections.md#agent-secrets)) и хранится в
-хранилище секретов; перед запуском агента он оказывается в `/run/secrets/<имя>`.
-
+Секрет интеграции — имя в `placement.secrets` агентов интеграции. Значение — файл с
+тем же именем в каталоге секретов узла fleet (см. [Секреты
+узла](../runner/fleet.md#node-secrets)); перед запуском агента он оказывается в
+`/run/secrets/<имя>`.
 
 Оба агента интеграции читают секрет одним правилом:
 
@@ -151,7 +131,6 @@ helpdesk-alpha/
 # integration/src/helpdesk_alpha/observer.py
 from package_sdk.connector import Observation, ObserveContext, observer, run
 
-
 @observer(kind="helpdesk-alpha-observer", entrypoint="helpdesk_alpha.observer:observe")
 def observe(ctx: ObserveContext) -> None:
     cursor = ctx.state.get("cursor")
@@ -166,7 +145,6 @@ def observe(ctx: ObserveContext) -> None:
         ))
         cursor = ticket["cursor"]
     ctx.state["cursor"] = cursor                        # сохранится после цикла без ошибок
-
 
 if __name__ == "__main__":
     run(observe)
@@ -308,7 +286,6 @@ from helpdesk_alpha import observer
 TICKET = {"id": "T-1", "version": 3, "url": "https://helpdesk.example.com/t/T-1",
           "updatedAt": "2026-01-15T10:00:00Z", "cursor": "c-1"}
 
-
 def test_a_changed_ticket_is_observed_once(monkeypatch) -> None:
     monkeypatch.setattr(observer, "fetch", lambda base_url, token, since: [TICKET])
     core = FakeCore()
@@ -400,6 +377,10 @@ docker build -f Dockerfile.skills -t registry.example.com/helpdesk-alpha/skills:
 и правьте `executor.image`: это новая ревизия агента, и исполнитель перейдёт на неё
 сам.
 
+На узле названный образ запустится, только если его допускает список
+`executors.<вид>.images` узла; иначе агент ждёт с причиной `image_not_allowed`.
+Образ должен уже лежать на машине: узел образы не скачивает. Подробнее — [Узлы и
+fleet](../runner/fleet.md#images).
 
 ## Поверхность работы { #surface }
 
@@ -427,9 +408,10 @@ docker build -f Dockerfile.skills -t registry.example.com/helpdesk-alpha/skills:
 
 ## См. также
 
-- [Подключения](../control-plane/connections.md) — тип подключения, OAuth, доступ агентов
 - [Агенты пакета](agents.md) — наблюдатель, хост скиллов, образ
 - [Скиллы пакета](skills.md) — действия интеграции
 - [Знания и онтология](knowledge.md) — онтология класса и снимки
 - [Правила вывода работы](../control-plane/work-rules.md) — работа из наблюдений
 - [Процессы](../processes/index.md) — старт процесса по наблюдению
+- [Агенты описанием](../runner/declarative-agents.md) — вид исполнителя `observer`
+- [Узлы и fleet](../runner/fleet.md) — узлы, секреты, образы

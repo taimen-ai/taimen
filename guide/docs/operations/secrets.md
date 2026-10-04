@@ -13,9 +13,7 @@ and the person responsible for security.
   credentials of the components' service accounts) live only in `.env` and
   the `secrets/` directory of the superproject clone (both in `.gitignore`)
   and in the credential files of workstations and the runner host. This
-  article covers them. **Secrets of connections and agents** (tokens and keys
-  of external systems, secrets of registry agents) live in the [secret
-  store](secret-store.md).
+  article covers them. Agent secrets are files on fleet nodes (see below).
 - Permissions are `0600` for a file and `0700` for a directory. The
   `control-plane` client refuses to read `~/.config/iam/credentials.json` if
   the file is accessible to anyone other than its owner
@@ -34,16 +32,18 @@ and the person responsible for security.
 | Variable | Who uses it | How to replace |
 |---|---|---|
 | `CP_POSTGRES_PASSWORD`, `IAM_POSTGRES_PASSWORD`, `MEMORY_POSTGRES_PASSWORD`, `NOTIFY_POSTGRES_PASSWORD` | Databases and services | `ALTER ROLE` in the database, then `.env`, then recreate the service (see below) |
+| `KEYCLOAK_DB_PASSWORD` | The `keycloak` role in `keycloak-db` | The same way as the database passwords |
 | `CP_BOOTSTRAP_TOKEN` | Control Plane `POST /api/v1/bootstrap` | `.env` and `up -d control-plane-api` |
 | `IAM_BOOTSTRAP_TOKEN` | IAM administrative operations (`X-IAM-Bootstrap-Token`) | `.env` and recreate `iam-service` |
 | `MEMORY_API_KEY` | Static memory key: `memory-service`, the core before it switches to a service account | `.env` and recreate all consumers |
+| `KEYCLOAK_ADMIN_PASSWORD` | The initial Keycloak administrator | See "Keycloak" |
 | `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` | MinIO root account; only `minio-bootstrap` uses it | See [Object storage](object-storage.md) |
 | `CP_S3_ACCESS_KEY_ID`, `CP_S3_SECRET_ACCESS_KEY` | The Control Plane user in object storage (its own bucket only), created by `minio-bootstrap` | `.env`, rerun `minio-bootstrap`, then recreate `control-plane-api`, `control-plane-worker`, `context-adapter`; for an external S3, change it at the provider first (see [Object storage](object-storage.md)) |
 | `LLM_API_KEY` | Key of the OpenAI-compatible LLM provider for memory and executors | At the provider, then `.env` and recreate the consumers |
 
-
 `make secrets` fills all the listed passwords, bootstrap tokens,
-`MEMORY_API_KEY`, and MinIO keys with random values if they are empty.
+`MEMORY_API_KEY`, the Keycloak administrator password, and MinIO keys with
+random values if they are empty.
 
 There are no secrets with default values in `deploy/local/compose.yml`: the database
 passwords and bootstrap tokens of all profiles, including experimental ones,
@@ -58,13 +58,16 @@ or the line is commented out), `make secrets` adds it.
 | `iam-signing.pem` | Private access token signing key (RSA 3072) | `make secrets` | `iam-service` (uid 10001, docker secret) |
 | `harness-pat` | Operator PAT (read/write/admin) | bootstrap, step 4 | Moved to the operator's workstation |
 | `control-plane-iam.env` | `CP_IAM_CLIENT_ID`, `CP_IAM_CLIENT_SECRET`: the core service account | bootstrap, step 2a | `docker compose` (`env_file` of the three core processes) |
+| `runtime-console-oidc-secret` | Secret of the console OIDC client `runtime-console` (the same as in the IdP); `0600`, owned by uid 10001 | `make secrets` or the OIDC client setup script | `console` (uid 10001, docker secret) |
+| `runtime-console-cookie-secret` | Console cookie key, at least 32 bytes; `0600`, owned by uid 10001 | `make secrets` | `console` (uid 10001, docker secret) |
 
 Permissions: everything is `0600`. Files mounted into a container (signing
 keys) must be owned by uid `10001` on Linux:
 
-
 ```bash
-sudo chown 10001:10001 secrets/iam-signing.pem
+sudo chown 10001:10001 secrets/iam-signing.pem \
+  secrets/runtime-console-oidc-secret secrets/runtime-console-cookie-secret
+sudo chmod 600 secrets/runtime-console-oidc-secret secrets/runtime-console-cookie-secret
 sudo chmod 600 secrets/*.pem
 ```
 
@@ -81,6 +84,23 @@ the host; their owner is whoever runs compose.
 | Runner | Forge token (for pushing task branches) | Minimal permissions: write only to the task repositories, read the neighbors |
 | Operator | `~/.config/iam/credentials.json` | A JSON object: the key is the IAM address, tenant, and principal separated by a vertical bar; the value has a `token` field; mode `0600` |
 
+### Fleet nodes
+
+A secret of an agent is a file in the `secretsDir` directory on the node: one file per
+secret, with the file name matching the name in the agent description's
+`placement.secrets` (see [Nodes and
+fleet](../runner/fleet.md#node-yaml)). Agent PATs are not in this directory:
+fleet-controller issues them and delivers them to the node sealed with the
+node key.
+
+| File in `secretsDir` | For whom | What |
+|---|---|---|
+| `claude-oauth-token` | `claude-code` coding agents | The subscription token; it belongs to a person |
+| `github-token` | Coding agents and the `git-connector` observation source | Forge token: for coding agents, publishing task branches; for the connector, reading repositories and, if `ciRuns` is enabled in `observe`, CI runs (`ci.run_observed`) |
+
+The directory is `0700`, the files `0600`, owned by the executor image's uid
+(`10001`). The node offers a new file to the controller with its next report;
+restarting the node is not needed.
 
 ## Credential lifetimes
 
@@ -211,9 +231,8 @@ The detailed scenario is in [Emergency procedures](emergency.md).
 
 ### Rotating a service account secret
 
-
 Bootstrap changes the secret of the core and platform service accounts
-(`control-plane-iam.env`, `notification-iam.env`): if the env file does not
+(`control-plane-iam.env`, `notification-iam.env`, `fleet-iam.env`): if the env file does not
 exist, it asks IAM for a new secret of **the same** account (`PATCH
 {"rotateSecret": true}`, see [Service accounts](../iam/service-accounts.md#update))
 and writes it to the file at once; the old secret stops working. The
@@ -273,6 +292,25 @@ tools/compose exec control-plane-db psql -U control_plane -d control_plane \
 tools/compose up -d control-plane-api control-plane-worker context-adapter
 ```
 
+For the `keycloak` role in `keycloak-db`, the same:
+`tools/compose exec keycloak-db psql -U keycloak -d keycloak -c "ALTER ROLE keycloak PASSWORD '…'"`,
+then `KEYCLOAK_DB_PASSWORD` and `tools/compose up -d keycloak`.
+
+### Keycloak
+
+| Secret | Specifics | Replacement procedure |
+|---|---|---|
+| `KEYCLOAK_ADMIN_PASSWORD` | The variable creates a temporary administrator only on the first start, when there is no administrator | Change the administrator password in the Keycloak console or through the Admin API; keep `.env` consistent for the scripts |
+
+Realm user passwords are changed through the Admin API, the admin console, or
+`deploy/keycloak/keycloak-users.py`; see [Keycloak as the external IdP](../iam/keycloak.md).
+The realm has one client secret: the confidential console client
+`runtime-console` uses the `secrets/runtime-console-oidc-secret` file; the
+other clients (`human-harness`, `iam-service`) are public or bearer-only. To
+replace the console secret, rerun
+`deploy/keycloak/keycloak-runtime-console-client.py` with the new file (the
+script brings the client in line with the file) and recreate the `console`
+container.
 
 ### Coding agent subscription token and forge token
 
@@ -290,8 +328,6 @@ tools/compose up -d control-plane-api control-plane-worker context-adapter
 
 | Frequency | Action |
 |---|---|
-| Every 5–15 minutes | The secret store's policy guard (`openbao-bootstrap check-agents`), alert on a non-zero code; see [Secret store](secret-store.md#policy-guard) |
-| Daily | A raft snapshot of the secret store with the `backup` token; see [Secret store](secret-store.md#backup) |
 | Weekly | List PATs with `expiresAt` within 30 days |
 | 2 weeks before expiry | Reissue the PATs of executors and operators |
 | Quarterly | Rotate `MEMORY_API_KEY`, the LLM provider key, service account secrets |
@@ -300,7 +336,6 @@ tools/compose up -d control-plane-api control-plane-worker context-adapter
 
 ## See also
 
-- [Secret store](secret-store.md)
 - [Credentials and PATs](../iam/credentials.md)
 - [Tokens, audiences, scopes](../iam/tokens.md)
 - [Service accounts](../iam/service-accounts.md)

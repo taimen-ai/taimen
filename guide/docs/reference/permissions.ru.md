@@ -76,7 +76,6 @@ flowchart LR
 | `calendars.write` | Публикация производственного календаря. |
 | `goals.read` | Чтение целей (Goals). |
 | `goals.write` | Создание и изменение целей. |
-| `connections.read` | Чтение типов подключений, подключений и состояния OAuth-приложения типа. См. [Подключения](../control-plane/connections.md#permissions). |
 | `connections.manage` | Публикация типов подключений, OAuth-приложение типа, заведение, изменение, подключение и отзыв подключений; публикация агента с непустым `spec.connections`. |
 | `connections.status.write` | Сообщение о потере доступа (`PUT /connections/{key}/status`) — только коннектору, чьё описание называет подключение. |
 | `agents.secrets.manage` | Задание и удаление секретов агентов (`PUT`, `DELETE /agents/{key}/secrets/{name}`); имена читаются по `agents.read`. |
@@ -127,7 +126,6 @@ Binding ищется по паре **(issuer, IAM principal id)**. Следст�
 Одна IAM identity может быть связана только с одним tenant Control Plane
 (`409 iam_identity_bound_elsewhere`).
 
-
 ### Доменная авторизация через внешний PDP
 
 При `CP_AUTHZ_MODE=policy` решение по запросу с IAM-субъектом принимает
@@ -140,9 +138,8 @@ Legacy-ключи всегда проверяются локально. Недо
 
 ## Роли {#roles}
 
-
-Роль в платформе — организационная роль Control Plane. Внешний IdP ролей не
-назначает: он только подтверждает, кто человек.
+Роль в платформе — организационная роль Control Plane. Keycloak ролей не
+назначает: он только подтверждает, кто человек (см. [Keycloak](../iam/keycloak.md)).
 
 | Где | Что это | Как управляется |
 |---|---|---|
@@ -165,7 +162,6 @@ scopes audience задаёт реестр IAM (`allowedScopes`), `make bootstrap
 | | `memory:on-behalf` | Сервис читает память от имени principal с переданной видимостью (при `CB_POLICY_ENABLED`). |
 | | `memory:service` | Service scope ядра: реестр доменных пакетов видов, reconcile, виды namespace. Только service account ядра. |
 | `iam-scim` | `scim:write` (настраивается `IAM_SCIM_AUDIENCE`, `IAM_SCIM_SCOPE`) | SCIM-provisioning; только confidential service identity. |
-| `openbao` | `secrets:read` | Вход в [хранилище секретов](../operations/secret-store.md) методом `jwt`. Scope хранилище не проверяет — права задают его политики. |
 
 Namespaces памяти, доступные IAM-токену без `memory:tenants`:
 `tenant:<tenant_id>` и поддерево `tenant:<tenant_id>:*`, плюс namespaces из
@@ -213,6 +209,7 @@ audiences (`422 invalid_scope_ceiling`). Подробнее —
 Исполнителей bootstrap не заводит: агента описывает пакет каталога (вид
 `Agent`), права связки берутся из `identity.permissions` описания, а principal
 и PAT выпускает платформа.
+
 Агенту нельзя `admin` и `approvals.decide`.
 
 !!! warning "`task_types.read` обязателен исполнителю"
@@ -225,7 +222,7 @@ audiences (`422 invalid_scope_ceiling`). Подробнее —
 
 | Service account | Audiences | Потолок scopes | Права в Control Plane | Где секрет |
 |---|---|---|---|---|
-| Control Plane (ядро) | `memory-service`, `openbao` | `memory:read`, `memory:write`, `memory:tenants`, `memory:on-behalf`, `memory:service`, `secrets:read` | — | `secrets/control-plane-iam.env` |
+| Control Plane (ядро) | `memory-service` | `memory:read`, `memory:write`, `memory:tenants`, `memory:on-behalf`, `memory:service` | — | `secrets/control-plane-iam.env` |
 
 При изменении потолка service account ядра bootstrap меняет его на месте
 (`PATCH …/service-accounts/{clientId}`, см. [Service

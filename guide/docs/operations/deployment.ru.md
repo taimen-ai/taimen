@@ -12,9 +12,9 @@ bootstrap и вынос автономных исполнителей на от�
 
 | Узел | Что работает | Откуда код |
 |---|---|---|
-| Хост платформы | Один compose-проект на `deploy/local/compose.yml`: ядро (`core`), периметр (`edge`) и по необходимости уведомления (`notify`) | Клон суперпроекта с сабмодулями; релиз = коммит суперпроекта |
-| Runner-хост (необязательно) | Демон `control-plane-agent` с кодовым агентом, bare-зеркала репозиториев, рабочие копии | Пакет `control-plane` из суперпроекта: в контейнере или как systemd-сервис |
-| Рабочие места операторов | MCP-плагин / CLI `control-plane` | Пакет `control-plane` из суперпроекта |
+| Хост платформы | Один compose-проект на `deploy/local/compose.yml`: ядро (`core`), периметр (`edge`) и по необходимости консоль со входом людей (`console`, `idp`), ассистент (`harness`), уведомления (`notify`) и контроллер исполнителей (`fleet`) | Клон суперпроекта с сабмодулями; релиз = коммит суперпроекта |
+| Узлы исполнителей (необязательно) | `fleet-node` и контейнеры агентов с демоном `control-plane-agent`, рабочие копии и зеркала на томах реплик | Compose узла `deploy/node/`, образ исполнителя `deploy/agent-runner/` |
+| Рабочие места операторов | Консоль в браузере, MCP-плагин / CLI `control-plane` | Пакет `control-plane` из суперпроекта |
 
 Хост платформы и runner-хост связаны только через публичный адрес платформы:
 runner обменивает свой PAT на access token в IAM и ходит в Control Plane API
@@ -80,9 +80,13 @@ runner обменивает свой PAT на access token в IAM и ходит 
 | `core` | `iam-db`, `iam-service`, `control-plane-db`, `control-plane-api`, `control-plane-worker`, `context-adapter`, `memory-db`, `memory-service`, `minio`, `minio-bootstrap` | Всегда (MinIO — хранилище содержимого артефактов, см. [Хранилище объектов](object-storage.md)) |
 | `edge` | `caddy` | Всегда: единственный вход снаружи |
 | `notify` | `notification-db`, `notification-service` | Уведомления людей о событиях платформы |
+| `idp` | `keycloak-db`, `realm-render`, `keycloak` | Вход людей через Keycloak (внешний IdP), см. [Keycloak — внешний IdP](../iam/keycloak.md) |
+| `console` | `console` и сервисы `idp` | [Консоль](../operator/console.md): работа, решения, настройки организации |
+| `harness` | `harness-image`, `harness-docker-proxy`, `harness-launcher` | Движок ассистента людей (панель консоли, Telegram); требует `idp`, см. [Рабочее место человека](../workplace/index.md) |
+| `fleet` | `fleet-controller` | Размещение агентов на узлах, см. [Узлы и fleet](../runner/fleet.md) |
 
 `make up` без аргументов поднимает только `core edge`; остальные профили
-включаются явно.
+включаются явно, например `make up PROFILES="core edge console"`.
 
 ## Процедура первого развёртывания
 
@@ -117,7 +121,6 @@ make secrets
 
 Затем отредактируйте `.env` под установку:
 
-
 ```dotenv
 TAIMEN_PUBLIC_URL=https://platform.example.com
 TAIMEN_PUBLIC_HOST=platform.example.com
@@ -125,6 +128,7 @@ COMPOSE_PROJECT_NAME=taimen
 TAIMEN_NETWORK=taimen_default
 CADDYFILE=/opt/taimen/Caddyfile
 LOG_RENDERER=json
+KEYCLOAK_HOSTNAME_STRICT=true
 IAM_SIGNING_KEY_ID=prod-2026-01        # осмысленный kid, меняется при ротации ключа
 CP_LEGACY_API_KEYS_ENABLED=false
 ```
@@ -191,11 +195,11 @@ make up PROFILES="core edge"     # tools/compose --profile ... up -d --build
 tools/compose --profile "*" ps
 ```
 
-
 Порядок старта задан `depends_on` с условиями `service_healthy`: базы →
 IAM и память → `control-plane-api` (выполняет `alembic upgrade head`, затем
 становится healthy, когда ревизия БД совпала с head) → `control-plane-worker`
-и `context-adapter`. Первый старт с пустыми томами занимает 1–3 минуты.
+и `context-adapter`. Первый старт с пустыми томами занимает 1–3 минуты
+(Keycloak — до минуты сам по себе).
 
 ### 7. Bootstrap
 
@@ -218,9 +222,8 @@ python3 deploy/bootstrap.py --env .env --name prod --operator "Platform Operator
 
 После первого прогона выполните то, что скрипт печатает с пометкой `!!`:
 
-
 ```bash
-# 1. IAM tenant нужен сервисам, которые обращаются к IAM от своего имени
+# 1. IAM tenant нужен launcher'у рабочих мест, fleet-controller и исполнителям пакетов
 sed -i "s/^IAM_TENANT_ID=.*/IAM_TENANT_ID=<tenant-id>/" .env
 
 # 2. Ядро должно подхватить env-файл service account (CP_CONTEXT_AUTH=auto)
@@ -259,12 +262,22 @@ bootstrap печатает точный ключ последней строко
     Копируйте PAT по защищённому каналу (`scp`) и удаляйте промежуточные
     копии. Не вставляйте токен в чаты, тикеты и командную строку с историей.
 
+### 10. Вход людей и рабочие места (профили `idp`, `harness`)
+
+Для входа людей через Keycloak после bootstrap нужно один раз
+зарегистрировать realm в IAM как identity provider, а затем для каждого
+человека: IAM principal, пользователь Keycloak, связь external identity,
+principal и binding в Control Plane, запись в реестре рабочих мест. Процедура —
+в статье [Keycloak — внешний IdP](../iam/keycloak.md#onboarding).
 
 ## Runner-хост
 
 
-Автономный исполнитель ставится отдельно от хоста платформы — в контейнере
-или как systemd-сервис.
+Автономных исполнителей запускает fleet: на машине исполнителей работает узел
+(`fleet-node`, референсный compose — `deploy/node/`), который поднимает контейнеры
+агентов из образа `deploy/agent-runner/` по их описаниям в пакетах (см. [Установка
+исполнителя](../runner/installation.md)). Для отладки демон можно поставить и вручную —
+в контейнере или как systemd-сервис.
 
 === "Контейнер"
 

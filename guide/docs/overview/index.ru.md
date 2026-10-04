@@ -12,7 +12,7 @@
 | [Что такое Taimen](what-is-taimen.md) | Organizational Runtime: люди, агенты, workflows и сервисы над общей моделью Work; организационный цикл; чем платформа не является |
 | [Архитектура](architecture.md) | Компоненты, их связи, потоки запросов и событий, источники истины, инварианты интеграции |
 | [Ключевые понятия](concepts.md) | Tenant, Workspace, Project, Principal, Task, Task Type, Claim, fencing token, Run, Approval, Artifact, Goal, Evidence, Session, Harness, Capability, Skill, Namespace и другие — по коду |
-| [Состав поставки](components.md) | Репозитории компонентов, профили `deploy/local/compose.yml` (`core`, `edge`, `notify`) и статус каждого |
+| [Состав поставки](components.md) | Репозитории компонентов, профили `deploy/local/compose.yml` (`core`, `edge`, `notify`, `idp`, `console`, `harness`, `fleet`) и статус каждого |
 | [Модель безопасности](security-model.md) | IAM-токены, audience, scopes, PAT, service accounts, bindings в Control Plane, `platform-auth-sdk`, отзыв |
 
 ## Коротко
@@ -41,8 +41,9 @@ flowchart LR
   токены одного audience.
 - **Memory Service** — долговременное знание с provenance и сборка ограниченного
   контекста; работой не управляет.
-- Всё остальное — периферия: уведомления (`notify`), периметр (`edge`), клиенты
-  и исполнители.
+- Всё остальное — периферия: уведомления (`notify`), периметр (`edge`), вход людей
+  (`idp`), консоль (`console`), ассистент (`harness`), размещение исполнителей
+  (`fleet`), клиенты и исполнители.
 
 ## См. также
 

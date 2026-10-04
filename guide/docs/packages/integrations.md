@@ -69,35 +69,13 @@ The rules of the game:
 - A class contract is considered proven when a second provider has implemented it
   without changes.
 
-## Connections { #connections }
-
-An account in an external system is a [connection](../control-plane/connections.md),
-not a secret in the agent's description. The provider package brings the
-`ConnectionType` catalog kind: the connection methods (`oauth2`, `token`), the
-OAuth addresses, the account field, and the schema of non-secret settings. An
-administrator creates the connection and connects it; the access material lives
-in the secret store, and the core keeps only the information about it.
-
-- **An agent names the connection** with a key in `spec.connections`; by
-  default, the type's `defaultKey`.
-- **The integration code gets it** through skill-sdk `ctx.connection(<key>)` (the
-  skill host) or `skill_sdk.ConnectionClient` (the observer): `type`, `account`,
-  `settings`, and `await access_token()`. The store refreshes the tokens; the code
-  does not keep them.
-- **Lost access** (the external system refuses after a token refresh) is
-  reported by the observer to the core (`PUT /connections/{key}/status` →
-  `expired`), and the `connections` package creates a reconnect task.
-- **Settings** (`settings`) are non-secret JSON by the type's `settingsSchema`:
-  stage roles, fields of the external system. The code reads them from the same
-  `ctx.connection`.
-
 ## Integration secrets { #secrets }
 
-A secret that is not an account in an external system is a name in
-`placement.secrets` of the integration's agents. The value is set through the
-core (`PUT /agents/{key}/secrets/{name}`, see
-[Connections](../control-plane/connections.md#agent-secrets)) and kept in the
-secret store; before the agent starts, it is placed at `/run/secrets/<name>`.
+An integration secret is a name in `placement.secrets` of the integration's agents.
+The value is a file with the same name in the fleet node's secrets directory (see
+[Node secrets](../runner/fleet.md#node-secrets)); before the agent starts, it is placed
+at `/run/secrets/<name>`.
+
 Both agents of the integration read the secret by the same rule:
 
 - **the observer**: `ctx.secret(<name>)` of the `package_sdk.connector`
@@ -415,6 +393,11 @@ tag or a digest (see [Package agents](agents.md#image)). When releasing a new
 version of the code, raise the tag and edit `executor.image`: this is a new agent
 revision, and the executor switches to it by itself.
 
+On a node, the named image starts only if the node's `executors.<kind>.images` list
+allows it; otherwise the agent waits with the reason `image_not_allowed`. The image
+must already be on the machine: the node does not pull images. See [Nodes and
+fleet](../runner/fleet.md#images).
+
 ## Work surface { #surface }
 
 !!! warning "Planned"
@@ -442,9 +425,10 @@ revision, and the executor switches to it by itself.
 
 ## See also
 
-- [Connections](../control-plane/connections.md): the connection type, OAuth, agent access
 - [Package agents](agents.md): the observer, the skill host, the image
 - [Package skills](skills.md): integration actions
 - [Knowledge and ontology](knowledge.md): the class ontology and snapshots
 - [Work rules](../control-plane/work-rules.md): work from observations
 - [Processes](../processes/index.md): starting a process on an observation
+- [Declarative agents](../runner/declarative-agents.md): the `observer` executor kind
+- [Nodes and fleet](../runner/fleet.md): nodes, secrets, images

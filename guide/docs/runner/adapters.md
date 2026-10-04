@@ -369,5 +369,6 @@ More on memory and context: [Task context and memory](../control-plane/context.m
 
 - [Working copies](execution-workspace.md)
 - [Run trace](trace.md)
+- [The agent stopped without a result](declarative-agents.md#blocked)
 - [Configuration](configuration.md)
 - [CLI and MCP server](../control-plane/cli-and-mcp.md)

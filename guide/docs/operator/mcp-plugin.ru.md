@@ -345,3 +345,4 @@ cd ../../services/control-plane && uv tool install --reinstall .
 - [CLI и MCP-сервер](../control-plane/cli-and-mcp.md)
 - [Харнесс-протокол](../control-plane/harness-protocol.md)
 - [Credentials и PAT](../iam/credentials.md)
+- [Ассистент](assistant.md)

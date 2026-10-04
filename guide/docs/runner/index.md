@@ -3,29 +3,33 @@
 
 This section describes autonomous executors: the `control-plane-agent` daemon, which
 claims tasks from Control Plane on its own and executes them with a coding agent (Claude
-Code, Codex) or with skills in an isolated working copy. You start the daemon manually on a
-machine with access to Control Plane and configure it with environment variables or with an
-agent description revision. The section is for engineers who run executors and for
-operators who assign tasks to agents and accept the results.
+Code, Codex) or with skills in an isolated working copy. Each executor is described by the
+catalog kind `Agent`, and the platform runs it on fleet node machines. The section is for
+engineers who connect machines and describe agents, and for operators who assign tasks to
+agents and accept the results.
 
-## Agent by description
+## Agent by description and nodes
 
-An agent is one YAML object in a catalog package (kind `Agent`): identity and permissions,
-which work to take, the executor kind with its model and instructions, the working copy,
-skills. Control Plane stores immutable revisions of the description and derives the agent's
-principal and binding from them. A daemon started under the agent's principal takes its
-configuration from its revision (`GET /agents/me`); a principal without a description is
-configured through the environment (see [Configuration](configuration.md)).
+An agent is one YAML object in a catalog package: identity and permissions, which work to
+take, the executor kind with its model and instructions, the working copy, review, skills,
+placement. Control Plane stores immutable revisions of the description and derives the
+agent's principal and binding from them; fleet-controller picks a node by labels, secrets,
+executor kinds, and capacity and delivers the PAT to the agent; the node starts a container
+with the daemon, and the daemon takes its configuration from its revision
+(`GET /agents/me`).
 
 ```mermaid
 flowchart LR
-    Y["agents/*.yaml"] ==>|package-sdk apply| CP["Control Plane<br/>revisions"]
-    D["control-plane-agent<br/>started manually"] ==>|GET /agents/me, work| CP
+    Y["agents/*.yaml"] -->|package-sdk apply| CP["Control Plane<br/>revisions"]
+    CP --> FC["fleet-controller<br/>placement, PAT"]
+    FC --> N["fleet-node<br/>on a machine"]
+    N --> D["container<br/>control-plane-agent"]
+    D -->|GET /agents/me, work| CP
 ```
 
 Editing the description creates a new revision: the executor finishes the current run,
-exits with code 75, and comes back up on the new revision if a process supervisor restarts
-it.
+exits with code 75, and comes back up on the new revision. Details are in
+[Agents by description](declarative-agents.md) and [Nodes and fleet](fleet.md).
 
 ## What a runner is
 
@@ -120,17 +124,21 @@ skill. Without the `task_types.read` permission the daemon does not touch such t
 
 ## Deployment
 
-You start the daemon manually: as a systemd unit, a compose service, or a container. The
-executor's perimeter is an unprivileged user or a container that holds only working copies,
-mirrors, and the required secrets. The machine can be a dedicated server, a VM, or a
-developer machine — any machine with outbound HTTPS to Control Plane and IAM. Variables are
-in [Configuration](configuration.md), the credential is in [Agent identity](agent-identity.md).
+An executor always runs in a container on a fleet node: the perimeter is the container,
+which holds only the replica volume with working copies and mirrors and the secrets named in
+the agent description. A node can be a dedicated server, a VM, or a developer machine — any
+machine with Docker and outbound HTTPS to the deployment. The daemon can also be started
+manually, without a description (env mode), but only for debugging. Details are in
+[Installing an executor](installation.md).
 
 ## Sections
 
 | Article | About |
 |---|---|
+| [Agents by description](declarative-agents.md) | the `Agent` kind: description sections, revisions, applying through packages, stopping and retiring, service agents |
+| [Nodes and fleet](fleet.md) | the controller and nodes: registration, `node.yaml`, placement by labels, PAT delivery, failures |
 | [Agent identity](agent-identity.md) | a separate `agent` principal, a binding without admin, the PAT and its storage |
+| [Installing an executor](installation.md) | the controller, the image, a node, the first agent, updates, manual launch for debugging |
 | [Executor adapters](adapters.md) | Claude Code, Codex, OpenCode: CLI launch, tokens, permission modes, prompt |
 | [Working copies](execution-workspace.md) | the `worktrees/<id>/<repo>` container, neighbours, branches, evidence, publishing |
 | [Run trace](trace.md) | the `transcript` artifact, `tool.*` actions, publishing flags |

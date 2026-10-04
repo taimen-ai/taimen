@@ -98,9 +98,13 @@ host name.
 |---|---|---|
 | `/iam/*` | `iam-service:8010` | the prefix is stripped; the IAM issuer is `${TAIMEN_PUBLIC_URL}/iam` |
 | `/api/v1/*`, `/health/*`, `/docs`, `/redoc`, `/openapi.json` | `control-plane-api:8000` | `/metrics` is not exposed externally |
-| `/notify/*` | `notification-service:8000` | `notify` profile |
+| `/auth/*` | `keycloak:8080` | `idp` profile; Keycloak itself lives under `/auth` |
+| `/harness/*` | `harness-launcher:8080` | `harness` profile; human workplaces |
+| `/console/*` | `console:8090` | `core` profile (in the open delivery, `console`); [console](../operator/console.md), the server itself lives under `/console` |
+| `/notify/*`, `/fleet/*` | `notification-service:8000`, `fleet-controller:8040` | `notify`, `fleet` profiles |
 | `/guide/*` | `guide:8080` | `edge` profile; this guide |
 | `/memory/*` | `memory-service:8077` | **local Caddyfile only**; in the production layout memory is not exposed |
+| `/` (everything else) | — | `302` redirect to `/console/` |
 
 In addition, each service publishes a port on the host's `127.0.0.1` (for
 example, Control Plane on `18000`, IAM on `18010`, memory on `18001`) for local

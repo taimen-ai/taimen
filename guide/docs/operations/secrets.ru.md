@@ -10,9 +10,8 @@
   пароли баз, ключи подписи, bootstrap-токены, учётные данные service accounts
   компонентов — живут только в `.env` и каталоге `secrets/` клона суперпроекта
   (оба в `.gitignore`) и в credential-файлах рабочих мест и runner-хоста. Это
-  описывает эта статья. **Секреты подключений и агентов** — токены и ключи
-  внешних систем, секреты агентов реестра — живут в [хранилище
-  секретов](secret-store.md).
+  описывает эта статья. Секреты агентов — файлы на узлах fleet (см. ниже).
+
 - Права — `0600` на файл, `0700` на каталог. Клиент `control-plane`
   отказывается читать `~/.config/iam/credentials.json`, если файл доступен
   кому-то кроме владельца (`iam_credentials_file_permissions`).
@@ -30,16 +29,18 @@
 | Переменная | Кто использует | Как заменить |
 |---|---|---|
 | `CP_POSTGRES_PASSWORD`, `IAM_POSTGRES_PASSWORD`, `MEMORY_POSTGRES_PASSWORD`, `NOTIFY_POSTGRES_PASSWORD` | Базы и сервисы | `ALTER ROLE` в базе, затем `.env`, затем пересоздание сервиса (см. ниже) |
+| `KEYCLOAK_DB_PASSWORD` | Роль `keycloak` в `keycloak-db` | Так же, как пароли БД |
 | `CP_BOOTSTRAP_TOKEN` | `POST /api/v1/bootstrap` Control Plane | `.env` и `up -d control-plane-api` |
 | `IAM_BOOTSTRAP_TOKEN` | Административные операции IAM (`X-IAM-Bootstrap-Token`) | `.env` и пересоздание `iam-service` |
 | `MEMORY_API_KEY` | Статический ключ памяти: `memory-service`, ядро до перехода на service account | `.env` и пересоздание всех потребителей |
+| `KEYCLOAK_ADMIN_PASSWORD` | Первичный администратор Keycloak | См. «Keycloak» |
 | `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` | Root-учётка MinIO; ею пользуется только `minio-bootstrap` | См. [Хранилище объектов](object-storage.md) |
 | `CP_S3_ACCESS_KEY_ID`, `CP_S3_SECRET_ACCESS_KEY` | Пользователь Control Plane в хранилище объектов (только свой бакет), его заводит `minio-bootstrap` | `.env`, повторный запуск `minio-bootstrap`, затем пересоздание `control-plane-api`, `control-plane-worker`, `context-adapter`; для внешнего S3 — сначала у провайдера (см. [Хранилище объектов](object-storage.md)) |
 | `LLM_API_KEY` | Ключ OpenAI-совместимого LLM-провайдера для памяти и исполнителей | У провайдера, затем `.env` и пересоздание потребителей |
 
-
 `make secrets` заполняет случайными значениями все перечисленные пароли,
-bootstrap-токены, `MEMORY_API_KEY` и ключи MinIO, если они пусты.
+bootstrap-токены, `MEMORY_API_KEY`, пароль администратора Keycloak и ключи MinIO,
+если они пусты.
 
 Секретов со значением по умолчанию в `deploy/local/compose.yml` нет: пароли БД и
 bootstrap-токены всех профилей, включая экспериментальные, объявлены
@@ -54,13 +55,16 @@ bootstrap-токены всех профилей, включая экспери�
 | `iam-signing.pem` | Приватный ключ подписи access token (RSA 3072) | `make secrets` | `iam-service` (uid 10001, docker secret) |
 | `harness-pat` | PAT оператора (read/write/admin) | bootstrap, шаг 4 | Переносится на рабочее место оператора |
 | `control-plane-iam.env` | `CP_IAM_CLIENT_ID`, `CP_IAM_CLIENT_SECRET` — service account ядра | bootstrap, шаг 2a | `docker compose` (`env_file` трёх процессов ядра) |
+| `runtime-console-oidc-secret` | Секрет OIDC-клиента консоли `runtime-console` (тот же, что в IdP); `0600`, владелец uid 10001 | `make secrets` или скрипт заведения OIDC-клиента | `console` (uid 10001, docker secret) |
+| `runtime-console-cookie-secret` | Ключ cookie консоли, не короче 32 байт; `0600`, владелец uid 10001 | `make secrets` | `console` (uid 10001, docker secret) |
 
 Права: всё — `0600`. Файлы, которые монтируются в контейнер (ключи подписи),
 на Linux должны принадлежать uid `10001`:
 
-
 ```bash
-sudo chown 10001:10001 secrets/iam-signing.pem
+sudo chown 10001:10001 secrets/iam-signing.pem \
+  secrets/runtime-console-oidc-secret secrets/runtime-console-cookie-secret
+sudo chmod 600 secrets/runtime-console-oidc-secret secrets/runtime-console-cookie-secret
 sudo chmod 600 secrets/*.pem
 ```
 
@@ -77,6 +81,22 @@ Env-файлы (`*.env`) читает `docker compose` на хосте, их в�
 | Runner | Токен forge (для push веток задач) | Минимальные права: запись только в репозитории задач, чтение соседей |
 | Оператор | `~/.config/iam/credentials.json` | JSON-объект: ключ — адрес IAM, tenant и principal через вертикальную черту, значение с полем `token`; режим `0600` |
 
+### Узлы fleet
+
+Секрет агента — файл в каталоге `secretsDir` на узле: по файлу на секрет, имя файла
+совпадает с именем в `placement.secrets` описания агента (см. [Узлы и
+fleet](../runner/fleet.md#node-yaml)). PAT
+агентов в этом каталоге нет: их выпускает fleet-controller и доставляет на узел
+запечатанными ключом узла.
+
+| Файл в `secretsDir` | Кому | Что |
+|---|---|---|
+| `claude-oauth-token` | Кодовые агенты `claude-code` | Токен подписки; принадлежит человеку |
+| `github-token` | Кодовые агенты и источник наблюдений `git-connector` | Токен forge: у кодовых агентов — публикация веток задач, у коннектора — чтение репозиториев и, если в `observe` включён `ciRuns`, прогонов CI (`ci.run_observed`) |
+
+Каталог `0700`, файлы `0600`, владелец — uid образа исполнителя (`10001`).
+Новый файл узел предложит контроллеру со следующим отчётом, перезапуск узла не
+нужен.
 
 ## Сроки жизни credentials
 
@@ -203,12 +223,11 @@ curl -s -X POST "$IAM/api/v1/tenants/$T/principals/<human-principal-id>/platform
 
 ### Ротация секрета service account
 
-
 Секрет service account ядра и сервисов платформы (`control-plane-iam.env`,
-`notification-iam.env`) меняет bootstrap: если env-файла нет, он просит у IAM
-новый секрет **той же** учётки (`PATCH {"rotateSecret": true}`, см. [Service
-accounts](../iam/service-accounts.md#update)) и сразу пишет его в файл; прежний
-секрет гаснет. Principal и `clientId` не меняются.
+`notification-iam.env`, `fleet-iam.env`) меняет bootstrap: если env-файла нет, он
+просит у IAM новый секрет **той же** учётки (`PATCH {"rotateSecret": true}`, см.
+[Service accounts](../iam/service-accounts.md#update)) и сразу пишет его в файл;
+прежний секрет гаснет. Principal и `clientId` не меняются.
 
 ```bash
 mv secrets/control-plane-iam.env secrets/control-plane-iam.env.old
@@ -263,6 +282,23 @@ tools/compose exec control-plane-db psql -U control_plane -d control_plane \
 tools/compose up -d control-plane-api control-plane-worker context-adapter
 ```
 
+Для роли `keycloak` в `keycloak-db` — то же:
+`tools/compose exec keycloak-db psql -U keycloak -d keycloak -c "ALTER ROLE keycloak PASSWORD '…'"`,
+затем `KEYCLOAK_DB_PASSWORD` и `tools/compose up -d keycloak`.
+
+### Keycloak
+
+| Секрет | Особенность | Порядок замены |
+|---|---|---|
+| `KEYCLOAK_ADMIN_PASSWORD` | Переменная создаёт временного администратора только при первом старте, когда администратора нет | Смените пароль администратора в консоли Keycloak или через Admin API; `.env` поддерживайте в согласии для скриптов |
+
+Пароли пользователей realm меняются через Admin API, админ-консоль или
+`deploy/keycloak/keycloak-users.py`; см. [Keycloak — внешний IdP](../iam/keycloak.md). Секретов
+клиента в realm один: у confidential-клиента консоли `runtime-console` — файл
+`secrets/runtime-console-oidc-secret`, остальные клиенты (`human-harness`, `iam-service`)
+публичные или bearer-only. Замена секрета консоли: перезапустить
+`deploy/keycloak/keycloak-runtime-console-client.py` с новым файлом (скрипт приводит
+клиент к файлу) и пересоздать контейнер `console`.
 
 ### Токен подписки кодового агента и токен forge
 
@@ -278,8 +314,6 @@ tools/compose up -d control-plane-api control-plane-worker context-adapter
 
 | Периодичность | Действие |
 |---|---|
-| Раз в 5–15 минут | Страж политик хранилища секретов (`openbao-bootstrap check-agents`), оповещение по ненулевому коду — см. [Хранилище секретов](secret-store.md#policy-guard) |
-| Ежедневно | Снимок raft хранилища секретов токеном `backup` — см. [Хранилище секретов](secret-store.md#backup) |
 | Еженедельно | Список PAT с `expiresAt` ближе 30 дней |
 | За 2 недели до истечения | Перевыпуск PAT исполнителей и операторов |
 | Раз в квартал | Ротация `MEMORY_API_KEY`, ключа LLM-провайдера, секретов service accounts |
@@ -288,7 +322,6 @@ tools/compose up -d control-plane-api control-plane-worker context-adapter
 
 ## См. также
 
-- [Хранилище секретов](secret-store.md)
 - [Credentials и PAT](../iam/credentials.md)
 - [Токены, audiences, scopes](../iam/tokens.md)
 - [Service accounts](../iam/service-accounts.md)

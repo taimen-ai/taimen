@@ -345,6 +345,7 @@ everyday work, see [MCP plugin for Claude Code](../operator/mcp-plugin.md).
 | Add an approval before completion | [Approvals](../control-plane/approvals.md) |
 | Hand a task to an autonomous agent | [Agents and runner](../runner/index.md) |
 | Give an agent context from memory | [Task context and memory](../control-plane/context.md) |
+| Talk to the assistant from the console and Telegram | the `idp` and `harness` profiles, [Assistant](../operator/assistant.md) |
 
 ## Common problems
 

@@ -15,22 +15,29 @@ usage is lower.
 | Profile set | Containers | Default `mem_limit` total | Recommended machine |
 |---|---|---|---|
 | `core edge` (default) | 9 | ≈ 2.8 GB (excluding Caddy, which has no limit) | 2 vCPU, 4 GB RAM |
+| `+ idp` (Keycloak) | +3 (1 one-off) | +1 GB | as needed |
+| `+ harness` | +3 (1 one-off) and a container for each active person | +0.2 GB and `HARNESS_MEM_LIMIT_MB` (1.5 GB) per person | 4 vCPU, 8 GB RAM for several people |
 | `+ notify` | +2 | +0.5 GB | as needed |
 
 Practical reference points:
 
 - an idle `core edge` stack uses about **0.7 GB RSS**;
+- the `core idp harness edge` set runs on a machine with **2 vCPU and
+  6 GB RAM** if you set the limits from `.env.example` (the "memory limits"
+  section) and enable swap; this is a lower bound, not a recommendation;
 - the **first image build** takes several minutes (Python dependencies, the
-  `memory-db` image with Apache AGE and pgvector); a rebuild with a warm cache
-  takes tens of seconds.
+  `memory-db` image with Apache AGE and pgvector, and for `harness` the
+  personal workspace image); a rebuild with a warm cache takes tens of seconds.
 
 Disk: the core images take several gigabytes, plus PostgreSQL data in volumes.
-Plan for **at least 20 GB** of free space for Docker for `core edge`.
+Plan for **at least 20 GB** of free space for Docker for `core edge` and
+40 GB for a set with `idp` and `harness`.
 
 !!! note "Docker Desktop"
     On macOS and Windows, resources are limited by Docker Desktop settings, not
-    by the machine. Give the VM at least 4 GB of memory for `core edge`;
-    otherwise containers are OOM-killed without a clear error from `make up`.
+    by the machine. Give the VM at least 4 GB of memory for `core edge` and
+    8 GB for a set with `idp` and `harness`; otherwise containers are
+    OOM-killed without a clear error from `make up`.
 
 ## Software
 
@@ -92,6 +99,7 @@ Only Caddy is published externally. The other services listen on the host's
 | `127.0.0.1:18001` | `memory-service` | `MEMORY_HOST_PORT` | `core` |
 | `127.0.0.1:18010` | `iam-service` | `IAM_HOST_PORT` | `core` |
 | `127.0.0.1:18045` | `notification-service` | `NOTIFY_HOST_PORT` | `notify` |
+| `127.0.0.1:18081` | `keycloak` | `KEYCLOAK_HOST_PORT` | `idp` |
 
 `make check` also starts a test database on `5434` (Control Plane).
 
@@ -107,8 +115,8 @@ lsof -nP -iTCP -sTCP:LISTEN | grep -E ':(80|443|18000|18001|18010) '
 ## Host name for a local deployment
 
 By default, the platform's public address is `http://taimen.localhost`
-(`TAIMEN_PUBLIC_URL`). The IAM issuer is derived from it
-(`http://taimen.localhost/iam`).
+(`TAIMEN_PUBLIC_URL`). It is also the base of the IAM issuer
+(`http://taimen.localhost/iam`) and of the Keycloak issuer.
 
 - Chrome and Firefox resolve `*.localhost` to `127.0.0.1` on their own.
 - For `curl`, Safari, and system resolvers, add a line to `/etc/hosts`:

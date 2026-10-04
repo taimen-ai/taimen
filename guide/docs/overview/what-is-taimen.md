@@ -31,7 +31,7 @@ replaceable.**
 
 | Executor | How it connects | Identity |
 |---|---|---|
-| Human | MCP plugin in Claude Code / Codex, the `control-plane` CLI, or your own harness protocol client | a principal of kind `human` in IAM and in Control Plane |
+| Human | a workplace in the browser, MCP plugin in Claude Code / Codex, Human Harness, the `control-plane` CLI | a principal of kind `human` in IAM and in Control Plane |
 | AI agent | the `control-plane-agent` daemon (runner) with Claude Code and Codex adapters | a principal of kind `agent`; permissions are restricted: no `admin` and no `approvals.decide` |
 | Service, connector | an HTTP client with an IAM service account or an agent PAT | a principal of kind `service` in Control Plane |
 | Deterministic process | a [process](../processes/index.md) from a catalog package, executed by the core itself; approval outcome rules in the task type | acts as the process identity, an agent description of kind `service` or `agent` |
@@ -101,8 +101,8 @@ How each link of the loop is expressed in the code today:
 ## What Taimen is not
 
 - **Not a chatbot or an agent framework.** The agent loop lives in the harness
-  (Claude Code, Codex); the platform gives it work, permissions, context, and a
-  log.
+  (Claude Code, Codex, Human Harness); the platform gives it work, permissions,
+  context, and a log.
 - **Not a task tracker.** Tasks here are operational commitments with leases,
   fencing, and audit, not cards on a board. The human interface is one of
   several surfaces, not the center of the system.
@@ -121,7 +121,9 @@ a single `deploy/local/compose.yml` with profiles:
 - the core (`core`): IAM Service, Control Plane (API, worker, context adapter),
   Memory Service, and their PostgreSQL databases;
 - the edge (`edge`): Caddy, the only container exposed to the outside;
-- an optional notifications profile (`notify`).
+- optional profiles: notifications (`notify`), the console with human sign-in
+  through Keycloak (`console`, `idp`), the assistant (`harness`), and placement of
+  executors on nodes (`fleet`).
 
 For contents and statuses, see [Delivery contents](components.md); for how the
 parts connect, see [Architecture](architecture.md).

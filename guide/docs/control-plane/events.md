@@ -296,8 +296,7 @@ deadlines and the `owner`, `assignee` addressees in [Deadlines and SLA](../proce
 
 ### Connections and agent secrets
 
-None of these events carries secret values, the account or the provider's text
-(see [Connections](connections.md)).
+None of these events carries secret values, the account or the provider's text.
 
 | Type | Stream | Key payload fields |
 |---|---|---|

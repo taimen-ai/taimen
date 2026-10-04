@@ -281,6 +281,7 @@ the same redaction before being written to `failure_reason`.
 
 ## See also
 
+- [Installing the runner](installation.md)
 - [Executor adapters](adapters.md)
 - [Goals, acceptance, and evidence](../control-plane/goals-and-evidence.md)
 - [Artifacts and comments](../control-plane/artifacts.md)

@@ -7,7 +7,6 @@ client credentials и как сменить или отозвать секрет
 
 ## Зачем сервису своя identity
 
-
 Токен IAM выпускается ровно для одного audience. Когда Control Plane должен
 обратиться в память или в другой сервис, он не может «переслать»
 токен пользователя — тот выпущен для audience `control-plane` и в другом
@@ -134,7 +133,7 @@ access_token = await tokens()   # обмен или значение из кэш
 
 | Service account | Audiences | Потолок | Файл | Кто использует |
 |---|---|---|---|---|
-| Control Plane | `memory-service`, `openbao` | `memory:read`, `memory:write`, `memory:tenants`, `memory:on-behalf`, `memory:service`, `secrets:read` | `control-plane-iam.env` (`CP_IAM_CLIENT_ID`, `CP_IAM_CLIENT_SECRET`) | control-plane-api, worker, context-adapter |
+| Control Plane | `memory-service` | `memory:read`, `memory:write`, `memory:tenants`, `memory:on-behalf`, `memory:service` | `control-plane-iam.env` (`CP_IAM_CLIENT_ID`, `CP_IAM_CLIENT_SECRET`) | control-plane-api, worker, context-adapter |
 
 !!! note "Service account — это ещё и principal в Control Plane"
     Если service account ходит в Control Plane (как коннектор или сервис уведомлений), ему,
@@ -185,9 +184,8 @@ curl -s -X PATCH "$IAM_URL/api/v1/tenants/$TENANT/service-accounts/$CLIENT_ID" \
 
 ### Как это делает bootstrap
 
-
-Для учёток ядра и `notification-service` `deploy/bootstrap.py` держит в state
-отпечаток (scopes и audiences) и на каждом запуске:
+Для учёток ядра, `notification-service` и `fleet-controller` `deploy/bootstrap.py`
+держит в state отпечаток (scopes и audiences) и на каждом запуске:
 
 1. сверяется с IAM пустым `PATCH {}`; principal в ответе не тот, что в state, —
    остановка до любой записи;

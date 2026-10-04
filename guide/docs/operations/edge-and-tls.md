@@ -9,13 +9,17 @@ for certificates.
 
 ## How the edge works
 
-
 ```mermaid
 flowchart LR
-    client([Browser, harness, runner]) ==>|443| caddy[caddy]
-    caddy ==>|/iam/*, prefix stripped| iam[iam-service:8010]
-    caddy ==>|/api/v1/*, /health/*, /docs, /openapi.json| cp[control-plane-api:8000]
-    caddy ==>|/notify/*, /guide/*| other[profile services]
+    client([Browser, harness, runner]) -->|443| caddy[caddy]
+    caddy -->|/iam/*, prefix stripped| iam[iam-service:8010]
+    caddy -->|/auth/*, prefix kept| kc[keycloak:8080]
+    caddy -->|/api/v1/*, /health/*, /docs, /openapi.json| cp[control-plane-api:8000]
+    caddy -->|/console/*| console[console:8090]
+    caddy -->|/harness/_launcher/internal/*, health| hl[harness-launcher:8080]
+    caddy -->|/notify/*, /fleet/*| other[profile services]
+    caddy -->|/harness, other /harness/*| asst[302 → /console/?assistant=open]
+    caddy -->|everything else| root[302 → /console/]
 ```
 
 - The `caddy` container publishes `${EDGE_HTTP_PORT:-80}` and `${EDGE_HTTPS_PORT:-443}`.
@@ -40,23 +44,26 @@ TLS; see "Minimal installation Caddyfile" below.
 | Path | Upstream | Prefix | Profile | Purpose |
 |---|---|---|---|---|
 | `/iam/*` | `iam-service:8010` | stripped (`handle_path`) | `core` | IAM for clients: JWKS, PAT exchange/introspection/revocation, `tokens/exchange`, `federation:*`, SCIM; issuer `${TAIMEN_PUBLIC_URL}/iam`. Administrative paths return 404 (see below) |
+| `/auth/*` | `keycloak:8080` | **kept** (`handle`) | `idp` | Keycloak lives under `KC_HTTP_RELATIVE_PATH=/auth` |
 | `/api/v1/*`, `/health/*`, `/docs*`, `/redoc*`, `/openapi.json` | `control-plane-api:8000` | no | `core` | Control Plane API; WebSocket subscriptions use the same route. `/metrics` is not exposed |
-| `/secrets/*` | `openbao:8200` | stripped | `core` | [Secret store](secret-store.md#perimeter): only `POST /v1/auth/jwt/login`, `GET /v1/kv/data/tenants/…` and `GET /v1/oauth2/creds/tenants/…`; everything else is `404`; `X-Vault-Token` is not logged |
+| `/harness/_launcher/internal/*`, `/harness/_launcher/health` | `harness-launcher:8080` | **kept** (`handle @harness_service`; the launcher strips the prefix itself) | `harness` | Internal routes of the assistant engine: the conversation surface and channel intake (IAM Bearer). The `X-Harness-Launcher` and `X-Harness-Principal` headers are stripped from outside requests, since only the launcher sets them; `flush_interval -1` streams the conversation without buffering |
+| `/harness`, `/harness/*` (everything else) | — | — | `edge` | The assistant engine has no web interface: a `302` redirect to `/console/?assistant=open`, the console with the [assistant](../operator/assistant.md) panel open |
+| `/fleet/*` | `fleet-controller:8040` | stripped | `fleet` | Registration of fleet nodes and their outgoing desired-state requests |
 | `/notify/*` | `notification-service:8000` | stripped | `notify` | Notification service: API and inbox, the Telegram bot webhook (`/notify/channels/telegram/webhook`, verified by the webhook secret), the intake point of the `notify.send@1` skill |
+| `/console/*` | `console:8090` | **kept** (`handle`; the console server itself lives under `/console`) | `core` (in the open distribution, `console`) | [Console](../operator/console.md): OIDC sign-in, API, event WebSocket, interface. `flush_interval -1` streams without buffering. `/console` without a slash redirects with `301` to `/console/` |
 | `/guide/*` | `guide:8080` | stripped | `edge` | This guide: a static MkDocs site (`guide/Dockerfile`) |
-
+| `/` (everything else) | — | — | `edge` | A `302` redirect to `/console/` |
 
 !!! warning "Block order matters"
-    The Control Plane route is declared with the named matcher `@cp_api`. If
-    the file has a generic `handle` without a matcher (a root fallback
-    route), declare your routes before it; otherwise the request goes to the
-    fallback route.
+    The Control Plane route is declared with the named matcher `@cp_api`
+    before the generic root `handle`. If you add your own routes, declare
+    them before the root block; otherwise the request gets a redirect to
+    `/console/`.
 
 A route for a profile that is not running returns `502`; this is expected.
 It is better to remove extra routes from the installation file.
 
 ## Minimal installation Caddyfile
-
 
 ```caddyfile
 platform.example.com {
@@ -73,6 +80,13 @@ platform.example.com {
 		reverse_proxy iam-service:8010
 	}
 
+	handle /auth/* {
+		reverse_proxy keycloak:8080 {
+			header_up X-Forwarded-Host {host}
+			header_up X-Forwarded-Proto {scheme}
+		}
+	}
+
 	# /metrics is intentionally not in the list: see "Closing internal paths"
 	@cp_api path /api/v1/* /health/* /docs /docs/* /redoc /redoc/* /openapi.json
 	handle @cp_api {
@@ -82,6 +96,31 @@ platform.example.com {
 		}
 	}
 
+	redir /console /console/ 301
+	handle /console/* {
+		reverse_proxy console:8090 {
+			flush_interval -1
+		}
+	}
+
+	@harness_service path /harness/_launcher/internal/* /harness/_launcher/health
+	handle @harness_service {
+		request_header -X-Harness-Launcher
+		request_header -X-Harness-Principal
+		reverse_proxy harness-launcher:8080 {
+			flush_interval -1
+		}
+	}
+
+	@harness_ui path /harness /harness/*
+	handle @harness_ui {
+		redir * /console/?assistant=open 302
+	}
+
+	handle {
+		redir * /console/ 302
+	}
+
 	log {
 		output stderr
 		format json
@@ -89,8 +128,9 @@ platform.example.com {
 }
 ```
 
-
-The file path is set in `.env` by the `CADDYFILE` variable.
+The file path is set in `.env` by the `CADDYFILE` variable. If the `idp` and
+`harness` profiles are not started, remove the `/auth/*`, `@harness_service`,
+and `@harness_ui` blocks.
 
 ## TLS and certificates
 
@@ -182,6 +222,11 @@ tool in your installation performs administrative operations through the
 public address, switch it to the internal address or an SSH tunnel: such
 requests no longer pass through the edge.
 
+### Keycloak admin console
+
+The `/auth/*` route also exposes `/auth/admin/`. If Keycloak administrators
+work from a known network, restrict this path with a `remote_ip` matcher, or
+administer through an SSH tunnel to `127.0.0.1:18081`.
 
 ## Changing the Caddyfile without downtime
 
@@ -230,9 +275,14 @@ nmap -Pn -p 1-65535 platform.example.com
 |---|---|---|
 | The browser gets a TLS error; the `caddy` logs show `challenge failed` / `429` | The name does not point to the host or port 80/443 is closed; ACME limits exceeded | Check `dig`, open the ports, remove names that are not ready; after a `429`, wait for the limit window |
 | Nothing changed after editing the Caddyfile | The file was replaced with a new inode | Write it in place or run `up -d --force-recreate caddy` |
+| Your own route responds with `302` to `/console/` | The route is declared after the root block | Move the block above `handle { redir * /console/ 302 }` |
+| The issuer in Keycloak tokens does not match the expected one; IAM responds `401 invalid_issuer` to `federation:exchange` | Containers resolve the public name bypassing `caddy` | Check `TAIMEN_PUBLIC_HOST` (the network alias) and `KC_HOSTNAME` |
 
 ## See also
 
 - [Production deployment](deployment.md)
 - [Monitoring and health](monitoring.md)
+- [Keycloak as the external IdP](../iam/keycloak.md)
+- [Personal workspace](../workplace/index.md)
+- [Assistant](../operator/assistant.md)
 - [Services and ports](../reference/services-and-ports.md)

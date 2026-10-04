@@ -49,6 +49,7 @@
 |---|---|---|---|
 | **control-plane** | Авторитетное операционное состояние: задачи, типы, claims, runs, approvals, артефакты, цели, журнал событий, харнесс-протокол; CLI `control-plane`, MCP-сервер `control-plane-mcp`, демон исполнителя `control-plane-agent` | `control-plane-api`, `control-plane-worker`, `context-adapter` (один образ) | PostgreSQL 16 (`control-plane-db`) |
 | **iam-service** | Tenants, principals, audiences, PAT, service accounts, федерация внешних IdP, SCIM, выпуск RS256-токенов, JWKS | `iam-service` | PostgreSQL 16 (`iam-db`) |
+| **console** | Веб-консоль работающей организации: пульс, происхождение работы, процессы, правила, агенты, управляющие действия, пакеты, люди и роли. Сабмодуль `console`, своей базы нет; см. [Консоль](../operator/console.md) | `console` | нет (сессии в памяти) |
 | **memory-service** | Граф знаний с временными фактами и provenance, документы, гибридный поиск (векторный + лексический + графовый), Context Compiler; HTTP API, MCP-сервер, CLI | `memory-service` | PostgreSQL 16 с Apache AGE и pgvector (`memory-db`, свой образ) |
 
 ### Библиотеки
@@ -82,9 +83,17 @@ flowchart LR
     end
     subgraph opt["опционально"]
         notify[notify]
+        idp[idp]
+        console[console]
+        harness[harness]
+        fleet[fleet]
     end
     core --> edge
     notify -.-> core
+    console -.-> idp
+    harness -.-> idp
+    idp -.-> core
+    fleet -.-> core
 ```
 
 | Профиль | Сервисы | Статус | Когда включать |
@@ -122,6 +131,8 @@ tools/compose --profile core --profile edge up -d   # то же без make
 | `${IMAGE_PREFIX}/memory-service` | корень (`MEMORY_BUILD_CONTEXT`) | `services/memory-service/Dockerfile` |
 | `${IMAGE_PREFIX}/memory-db` | `services/memory-service/infra/memory-db` | PostgreSQL + AGE + pgvector |
 | `${IMAGE_PREFIX}/notification-service` | корень (`NOTIFY_BUILD_CONTEXT`) | `services/notification-service/Dockerfile` |
+| `${IMAGE_PREFIX}/human-harness` | `./services/human-harness` | `Dockerfile` (сервис `harness-image`, только сборка) |
+| `${IMAGE_PREFIX}/harness-launcher` | `./services/human-harness` | `packages/launcher/Dockerfile` |
 
 `IMAGE_PREFIX` по умолчанию `taimen`, `IMAGE_TAG` — `local`. Контейнеры сервисов
 на Python работают под непривилегированным пользователем (у Control Plane и IAM

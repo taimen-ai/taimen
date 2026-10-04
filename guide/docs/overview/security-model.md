@@ -275,7 +275,7 @@ access is not granted (fail closed).
 | `MEMORY_API_KEY` | `.env` | the static memory key |
 | Operator PAT | `secrets/harness-pat` (0600) | human login |
 | Service client credentials | `secrets/*-iam.env` (0600) | service accounts of the core and optional services |
-| Database and MinIO passwords | `.env` | infrastructure |
+| Database, Keycloak, and MinIO passwords | `.env` | infrastructure |
 
 `.env`, `secrets/`, and `deploy/state/` are excluded from git. The bootstrap
 script does not print secrets, and secrets do not reach the event log: Control
@@ -295,6 +295,15 @@ token, binding permissions, and gate approvals on every write. For the runner
 daemon, the perimeter is set by an unprivileged OS user and systemd
 restrictions, not by the coding agent's permission mode. See
 [Agent identity](../runner/agent-identity.md).
+
+### Human workplaces
+
+The assistant in a person's workplace runs shell commands and may follow instructions
+that arrive with data (prompt injection), so its container is untrusted. The Docker API
+(the proxy for the launcher) sits in a separate internal network, and people's containers
+are in their own network without databases, secret stores, or the proxy; the launcher
+creates a container only from its own specification — without privileges, with limits,
+with mounts of that person only. See [Workplace isolation](../workplace/index.md#isolation).
 
 ## See also
 
