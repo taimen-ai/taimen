@@ -93,8 +93,9 @@ with every decision leaving a trace.
 
 ### Memory with provenance
 
-- **Knowledge graph.** Apache AGE and pgvector in a single PostgreSQL: observations,
-  temporal facts, source documents, provenance and audit.
+- **Knowledge graph.** Graph and vectors in a single PostgreSQL — the graph in ordinary
+  tables, vectors in pgvector, no graph extension required: observations, temporal facts,
+  source documents, provenance and audit.
 - **Retrieval and context assembly.** Hybrid search (vector, full-text, graph) with
   fusion and reranking; the Context Compiler assembles task context within a token
   budget, with references to sources. Processes read and write memory with the
