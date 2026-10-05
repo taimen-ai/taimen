@@ -164,7 +164,7 @@ explicitly: `make up PROFILES="core notify edge"` or
 
 | Parameter | Value |
 |---|---|
-| Image / build | `${IMAGE_PREFIX}/memory-db:${IMAGE_TAG}`, context `${MEMORY_BUILD_CONTEXT:-./services/memory-service}/infra/memory-db` (PostgreSQL 16 + Apache AGE + pgvector) |
+| Image / build | `${IMAGE_PREFIX}/memory-db:${IMAGE_TAG}`, context `${MEMORY_BUILD_CONTEXT:-./services/memory-service}/infra/memory-db` (PostgreSQL 16 + pgvector + `pg_trgm`; the image is based on `apache/age`, the service does not use the AGE extension) |
 | Database / role | `company_brain` / `memory` |
 | Volume | `memory_db` |
 | Healthcheck | `pg_isready -U memory -d company_brain` |

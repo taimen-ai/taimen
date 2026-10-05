@@ -11,7 +11,7 @@ memory-service — сервис памяти платформы Taimen: типи
 Сервис решает три задачи:
 
 1. **Хранит знания** — статьи, документы, факты, события внешних систем — в виде
-   графа сущностей и связей (Apache AGE) и текстовых фрагментов с эмбеддингами
+   графа сущностей и связей (таблицы PostgreSQL) и текстовых фрагментов с эмбеддингами
    (pgvector).
 2. **Находит релевантное** — гибридным поиском (вектор + полнотекстовый поиск +
    соседи по графу), с необязательным реранкингом и синтезом ответа через LLM.
@@ -39,7 +39,7 @@ flowchart LR
         BRAIN["/api/brain/*<br/>query · recall · search<br/>retain · documents · sources"]
         MAPI["/api/memory/*<br/>observations · context<br/>reconcile · packages"]
     end
-    DB[(memory-db<br/>PostgreSQL 16<br/>AGE + pgvector + pg_trgm)]
+    DB[(memory-db<br/>PostgreSQL 16<br/>pgvector + pg_trgm)]
     IAM[iam-service<br/>JWKS]
     POL[внешний PDP<br/>опционально]
     APP[Приложения и демо<br/>статический ключ или IAM-токен]
@@ -81,7 +81,7 @@ flowchart LR
 | MCP-сервер | Инструменты графа для агентов (stdio или streamable HTTP) | `platform-memory-mcp` |
 | CLI | Инициализация схемы, загрузка vault, запросы, трейсы | `cb` |
 | Клиент | `platform-memory-client`: `MemoryClient` / `AsyncMemoryClient` | каталог `services/memory-service/client` |
-| БД | PostgreSQL 16 + Apache AGE + pgvector + pg_trgm | образ `memory-db` |
+| БД | PostgreSQL 16 + pgvector + pg_trgm; граф — обычные таблицы (MEM-ADR-023) | образ `memory-db` |
 
 Дополнительные поверхности — административная консоль `/console` и публичная
 демо-витрина `/demo` — выключены по умолчанию и не входят в контракт потребителя (см.
@@ -105,7 +105,7 @@ flowchart LR
 
 | Сервис | Образ | Порт | Назначение |
 |---|---|---|---|
-| `memory-db` | `memory-db` (сборка из `services/memory-service/infra/memory-db`) | только сеть compose | PostgreSQL 16 + AGE + pgvector, БД `company_brain` |
+| `memory-db` | `memory-db` (сборка из `services/memory-service/infra/memory-db`) | только сеть compose | PostgreSQL 16 + pgvector + pg_trgm, БД `company_brain` |
 | `memory-service` | `memory-service` (контекст сборки — корень суперпроекта) | `127.0.0.1:${MEMORY_HOST_PORT:-18001}` → `8077` | HTTP API |
 
 Контекст сборки образа — корень суперпроекта, потому что сервис подключает соседний

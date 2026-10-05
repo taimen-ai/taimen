@@ -162,7 +162,7 @@ flowchart LR
 
 | Параметр | Значение |
 |---|---|
-| Образ / сборка | `${IMAGE_PREFIX}/memory-db:${IMAGE_TAG}`, контекст `${MEMORY_BUILD_CONTEXT:-./services/memory-service}/infra/memory-db` (PostgreSQL 16 + Apache AGE + pgvector) |
+| Образ / сборка | `${IMAGE_PREFIX}/memory-db:${IMAGE_TAG}`, контекст `${MEMORY_BUILD_CONTEXT:-./services/memory-service}/infra/memory-db` (PostgreSQL 16 + pgvector + `pg_trgm`; образ основан на `apache/age`, расширение AGE сервис не использует) |
 | БД / роль | `company_brain` / `memory` |
 | Volume | `memory_db` |
 | Healthcheck | `pg_isready -U memory -d company_brain` |

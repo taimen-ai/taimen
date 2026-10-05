@@ -2,7 +2,7 @@
 
 Справочник переменных окружения memory-service (`CB_*`), их связь с переменными
 корневого `.env` платформы, настройка провайдеров эмбеддингов и LLM, а также
-эксплуатация: резервное копирование с Apache AGE, переиндексация, производительность
+эксплуатация: резервное копирование, переиндексация, производительность
 и типичные проблемы. Для администраторов.
 
 ## Как задаются настройки
@@ -53,8 +53,8 @@
 
 | Переменная | По умолчанию | Смысл |
 |---|---|---|
-| `CB_DATABASE_URL` | собирается из `POSTGRES_USER/PASSWORD/HOST/PORT/DB` (`brain`/`brain`/`localhost`/`5432`/`company_brain`) | Строка подключения к PostgreSQL с AGE и pgvector |
-| `CB_GRAPH_NAME` | `company_brain` | Имя графа AGE |
+| `CB_DATABASE_URL` | собирается из `POSTGRES_USER/PASSWORD/HOST/PORT/DB` (`brain`/`brain`/`localhost`/`5432`/`company_brain`) | Строка подключения к PostgreSQL с pgvector (`pg_trgm` рекомендуется) |
+| `CB_GRAPH_NAME` | `company_brain` | Схема PostgreSQL с таблицами графа (`graph_nodes`, `graph_edges`) |
 | `CB_CHUNKS_TABLE` | `chunks` | Таблица фрагментов |
 | `CB_DB_JIT` | `false` | JIT PostgreSQL для соединений сервиса (см. [Производительность](#performance)) |
 | `CB_DEFAULT_NAMESPACE` | `nexus` | Namespace запросов без `scope`; задавайте явно |
@@ -229,19 +229,46 @@
   в `deploy/local/compose.yml` он привязан к `127.0.0.1`, а платформа вызывает память по
   внутреннему адресу.
 - Схема (граф, таблицы, индексы) создаётся и доводится идемпотентно при старте
-  сервиса; миграции аддитивны, отдельных шагов при обновлении не требуют.
-- Образ `memory-db` собран на официальном образе Apache AGE для PostgreSQL 16 с
-  pgvector; init-скрипт при первом создании тома ставит расширения `age`, `vector`,
-  `pg_trgm` и создаёт граф `company_brain`. Без прав на `CREATE EXTENSION pg_trgm`
-  поиск идентификаторов работает последовательным `ILIKE` — корректно, но медленнее.
+  сервиса; миграции аддитивны, отдельных шагов при обновлении не требуют —
+  кроме однократного переноса графа из Apache AGE (ниже).
+- Граф памяти — обычные таблицы PostgreSQL `graph_nodes` и `graph_edges` в схеме
+  `CB_GRAPH_NAME` (MEM-ADR-023), вектора — pgvector, поиск по тексту — `pg_trgm`.
+  Из расширений обязателен только `vector`, `pg_trgm` рекомендуется: без прав на
+  `CREATE EXTENSION pg_trgm` поиск идентификаторов работает последовательным
+  `ILIKE` — корректно, но медленнее. Графовое расширение и суперпользователь
+  сервису не нужны, поэтому подходит любой PostgreSQL 16 с pgvector.
+- Образ `memory-db` в поставке пока основан на официальном образе Apache AGE для
+  PostgreSQL 16 с pgvector из исходников; init-скрипт при первом создании тома
+  ставит расширения `age`, `vector`, `pg_trgm`. Расширение AGE сервис не
+  использует — оно остаётся только для переноса графа со старых установок.
+
+#### Переход с Apache AGE {#age-migration}
+
+До memory-service v0.2.1 граф хранился в Apache AGE. Новая версия данные AGE не
+читает и не трогает: на установке со старым графом он после обновления выглядит
+пустым, пока его не перенести командой `cb migrate-graph-from-age`. Перенос
+выполняется, пока расширение AGE ещё стоит в базе, и при **остановленном** сервисе:
+
+```bash
+tools/compose stop memory-service
+tools/compose run --rm memory-service cb migrate-graph-from-age --dry-run   # сверка без записи
+tools/compose run --rm memory-service cb migrate-graph-from-age             # перенос
+tools/compose up -d memory-service
+```
+
+Команда идемпотентна и в конце сверяет число узлов и рёбер по каждому namespace;
+расхождение или пропуск — код выхода 1 и отчёт. После запуска сервиса перенос
+повторно **не запускайте** (только `--dry-run`): сервис уже удалял узлы, которые в
+AGE остались, и повтор вернул бы удалённое, включая вычищенные ПДн. Подробно —
+README memory-service и MEM-ADR-023.
 
 ### Производительность {#performance}
 
 | Настройка / особенность | Почему важно |
 |---|---|
-| `CB_DB_JIT=false` (по умолчанию) | AGE отдаёт планировщику завышенные оценки кардинальности, и JIT PostgreSQL компилирует каждый графовый запрос заново — это основная доля времени обхода графа. Сервис открывает сессии с `-c jit=off`; явно заданный `options` в `CB_DATABASE_URL` не перетирается |
+| `CB_DB_JIT=false` (по умолчанию) | Наследие графа на Apache AGE: его завышенные оценки кардинальности заставляли JIT PostgreSQL компилировать каждый графовый запрос заново (MEM-ADR-010). На таблицах графа JIT по замеру MEM-ADR-023 не включается; настройка пока сохранена. Сервис открывает сессии с `-c jit=off`; явно заданный `options` в `CB_DATABASE_URL` не перетирается |
 | Соединение на запрос | Пула соединений нет: каждый HTTP-запрос открывает своё соединение. Для внешнего пулера, не поддерживающего `options`, задайте параметры сессии в самой строке подключения |
-| Индексы | HNSW по эмбеддингам, GIN по полнотекстовому документу, GIN по `meta`, триграммы по тексту, GIN/hash-индексы меток графа |
+| Индексы | HNSW по эмбеддингам, GIN по полнотекстовому документу, GIN по `meta`, триграммы по тексту, B-tree- и GIN-индексы таблиц графа (`graph_nodes`, `graph_edges`) |
 | Таймауты провайдеров | Эмбеддинг `CB_EMBEDDING_TIMEOUT`, реранк 12 с, синтез 25 с — зависший провайдер не держит запрос бесконечно |
 | Реранк и синтез | Каждый добавляет вызов LLM к задержке запроса |
 | Rate limiting | На уровне API нет (кроме витрины `/demo`) — массовую загрузку ведите последовательно |
@@ -267,41 +294,11 @@ tools/compose exec -T memory-db \
   pg_restore -U memory -d company_brain --clean --if-exists < memory-XXXX.dump
 ```
 
-!!! danger "После восстановления графа AGE нужно исправить OID"
-    Apache AGE хранит в каталоге `ag_catalog` настоящие OID PostgreSQL. Колонка
-    `ag_graph.namespace` имеет тип `regnamespace` и при восстановлении получает
-    правильное значение, а `ag_graph.graphid` и `ag_label.graph` — обычные `oid` и
-    приезжают со **старого** кластера. Сервис после этого падает с ошибкой вида
-    `graph with oid NNNNN does not exist`.
-
-Проверка — у согласованного графа `graphid` совпадает с OID его схемы:
-
-```sql
-SELECT name, graphid, namespace::oid AS schema_oid
-FROM ag_catalog.ag_graph;
-```
-
-Исправление — одной транзакцией. Порядок важен: сначала снять внешний ключ, затем
-обновить `ag_label` (пока в `ag_graph` ещё старые `graphid`), затем `ag_graph`, и
-вернуть ключ — он же и проверит результат:
-
-```sql
-BEGIN;
-ALTER TABLE ag_catalog.ag_label DROP CONSTRAINT fk_graph_oid;
-
-UPDATE ag_catalog.ag_label AS l
-SET graph = g.namespace::oid
-FROM ag_catalog.ag_graph AS g
-WHERE l.graph = g.graphid;
-
-UPDATE ag_catalog.ag_graph
-SET graphid = namespace::oid;
-
-ALTER TABLE ag_catalog.ag_label
-  ADD CONSTRAINT fk_graph_oid FOREIGN KEY (graph)
-  REFERENCES ag_catalog.ag_graph (graphid);
-COMMIT;
-```
+Граф хранится в обычных таблицах (`graph_nodes`, `graph_edges` в схеме
+`CB_GRAPH_NAME`), поэтому дамп переносится в другой кластер без ручных правок
+каталога. Дамп установки, где граф ещё в Apache AGE, восстанавливается так же, а
+перенос графа выполняется после восстановления — см. [Переход с Apache
+AGE](#age-migration).
 
 Затем запустите сервис и проверьте:
 
@@ -373,7 +370,7 @@ curl -fsS http://127.0.0.1:18001/healthz
 |---|---|---|
 | Поиск находит только точные слова | `CB_EMBEDDING_PROVIDER=fake` | Включить настоящий провайдер и переиндексировать |
 | `500` с «размерность … CB_EMBEDDING_DIM» | Модель и `CB_EMBEDDING_DIM` расходятся с таблицей | См. [переиндекс](#reindex) |
-| `graph with oid … does not exist` после восстановления | OID каталога AGE со старого кластера | Процедура исправления OID выше |
+| После обновления граф пуст, поиск находит только фрагменты | Граф остался в Apache AGE и не перенесён | [Переход с Apache AGE](#age-migration) |
 | `401` на валидный IAM-токен | Не совпадает `iss` (`CB_IAM_ISSUER`) или `aud`; токен выпущен не на `memory-service` | Сверить issuer с публичным адресом IAM, обменять PAT на audience `memory-service` |
 | `503` на запросы с IAM-токеном | JWKS недоступен или `CB_IAM_JWKS_URL` пуст | Проверить внутренний адрес IAM |
 | `403` «Нет прав на namespace» | Запрос без `scope` попал в namespace по умолчанию, или грант не покрывает базу | Передавать `scope` явно, проверить гранты |

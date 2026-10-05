@@ -15,7 +15,7 @@ flowchart LR
     end
     A -->|наблюдения, IAM-токен или MEMORY_API_KEY| M[memory-service]
     API -->|сборка контекста, таймаут CP_CONTEXT_TIMEOUT_SECONDS| M
-    M --> DB[(memory-db<br/>AGE + pgvector)]
+    M --> DB[(memory-db<br/>pgvector + pg_trgm)]
     M -->|эмбеддинги, реранк| LLM[LLM-провайдер]
 ```
 
@@ -80,7 +80,7 @@ Memory Service отвечает `{"detail": "<текст>"}`; ниже — те�
 | `403 Маршрут доступен только identity ядра (memory:service / CB_CORE_IDENTITIES)` | Маршрут ядра (reconcile, пакеты видов, виды namespace) вызван не ядром | Вызывать через Control Plane; service account ядра имеет scope `memory:service` |
 | `403 Нужен service scope (регистрация пакетов видов)` | Регистрация пакета видов без service scope | То же: через ядро |
 | `503 БД недоступна: …` на `/healthz` | `memory-db` не отвечает | `tools/compose logs memory-db`, диск, память контейнера |
-| Ошибка `graph with oid … does not exist` | База восстановлена логическим дампом в новый кластер | Исправление каталога AGE, см. [Резервное копирование](../operations/backup.md) |
+| После обновления граф пуст: `nodes` в `/healthz` — 0 или меньше прежнего, поиск находит только фрагменты | Граф установки остался в Apache AGE и не перенесён в таблицы | `cb migrate-graph-from-age`, сначала `--dry-run`, см. [Переход с Apache AGE](../memory/configuration.md#age-migration) |
 | `404` на `/console` | Консоль памяти выключена (`MEMORY_CONSOLE_ENABLED=false`) | Включать только вместе с аутентификацией на прокси; наружу в промышленной раскладке память не публикуется |
 
 ## Качество и скорость поиска

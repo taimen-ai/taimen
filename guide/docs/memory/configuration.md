@@ -3,7 +3,7 @@
 
 A reference for memory-service environment variables (`CB_*`), how they relate
 to the variables in the platform's root `.env`, how to configure embedding and
-LLM providers, and operations: backup with Apache AGE, reindexing,
+LLM providers, and operations: backup, reindexing,
 performance, and common problems. It is for administrators.
 
 ## How settings are specified
@@ -55,8 +55,8 @@ an external PDP; you add it together with the PDP) adds `CB_IAM_CLIENT_ID` and
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `CB_DATABASE_URL` | assembled from `POSTGRES_USER/PASSWORD/HOST/PORT/DB` (`brain`/`brain`/`localhost`/`5432`/`company_brain`) | Connection string for PostgreSQL with AGE and pgvector |
-| `CB_GRAPH_NAME` | `company_brain` | AGE graph name |
+| `CB_DATABASE_URL` | assembled from `POSTGRES_USER/PASSWORD/HOST/PORT/DB` (`brain`/`brain`/`localhost`/`5432`/`company_brain`) | Connection string for PostgreSQL with pgvector (`pg_trgm` recommended) |
+| `CB_GRAPH_NAME` | `company_brain` | PostgreSQL schema with the graph tables (`graph_nodes`, `graph_edges`) |
 | `CB_CHUNKS_TABLE` | `chunks` | Fragments table |
 | `CB_DB_JIT` | `false` | PostgreSQL JIT for the service's connections (see [Performance](#performance)) |
 | `CB_DEFAULT_NAMESPACE` | `nexus` | Namespace for requests without `scope`; set it explicitly |
@@ -233,20 +233,50 @@ Selection guidelines:
   platform calls memory at the internal address.
 - The schema (graph, tables, indexes) is created and completed idempotently
   when the service starts; migrations are additive and need no separate steps
-  during an upgrade.
-- The `memory-db` image is built on the official Apache AGE image for
-  PostgreSQL 16 with pgvector; when the volume is first created, the init
-  script installs the extensions `age`, `vector`, `pg_trgm` and creates the
-  `company_brain` graph. Without the right to `CREATE EXTENSION pg_trgm`,
-  identifier search uses a sequential `ILIKE`, which is correct but slower.
+  during an upgrade, except a one-time move of the graph from Apache AGE
+  (below).
+- The memory graph is ordinary PostgreSQL tables `graph_nodes` and
+  `graph_edges` in the `CB_GRAPH_NAME` schema (MEM-ADR-023), vectors are
+  pgvector, text search is `pg_trgm`. Of the extensions only `vector` is
+  required and `pg_trgm` is recommended: without the right to
+  `CREATE EXTENSION pg_trgm`, identifier search uses a sequential `ILIKE`,
+  which is correct but slower. The service needs no graph extension and no
+  superuser, so any PostgreSQL 16 with pgvector will do.
+- The `memory-db` image in the distribution is still based on the official
+  Apache AGE image for PostgreSQL 16, with pgvector built from source; when the
+  volume is first created, the init script installs the extensions `age`,
+  `vector`, `pg_trgm`. The service does not use the AGE extension; it remains
+  only for moving the graph from older installations.
+
+#### Moving from Apache AGE {#age-migration}
+
+Before memory-service v0.2.1, the graph was stored in Apache AGE. The new
+version neither reads nor touches AGE data: on an installation with an old
+graph, the graph looks empty after the upgrade until it is moved with
+`cb migrate-graph-from-age`. Run the move while the AGE extension is still
+installed in the database and with the service **stopped**:
+
+```bash
+tools/compose stop memory-service
+tools/compose run --rm memory-service cb migrate-graph-from-age --dry-run   # reconciliation without writing
+tools/compose run --rm memory-service cb migrate-graph-from-age             # move
+tools/compose up -d memory-service
+```
+
+The command is idempotent and at the end reconciles the node and edge counts
+for each namespace; a mismatch or a skipped record means exit code 1 and a
+report. Once the service has started, **do not** run the move again (only
+`--dry-run`): the service has already deleted nodes that remain in AGE, and a
+repeat would bring the deleted data back, including purged personal data. For
+details, see the memory-service README and MEM-ADR-023.
 
 ### Performance {#performance}
 
 | Setting / specific | Why it matters |
 |---|---|
-| `CB_DB_JIT=false` (default) | AGE gives the planner inflated cardinality estimates, and PostgreSQL JIT recompiles every graph query, which is the main share of graph traversal time. The service opens sessions with `-c jit=off`; an explicitly set `options` in `CB_DATABASE_URL` is not overwritten |
+| `CB_DB_JIT=false` (default) | A legacy of the Apache AGE graph: its inflated cardinality estimates made PostgreSQL JIT recompile every graph query (MEM-ADR-010). On the graph tables, the MEM-ADR-023 benchmark shows JIT does not kick in; the setting is kept for now. The service opens sessions with `-c jit=off`; an explicitly set `options` in `CB_DATABASE_URL` is not overwritten |
 | One connection per request | There is no connection pool: each HTTP request opens its own connection. For an external pooler that does not support `options`, set the session parameters in the connection string itself |
-| Indexes | HNSW on embeddings, GIN on the full-text document, GIN on `meta`, trigrams on text, GIN/hash indexes on graph labels |
+| Indexes | HNSW on embeddings, GIN on the full-text document, GIN on `meta`, trigrams on text, B-tree and GIN indexes on the graph tables (`graph_nodes`, `graph_edges`) |
 | Provider timeouts | Embedding `CB_EMBEDDING_TIMEOUT`, rerank 12 s, synthesis 25 s: a hung provider does not hold a request forever |
 | Rerank and synthesis | Each adds an LLM call to the request latency |
 | Rate limiting | None at the API level (except the `/demo` showcase); run bulk loading sequentially |
@@ -274,41 +304,11 @@ tools/compose exec -T memory-db \
   pg_restore -U memory -d company_brain --clean --if-exists < memory-XXXX.dump
 ```
 
-!!! danger "After restoring an AGE graph, you must fix the OIDs"
-    Apache AGE stores real PostgreSQL OIDs in the `ag_catalog` catalog. The
-    `ag_graph.namespace` column has type `regnamespace` and gets the correct
-    value on restore, while `ag_graph.graphid` and `ag_label.graph` are plain
-    `oid` columns and arrive from the **old** cluster. After that, the service
-    fails with an error like `graph with oid NNNNN does not exist`.
-
-Check: in a consistent graph, `graphid` matches the OID of its schema:
-
-```sql
-SELECT name, graphid, namespace::oid AS schema_oid
-FROM ag_catalog.ag_graph;
-```
-
-The fix is a single transaction. The order matters: first drop the foreign
-key, then update `ag_label` (while `ag_graph` still has the old `graphid`
-values), then `ag_graph`, and restore the key, which also verifies the result:
-
-```sql
-BEGIN;
-ALTER TABLE ag_catalog.ag_label DROP CONSTRAINT fk_graph_oid;
-
-UPDATE ag_catalog.ag_label AS l
-SET graph = g.namespace::oid
-FROM ag_catalog.ag_graph AS g
-WHERE l.graph = g.graphid;
-
-UPDATE ag_catalog.ag_graph
-SET graphid = namespace::oid;
-
-ALTER TABLE ag_catalog.ag_label
-  ADD CONSTRAINT fk_graph_oid FOREIGN KEY (graph)
-  REFERENCES ag_catalog.ag_graph (graphid);
-COMMIT;
-```
+The graph is stored in ordinary tables (`graph_nodes`, `graph_edges` in the
+`CB_GRAPH_NAME` schema), so a dump moves to another cluster without manual
+catalog fixes. A dump of an installation whose graph is still in Apache AGE is
+restored the same way, and the graph is moved after the restore; see [Moving
+from Apache AGE](#age-migration).
 
 Then start the service and check:
 
@@ -385,7 +385,7 @@ procedure is in [Upgrades](../operations/upgrades.md).
 |---|---|---|
 | Search finds only exact words | `CB_EMBEDDING_PROVIDER=fake` | Enable a real provider and reindex |
 | `500` with an error about the dimension and `CB_EMBEDDING_DIM` | The model and `CB_EMBEDDING_DIM` differ from the table | See [reindex](#reindex) |
-| `graph with oid … does not exist` after a restore | AGE catalog OIDs from the old cluster | The OID fix procedure above |
+| After an upgrade the graph is empty and search finds only fragments | The graph stayed in Apache AGE and was not moved | [Moving from Apache AGE](#age-migration) |
 | `401` for a valid IAM token | `iss` (`CB_IAM_ISSUER`) or `aud` does not match; the token was not issued for `memory-service` | Compare the issuer with IAM's public address; exchange the PAT for audience `memory-service` |
 | `503` on requests with an IAM token | JWKS unavailable or `CB_IAM_JWKS_URL` empty | Check the internal IAM address |
 | `403` "no permission on the namespace" | A request without `scope` went to the default namespace, or the grant does not cover the base | Pass `scope` explicitly, check the grants |

@@ -30,7 +30,7 @@ flowchart LR
         adapter ==> mem[memory-service]
         iam --- iamdb[(iam-db)]
         cp --- cpdb[(control-plane-db)]
-        mem --- memdb[(memory-db<br/>AGE + pgvector)]
+        mem --- memdb[(memory-db<br/>pgvector + pg_trgm)]
     end
     runner[Fleet node<br/>agent containers] ==>|HTTPS: PAT → access token| caddy
 ```
@@ -62,7 +62,7 @@ Key principles:
 | [Edge and TLS](edge-and-tls.md) | Caddy routes, certificate issuance, closing internal paths, common mistakes |
 | [Upgrades and migrations](upgrades.md) | Standard rollout, Alembic migrations, minimizing downtime, rollback |
 | [Secrets and rotation](secrets.md) | Secret inventory, file permissions, rotating PATs, the signing key, passwords |
-| [Backup](backup.md) | What to back up, `pg_dump` of each database, Apache AGE specifics, restore |
+| [Backup](backup.md) | What to back up, `pg_dump` of each database, moving the memory graph from Apache AGE, restore |
 | [Monitoring and health](monitoring.md) | Health endpoints, `/metrics`, `make smoke`, logs, what to alert on |
 | [Resources and scaling](capacity.md) | Memory limits from `deploy/local/compose.yml`, minimum and recommended configurations |
 | [Emergency procedures](emergency.md) | IAM outage, release rollback, loss of the runner host, credential compromise |

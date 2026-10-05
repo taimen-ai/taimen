@@ -107,7 +107,7 @@ brings the schema to head at startup.
 | `iam-service` | At container startup | `alembic upgrade head && uvicorn …` |
 | `control-plane-api` | At container startup | `alembic upgrade head && uvicorn …` |
 | `control-plane-worker`, `context-adapter` | Do not apply them | Start after `control-plane-api` becomes healthy |
-| `memory-service` | At startup, idempotently | The service creates missing tables and indexes; migrations are additive |
+| `memory-service` | At startup, idempotently | The service creates missing tables and indexes; migrations are additive. The exception is an installation whose graph is still in Apache AGE (before v0.2.1): before the new version first starts, the graph is moved with `cb migrate-graph-from-age`, see [Moving from Apache AGE](../memory/configuration.md#age-migration) |
 
 Control Plane `GET /health/ready` compares the database revision with the
 image's head and returns `503` with `reason: migrations_pending` while they

@@ -433,9 +433,9 @@ The "In the stack" column is the value from `deploy/local/compose.yml`.
 
 | Variable | Default | In the stack | Purpose |
 |---|---|---|---|
-| `CB_DATABASE_URL` | `""` → built from `POSTGRES_USER/PASSWORD/HOST/PORT/DB` | `postgresql://memory:…@memory-db:5432/company_brain` | Database (PostgreSQL + Apache AGE + pgvector). |
+| `CB_DATABASE_URL` | `""` → built from `POSTGRES_USER/PASSWORD/HOST/PORT/DB` | `postgresql://memory:…@memory-db:5432/company_brain` | Database (PostgreSQL with pgvector; `pg_trgm` recommended). |
 | `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_HOST`, `POSTGRES_PORT`, `POSTGRES_DB` | `brain`, `brain`, `localhost`, `5432`, `company_brain` | — | Used only if `CB_DATABASE_URL` is empty. |
-| `CB_GRAPH_NAME` | `company_brain` | — | AGE graph name. |
+| `CB_GRAPH_NAME` | `company_brain` | — | PostgreSQL schema with the graph tables `graph_nodes`, `graph_edges`. |
 | `CB_CHUNKS_TABLE` | `chunks` | — | Chunks table. |
 | `CB_DB_JIT` | `false` | — | PostgreSQL JIT for the service's connections; enable only for a measurement. |
 | `CB_DEFAULT_NAMESPACE` | `nexus` | `main` | Namespace of requests without a scope. |

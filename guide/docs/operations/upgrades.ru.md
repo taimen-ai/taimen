@@ -103,7 +103,7 @@ tools/compose --profile "*" ps
 | `iam-service` | При старте контейнера | `alembic upgrade head && uvicorn …` |
 | `control-plane-api` | При старте контейнера | `alembic upgrade head && uvicorn …` |
 | `control-plane-worker`, `context-adapter` | Не применяют | Стартуют после того, как `control-plane-api` стал healthy |
-| `memory-service` | При старте, идемпотентно | Сервис создаёт недостающие таблицы и индексы; миграции аддитивные |
+| `memory-service` | При старте, идемпотентно | Сервис создаёт недостающие таблицы и индексы; миграции аддитивные. Исключение — установка, где граф ещё в Apache AGE (до v0.2.1): до первого запуска новой версии граф переносится `cb migrate-graph-from-age`, см. [Переход с Apache AGE](../memory/configuration.md#age-migration) |
 
 `GET /health/ready` Control Plane сравнивает ревизию БД с head образа и
 отвечает `503` с `reason: migrations_pending`, пока они расходятся — поэтому

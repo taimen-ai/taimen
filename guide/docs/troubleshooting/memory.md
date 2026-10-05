@@ -16,7 +16,7 @@ flowchart LR
     end
     A -->|observations, IAM token or MEMORY_API_KEY| M[memory-service]
     API -->|context assembly, timeout CP_CONTEXT_TIMEOUT_SECONDS| M
-    M --> DB[(memory-db<br/>AGE + pgvector)]
+    M --> DB[(memory-db<br/>pgvector + pg_trgm)]
     M -->|embeddings, rerank| LLM[LLM provider]
 ```
 
@@ -83,7 +83,7 @@ rendering follows each one in parentheses.
 | `403 Маршрут доступен только identity ядра (memory:service / CB_CORE_IDENTITIES)` ("route is available only to the core identity (…)") | A core route (reconcile, kind packages, namespace kinds) was called by something other than the core | Call it through Control Plane; the core service account has the `memory:service` scope |
 | `403 Нужен service scope (регистрация пакетов видов)` ("service scope required (kind package registration)") | Kind package registration without a service scope | Same: go through the core |
 | `503 БД недоступна: …` ("database unavailable: …") on `/healthz` | `memory-db` does not respond | `tools/compose logs memory-db`, disk, container memory |
-| Error `graph with oid … does not exist` | The database was restored from a logical dump into a new cluster | Fix the AGE catalog, see [Backup](../operations/backup.md) |
+| After an upgrade the graph is empty: `nodes` in `/healthz` is 0 or lower than before, search finds only fragments | The installation's graph stayed in Apache AGE and was not moved into the tables | `cb migrate-graph-from-age`, `--dry-run` first, see [Moving from Apache AGE](../memory/configuration.md#age-migration) |
 | `404` on `/console` | The memory console is disabled (`MEMORY_CONSOLE_ENABLED=false`) | Enable it only together with authentication at the proxy; in the production layout, memory is not exposed externally |
 
 ## Search quality and speed

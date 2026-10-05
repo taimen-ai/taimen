@@ -430,9 +430,9 @@ Control Plane (см. [Пакеты каталога](../control-plane/catalog-pa
 
 | Переменная | По умолчанию | В стеке | Назначение |
 |---|---|---|---|
-| `CB_DATABASE_URL` | `""` → собирается из `POSTGRES_USER/PASSWORD/HOST/PORT/DB` | `postgresql://memory:…@memory-db:5432/company_brain` | БД (PostgreSQL + Apache AGE + pgvector). |
+| `CB_DATABASE_URL` | `""` → собирается из `POSTGRES_USER/PASSWORD/HOST/PORT/DB` | `postgresql://memory:…@memory-db:5432/company_brain` | БД (PostgreSQL с pgvector; `pg_trgm` рекомендуется). |
 | `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_HOST`, `POSTGRES_PORT`, `POSTGRES_DB` | `brain`, `brain`, `localhost`, `5432`, `company_brain` | — | Используются, только если `CB_DATABASE_URL` пуст. |
-| `CB_GRAPH_NAME` | `company_brain` | — | Имя графа AGE. |
+| `CB_GRAPH_NAME` | `company_brain` | — | Схема PostgreSQL с таблицами графа `graph_nodes`, `graph_edges`. |
 | `CB_CHUNKS_TABLE` | `chunks` | — | Таблица чанков. |
 | `CB_DB_JIT` | `false` | — | JIT PostgreSQL для соединений сервиса; включать только под замер. |
 | `CB_DEFAULT_NAMESPACE` | `nexus` | `main` | Namespace запросов без scope. |

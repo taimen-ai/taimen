@@ -220,7 +220,7 @@ resource services проверяют подпись токенов; кэширу
 открывающий инструменты `cp_*` Control Plane кодовым агентам. →
 [CLI и MCP-сервер](../control-plane/cli-and-mcp.md)
 
-**memory-service** — движок памяти: граф знаний (PostgreSQL + Apache AGE),
+**memory-service** — движок памяти: граф знаний (таблицы PostgreSQL),
 векторный поиск (pgvector), наблюдения, сборка ContextPack. →
 [Память](../memory/index.md)
 

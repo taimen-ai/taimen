@@ -29,7 +29,7 @@ flowchart LR
         adapter ==> mem[memory-service]
         iam --- iamdb[(iam-db)]
         cp --- cpdb[(control-plane-db)]
-        mem --- memdb[(memory-db<br/>AGE + pgvector)]
+        mem --- memdb[(memory-db<br/>pgvector + pg_trgm)]
     end
     runner[Узел fleet<br/>контейнеры агентов] ==>|HTTPS: PAT → access token| caddy
 ```
@@ -58,7 +58,7 @@ flowchart LR
 | [Периметр и TLS](edge-and-tls.md) | Маршруты Caddy, выпуск сертификатов, закрытие служебных путей, типичные ошибки |
 | [Обновление и миграции](upgrades.md) | Штатная выкладка, миграции Alembic, минимизация простоя, откат |
 | [Секреты и ротация](secrets.md) | Инвентарь секретов, права файлов, ротация PAT, ключа подписи, паролей |
-| [Резервное копирование](backup.md) | Что бэкапить, `pg_dump` каждой БД, особенности Apache AGE, восстановление |
+| [Резервное копирование](backup.md) | Что бэкапить, `pg_dump` каждой БД, перенос графа памяти из Apache AGE, восстановление |
 | [Мониторинг и здоровье](monitoring.md) | Health-эндпоинты, `/metrics`, `make smoke`, логи, что алертить |
 | [Ресурсы и масштабирование](capacity.md) | Лимиты памяти из `deploy/local/compose.yml`, минимальные и рекомендуемые конфигурации |
 | [Аварийные процедуры](emergency.md) | Отказ IAM, откат релиза, потеря runner-хоста, компрометация credentials |

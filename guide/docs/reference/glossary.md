@@ -221,8 +221,8 @@ categories, and the allowed transitions.
 exposes the Control Plane `cp_*` tools to code agents. →
 [CLI and MCP server](../control-plane/cli-and-mcp.md)
 
-**memory-service**: the memory engine: knowledge graph (PostgreSQL + Apache
-AGE), vector search (pgvector), observations, ContextPack assembly. →
+**memory-service**: the memory engine: knowledge graph (PostgreSQL
+tables), vector search (pgvector), observations, ContextPack assembly. →
 [Memory](../memory/index.md)
 
 ## N

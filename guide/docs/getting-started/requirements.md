@@ -26,7 +26,7 @@ Practical reference points:
   6 GB RAM** if you set the limits from `.env.example` (the "memory limits"
   section) and enable swap; this is a lower bound, not a recommendation;
 - the **first image build** takes several minutes (Python dependencies, the
-  `memory-db` image with Apache AGE and pgvector, and for `harness` the
+  `memory-db` image with pgvector built from source, and for `harness` the
   personal workspace image); a rebuild with a warm cache takes tens of seconds.
 
 Disk: the core images take several gigabytes, plus PostgreSQL data in volumes.

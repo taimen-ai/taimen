@@ -37,7 +37,7 @@ flowchart TB
         CTX[context-adapter]
         CPDB[(control-plane-db<br/>PostgreSQL 16)]
         MEM[memory-service<br/>:8077]
-        MEMDB[(memory-db<br/>PostgreSQL 16 + AGE + pgvector)]
+        MEMDB[(memory-db<br/>PostgreSQL 16 + pgvector)]
         MINIO[(minio<br/>artifact content)]
     end
 

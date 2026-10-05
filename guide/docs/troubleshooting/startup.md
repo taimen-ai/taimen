@@ -49,7 +49,6 @@ tools/compose --profile core --profile edge config | less
 | `keycloak-db` does not start: `set KEYCLOAK_DB_PASSWORD` | The Keycloak database password is not set | Run `make secrets` or set it manually |
 | `keycloak` stays `starting` for a long time | This is normal: the JVM starts and the realm is imported; `start_period` is 40 s, up to 20 retries | Wait; on OOM, raise `KEYCLOAK_MEM_LIMIT` |
 | `control-plane-api` does not start: dependency `minio-bootstrap` exited with an error | The one-shot container failed | `tools/compose logs minio minio-bootstrap` |
-| `memory-service` fails with `graph with oid … does not exist` | The memory database was restored from a logical dump into a new cluster | Fix the AGE catalog OIDs, see [Backup](../operations/backup.md) |
 | `harness-launcher` does not let people in, or a service of the `harness` profile does not start without `idp` | The `harness` profile requires `idp` (sign-in through Keycloak) | Start the profiles together: `make up PROFILES="core idp harness edge"` |
 
 ## Edge (Caddy)

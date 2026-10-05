@@ -372,7 +372,7 @@ Details are in [Control Plane context](../control-plane/context.md).
 | Question embedding | The first call in the pipeline, before the database is queried | Keep `CB_EMBEDDING_TIMEOUT` reasonable: otherwise a hung provider holds the worker |
 | Rerank | +1 LLM call (12 s timeout) | A fast model, or reranking off for realtime |
 | Synthesis | +1 LLM call (25 s timeout) | `synthesize: false` and your own model |
-| Graph traversal | Cypher queries through AGE | PostgreSQL JIT is off by default (`CB_DB_JIT=false`); do not enable it without measuring |
+| Graph traversal | SQL over the graph tables, one hop per query, using the edge indexes | PostgreSQL JIT is off by default (`CB_DB_JIT=false`); do not enable it without measuring |
 | Number of namespaces in a request | Enlarges the candidate pool | Read only the bases you need |
 
 More on operational settings is in [Configuration](configuration.md#performance).

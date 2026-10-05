@@ -1,8 +1,8 @@
 
 # Knowledge model
 
-This article describes how memory-service stores knowledge: a graph on Apache
-AGE, chunks in pgvector, observations, temporal facts, provenance, and audit.
+This article describes how memory-service stores knowledge: a graph in PostgreSQL
+tables, chunks in pgvector, observations, temporal facts, provenance, and audit.
 It is for integrators who design what to put into memory and how, and for
 administrators who need to understand what is in the database.
 
@@ -15,15 +15,17 @@ The model in brief:
 ## Storage
 
 All of memory lives in a single PostgreSQL 16 database with the extensions
-`age` (graph, openCypher), `vector` (pgvector), and `pg_trgm` (trigrams). The
-init script of the `memory-db` image creates the extensions and the graph; the
-service creates the rest of the schema itself on startup, idempotently (if the
+`vector` (pgvector, required) and `pg_trgm` (trigrams, recommended). The graph
+is ordinary tables `graph_nodes` and `graph_edges` (MEM-ADR-023); no graph
+extension is needed. The init script of the `memory-db` image (or a database
+setup step) creates the extensions; the service creates the graph tables and
+the rest of the schema itself on startup, idempotently (if the
 database is unavailable at startup, the schema is completed on first access or
 with the `cb init-db` command). The service itself is stateless.
 
 | Object | Where | Default name | Variable |
 |---|---|---|---|
-| Knowledge graph (nodes and edges) | AGE schema | `company_brain` | `CB_GRAPH_NAME` |
+| Knowledge graph (nodes and edges) | tables `graph_nodes`, `graph_edges` in the graph schema | `company_brain` | `CB_GRAPH_NAME` |
 | Chunks with embeddings | `public.<table>` | `chunks` | `CB_CHUNKS_TABLE` |
 | Observations | table | `observations` | `CB_OBSERVATIONS_TABLE` |
 | Context compilation traces | table | `context_traces` | `CB_CONTEXT_TRACES_TABLE` |
@@ -44,7 +46,7 @@ flowchart TB
     OBS --> TXT[Text fragment<br/>node + chunk]
     DOC[Document / article] --> NODE[Document node] --> CH[Chunks<br/>pgvector + FTS + trgm]
     ENT --- FACT
-    subgraph G[AGE graph]
+    subgraph G["Graph: graph_nodes, graph_edges"]
         EP
         ENT
         FACT
@@ -59,7 +61,7 @@ flowchart TB
 ## Graph nodes
 
 A node is a typed entity, unique within the `(namespace, natural_key)` pair.
-Writing the same key again updates the node (upsert via `MERGE`) rather than
+Writing the same key again updates the node (upsert via `INSERT … ON CONFLICT`) rather than
 creating a new one.
 
 | Property | Purpose |
@@ -75,11 +77,13 @@ creating a new one.
 | `origin` | `vault`: projection of the document vault; `agent`: written through the API |
 | `props` | Map of free-form properties: `content` (original article), `provenance`, `pii`, `pii_categories`, `scopes`, `meta`, and others |
 
-A node's **AGE label** is its `type` converted to a valid identifier
-(`[A-Za-z_][A-Za-z0-9_]*`; other characters are replaced with `_`, and an empty
-type becomes `entity`). For each label, the engine creates a GIN index on
-properties and a hash index on `natural_key`, so that snapshot reconciliation
-and lookup by key do not scan the table.
+A node's **label** (the `label` column) is its `type` converted to a valid
+identifier (`[A-Za-z_][A-Za-z0-9_]*`; other characters are replaced with `_`,
+and an empty type becomes `entity`). A label is a column value, not a separate
+table, so a new kind needs no DDL. Snapshot reconciliation and lookup by key
+use the `(namespace, label, natural_key)` and `(namespace, natural_key)`
+indexes, and property filters use the GIN index on `props`, so the table is not
+scanned.
 
 !!! note "The original article is stored in the node"
     `POST /api/brain/retain` puts the full text into `props.content`. That is

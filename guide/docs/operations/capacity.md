@@ -116,7 +116,7 @@ need to know:
 |---|---|
 | `context-adapter` | Singleton: uniqueness is held by an advisory lock in the database. A second instance does not speed up delivery. Per-tenant isolation isolates **failures** (one parked tenant does not block the others); it does not provide parallelism |
 | `control-plane-api` | One container; horizontal scaling is not described in `deploy/local/compose.yml` |
-| Databases | Each is a separate PostgreSQL 16 container on the same host. `memory-db` needs the Apache AGE and pgvector extensions, which managed PostgreSQL offerings usually lack |
+| Databases | Each is a separate PostgreSQL 16 container on the same host. Of the extensions, the memory database needs only pgvector (`pg_trgm` recommended); the service needs no graph extension and no superuser, so a managed PostgreSQL with pgvector will do as well. The extensions are created by a database setup step, and the service runs as the owner of its database |
 | Migrations | Indexes are not built `CONCURRENTLY`; large tables need a maintenance window |
 | Log retention | There is no scheduler: the operator runs `:archive` |
 

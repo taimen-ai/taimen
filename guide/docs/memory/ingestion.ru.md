@@ -64,7 +64,7 @@ curl -X POST "$MEMORY_URL/api/brain/retain" \
 | Поле | По умолчанию | Что происходит |
 |---|---|---|
 | `content` | — | Кладётся в `props.content` узла и целиком в **один** чанк индекса |
-| `type` | `note` | Тип узла и метка AGE |
+| `type` | `note` | Тип узла и его метка в графе |
 | `title` | первая непустая строка `content` (до 120 символов) | Заголовок узла и чанка |
 | `external_id` | — | Становится `natural_key` узла. Без него ключ выводится из содержимого: `fact:<sha1[:16]>` или `fact:<trace_id>:<sha1[:16]>` |
 | `provenance` | — | Сохраняется целиком в `props.provenance`; поля `actor`, `actor_id`, `issue_id`, `trace_id`, `kind`, `source` копируются в свойства узла |

@@ -50,7 +50,7 @@
 | **control-plane** | Авторитетное операционное состояние: задачи, типы, claims, runs, approvals, артефакты, цели, журнал событий, харнесс-протокол; CLI `control-plane`, MCP-сервер `control-plane-mcp`, демон исполнителя `control-plane-agent` | `control-plane-api`, `control-plane-worker`, `context-adapter` (один образ) | PostgreSQL 16 (`control-plane-db`) |
 | **iam-service** | Tenants, principals, audiences, PAT, service accounts, федерация внешних IdP, SCIM, выпуск RS256-токенов, JWKS | `iam-service` | PostgreSQL 16 (`iam-db`) |
 | **console** | Веб-консоль работающей организации: пульс, происхождение работы, процессы, правила, агенты, управляющие действия, пакеты, люди и роли. Сабмодуль `console`, своей базы нет; см. [Консоль](../operator/console.md) | `console` | нет (сессии в памяти) |
-| **memory-service** | Граф знаний с временными фактами и provenance, документы, гибридный поиск (векторный + лексический + графовый), Context Compiler; HTTP API, MCP-сервер, CLI | `memory-service` | PostgreSQL 16 с Apache AGE и pgvector (`memory-db`, свой образ) |
+| **memory-service** | Граф знаний с временными фактами и provenance, документы, гибридный поиск (векторный + лексический + графовый), Context Compiler; HTTP API, MCP-сервер, CLI | `memory-service` | PostgreSQL 16 с pgvector и `pg_trgm`, граф — обычные таблицы (`memory-db`, свой образ) |
 
 ### Библиотеки
 
@@ -129,7 +129,7 @@ tools/compose --profile core --profile edge up -d   # то же без make
 | `${IMAGE_PREFIX}/control-plane` | корень суперпроекта (`CP_BUILD_CONTEXT`) | `services/control-plane/Dockerfile` |
 | `${IMAGE_PREFIX}/iam-service` | `./services/iam-service` (`IAM_BUILD_CONTEXT`) | `services/iam-service/Dockerfile` |
 | `${IMAGE_PREFIX}/memory-service` | корень (`MEMORY_BUILD_CONTEXT`) | `services/memory-service/Dockerfile` |
-| `${IMAGE_PREFIX}/memory-db` | `services/memory-service/infra/memory-db` | PostgreSQL + AGE + pgvector |
+| `${IMAGE_PREFIX}/memory-db` | `services/memory-service/infra/memory-db` | PostgreSQL + pgvector; основан на образе `apache/age`, расширение AGE сервис не использует |
 | `${IMAGE_PREFIX}/notification-service` | корень (`NOTIFY_BUILD_CONTEXT`) | `services/notification-service/Dockerfile` |
 | `${IMAGE_PREFIX}/human-harness` | `./services/human-harness` | `Dockerfile` (сервис `harness-image`, только сборка) |
 | `${IMAGE_PREFIX}/harness-launcher` | `./services/human-harness` | `packages/launcher/Dockerfile` |

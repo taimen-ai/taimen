@@ -12,7 +12,7 @@ for administrators who deploy and maintain the service.
 The service does three things:
 
 1. **Stores knowledge** (articles, documents, facts, events from external
-   systems) as a graph of entities and relations (Apache AGE) and as text
+   systems) as a graph of entities and relations (PostgreSQL tables) and as text
    fragments with embeddings (pgvector).
 2. **Finds what is relevant** with hybrid search (vector + full-text search +
    graph neighbors), with optional reranking and answer synthesis by an LLM.
@@ -41,7 +41,7 @@ flowchart LR
         BRAIN["/api/brain/*<br/>query · recall · search<br/>retain · documents · sources"]
         MAPI["/api/memory/*<br/>observations · context<br/>reconcile · packages"]
     end
-    DB[(memory-db<br/>PostgreSQL 16<br/>AGE + pgvector + pg_trgm)]
+    DB[(memory-db<br/>PostgreSQL 16<br/>pgvector + pg_trgm)]
     IAM[iam-service<br/>JWKS]
     POL[external PDP<br/>optional]
     APP[Applications and demos<br/>static key or IAM token]
@@ -83,7 +83,7 @@ flowchart LR
 | MCP server | Graph tools for agents (stdio or streamable HTTP) | `platform-memory-mcp` |
 | CLI | Schema initialization, vault loading, queries, traces | `cb` |
 | Client | `platform-memory-client`: `MemoryClient` / `AsyncMemoryClient` | directory `services/memory-service/client` |
-| Database | PostgreSQL 16 + Apache AGE + pgvector + pg_trgm | image `memory-db` |
+| Database | PostgreSQL 16 + pgvector + pg_trgm; the graph is ordinary tables (MEM-ADR-023) | image `memory-db` |
 
 Additional surfaces, the administrative console `/console` and the public demo
 showcase `/demo`, are off by default and are not part of the consumer contract
@@ -107,7 +107,7 @@ In the `deploy/local/compose.yml`, memory belongs to the `core` profile as two s
 
 | Service | Image | Port | Purpose |
 |---|---|---|---|
-| `memory-db` | `memory-db` (built from `services/memory-service/infra/memory-db`) | compose network only | PostgreSQL 16 + AGE + pgvector, database `company_brain` |
+| `memory-db` | `memory-db` (built from `services/memory-service/infra/memory-db`) | compose network only | PostgreSQL 16 + pgvector + pg_trgm, database `company_brain` |
 | `memory-service` | `memory-service` (build context is the superproject root) | `127.0.0.1:${MEMORY_HOST_PORT:-18001}` → `8077` | HTTP API |
 
 The image build context is the superproject root because the service pulls in

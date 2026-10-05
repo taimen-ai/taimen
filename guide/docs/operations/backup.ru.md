@@ -1,7 +1,7 @@
 # Резервное копирование
 
 Что в установке Taimen нужно бэкапить, как снимать дампы каждой базы, какие
-особенности есть у графовой базы памяти (Apache AGE) и как восстановить
+особенности есть у базы памяти и как восстановить
 установку целиком или по частям. Статья для инженера эксплуатации.
 
 ## Что бэкапить
@@ -13,7 +13,7 @@
 |---|---|---|---|
 | БД IAM | том `iam_db`, сервис `iam-db`, БД `iam` | Tenants, principals, хэши PAT, service accounts, audiences, audit, outbox | Критично |
 | БД Control Plane | том `control_plane_db`, сервис `control-plane-db`, БД `control_plane` | Задачи, claims, runs, артефакты, approvals, журнал событий и его архив, курсоры потребителей, IAM bindings | Критично |
-| БД памяти | том `memory_db`, сервис `memory-db`, БД `company_brain` | Граф знаний (Apache AGE), чанки и вектора (pgvector), наблюдения, трассы контекста | Критично; содержит данные заказчика, возможно ПДн |
+| БД памяти | том `memory_db`, сервис `memory-db`, БД `company_brain` | Граф знаний (таблицы PostgreSQL), чанки и вектора (pgvector), наблюдения, трассы контекста | Критично; содержит данные заказчика, возможно ПДн |
 | БД Keycloak | том `keycloak_db`, сервис `keycloak-db`, БД `keycloak` | Живой realm, пользователи и их пароли | Критично при профиле `idp`: без неё людей заводят заново |
 | Объекты MinIO | том `platform_minio` | Содержимое артефактов Control Plane (бакет `CP_S3_BUCKET`) | Критично: MinIO входит в профиль `core`; бэкапить вместе с `control-plane-db` |
 | Сертификаты | том `caddy_data` | Сертификаты, ключи, ACME-аккаунт | Желательно: без него сертификаты выпускаются заново |
@@ -117,54 +117,31 @@ find /opt/taimen/backups -maxdepth 1 -type d -mtime +14 -exec rm -rf {} +
   ответит `503 content_store_unavailable`. Подробнее — в
   [Хранилище объектов](object-storage.md#backup).
 
-## Особенность памяти: Apache AGE и OID
+## Особенность памяти: граф в таблицах PostgreSQL
 
-`memory-db` — PostgreSQL 16 с расширениями Apache AGE (граф) и pgvector.
-Каталог AGE хранит ссылки на граф как **OID PostgreSQL**: `ag_graph.graphid`
-и `ag_label.graph` — обычные `oid`, тогда как `ag_graph.namespace` имеет тип
-`regnamespace` и при восстановлении переразрешается по имени схемы. После
-`pg_restore` в **другой** кластер (новый том, новый хост) OID схемы графа
-меняется, а `graphid` приезжает старым.
-
-Симптом: `memory-service` падает или отвечает ошибками с
-`graph with oid NNNNN does not exist`.
-
-Исправление — в одной транзакции (порядок важен: внешний ключ не даст
-обновить таблицы в другом порядке):
-
-```sql
-BEGIN;
-LOAD 'age';
-SET search_path = ag_catalog, "$user", public;
-
--- имя FK проверьте командой \d ag_catalog.ag_label
-ALTER TABLE ag_catalog.ag_label DROP CONSTRAINT fk_graph_oid;
-
-UPDATE ag_catalog.ag_label l
-   SET graph = g.namespace::oid
-  FROM ag_catalog.ag_graph g
- WHERE l.graph = g.graphid;
-
-UPDATE ag_catalog.ag_graph SET graphid = namespace::oid;
-
-ALTER TABLE ag_catalog.ag_label
-  ADD CONSTRAINT fk_graph_oid FOREIGN KEY (graph) REFERENCES ag_catalog.ag_graph (graphid);
-COMMIT;
-```
+`memory-db` — PostgreSQL 16 с расширениями pgvector и `pg_trgm`. Граф памяти —
+обычные таблицы `graph_nodes` и `graph_edges` в схеме `CB_GRAPH_NAME`
+(MEM-ADR-023), поэтому особых шагов нет: база снимается `pg_dump` и
+восстанавливается `pg_restore`, в том числе в другой кластер (новый том, новый
+хост).
 
 ```bash
-tools/compose exec -T memory-db psql -U memory -d company_brain -v ON_ERROR_STOP=1 < fix-age-oids.sql
-tools/compose restart memory-service
+tools/compose stop memory-service
+tools/compose exec -T memory-db pg_restore -U memory -d company_brain \
+  --clean --if-exists --no-owner < backups/<stamp>/memory-db-company_brain.dump
+tools/compose up -d memory-service
 curl -fsS http://127.0.0.1:18001/healthz     # {"ok": true, "graph": ..., "nodes": N, "chunks": M}
 ```
 
-Возвращённый FK сам проверит, что все метки ссылаются на существующий граф.
-
-!!! tip "Физическая копия тома обходит проблему"
-    Копия тома `memory_db`, снятая при **остановленном** `memory-db`
-    (`tools/compose stop memory-db` и `tar` тома), сохраняет OID как есть и
-    восстанавливается без правки каталога. Для переноса памяти на новый хост
-    это самый надёжный путь; логический дамп оставьте для ежедневных копий.
+!!! note "Установка, где граф ещё в Apache AGE"
+    До memory-service v0.2.1 граф хранился в Apache AGE. Дамп такой установки
+    восстанавливается так же (образ `memory-db` поставки основан на образе
+    Apache AGE, расширение в нём есть), а затем граф переносится в таблицы
+    командой `cb migrate-graph-from-age` при остановленном сервисе: сначала
+    `--dry-run`, потом перенос. После запуска сервиса перенос повторно не
+    запускайте. Команда читает таблицы меток AGE напрямую, мимо каталога,
+    поэтому правка OID каталога AGE для переноса не нужна. Подробно — в
+    [Конфигурации памяти](../memory/configuration.md#age-migration).
 
 После любого восстановления памяти сверяйте счётчики `nodes` и `chunks` из
 `/healthz` со значениями до инцидента.
@@ -231,8 +208,9 @@ tools/compose up -d iam-service
     ```
 
 5. Восстановите каждую базу `pg_restore --clean --if-exists --no-owner`.
-6. Для памяти выполните исправление OID AGE (если восстанавливали логическим
-   дампом) и проверьте `/healthz`.
+6. Для памяти: если граф установки ещё в Apache AGE, перенесите его
+   `cb migrate-graph-from-age` до запуска memory-service (см. выше); затем
+   проверьте `/healthz`.
 7. Восстановите том MinIO (`platform_minio`) тем же способом, что
    `caddy_data`: в нём содержимое артефактов ядра.
    Если ядро работает с внешним S3 (`deploy/local/compose.s3.example.yml`), восстановите

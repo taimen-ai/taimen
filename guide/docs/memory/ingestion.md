@@ -66,7 +66,7 @@ How the fields are processed:
 | Field | Default | What happens |
 |---|---|---|
 | `content` | — | Stored in the node's `props.content` and, in full, in **one** index chunk |
-| `type` | `note` | Node type and AGE label |
+| `type` | `note` | Node type and its graph label |
 | `title` | the first non-empty line of `content` (up to 120 characters) | Node and chunk title |
 | `external_id` | — | Becomes the node's `natural_key`. Without it, the key is derived from the content: `fact:<sha1[:16]>` or `fact:<trace_id>:<sha1[:16]>` |
 | `provenance` | — | Stored as a whole in `props.provenance`; the fields `actor`, `actor_id`, `issue_id`, `trace_id`, `kind`, `source` are copied to the node's properties |

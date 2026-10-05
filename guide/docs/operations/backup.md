@@ -2,7 +2,7 @@
 # Backup
 
 What you need to back up in a Taimen installation, how to take dumps of
-each database, what is special about the memory graph database (Apache AGE),
+each database, what is special about the memory database,
 and how to restore the installation as a whole or in parts. This article is
 for the operations engineer.
 
@@ -15,7 +15,7 @@ few files on the host.
 |---|---|---|---|
 | IAM database | volume `iam_db`, service `iam-db`, database `iam` | Tenants, principals, PAT hashes, service accounts, audiences, audit, outbox | Critical |
 | Control Plane database | volume `control_plane_db`, service `control-plane-db`, database `control_plane` | Tasks, claims, runs, artifacts, approvals, the event log and its archive, consumer cursors, IAM bindings | Critical |
-| Memory database | volume `memory_db`, service `memory-db`, database `company_brain` | Knowledge graph (Apache AGE), chunks and vectors (pgvector), observations, context traces | Critical; contains customer data, possibly personal data |
+| Memory database | volume `memory_db`, service `memory-db`, database `company_brain` | Knowledge graph (PostgreSQL tables), chunks and vectors (pgvector), observations, context traces | Critical; contains customer data, possibly personal data |
 | Keycloak database | volume `keycloak_db`, service `keycloak-db`, database `keycloak` | The live realm, users and their passwords | Critical with the `idp` profile: without it, people are onboarded again |
 | MinIO objects | volume `platform_minio` | Control Plane artifact content (the `CP_S3_BUCKET` bucket) | Critical: MinIO is part of the `core` profile; back it up together with `control-plane-db` |
 | Certificates | volume `caddy_data` | Certificates, keys, ACME account | Recommended: without it, certificates are issued again |
@@ -123,56 +123,32 @@ tolerates this:
   `503 content_store_unavailable`. See
   [Object storage](object-storage.md#backup) for details.
 
-## Memory specifics: Apache AGE and OIDs
+## Memory specifics: the graph in PostgreSQL tables
 
-`memory-db` is PostgreSQL 16 with the Apache AGE (graph) and pgvector
-extensions. The AGE catalog stores graph references as **PostgreSQL OIDs**:
-`ag_graph.graphid` and `ag_label.graph` are plain `oid`, while
-`ag_graph.namespace` has type `regnamespace` and is re-resolved by schema
-name on restore. After `pg_restore` into a **different** cluster (a new
-volume, a new host), the OID of the graph schema changes, but `graphid`
-arrives with the old value.
-
-Symptom: `memory-service` crashes or returns errors with
-`graph with oid NNNNN does not exist`.
-
-The fix runs in one transaction (the order matters: the foreign key does
-not allow updating the tables in a different order):
-
-```sql
-BEGIN;
-LOAD 'age';
-SET search_path = ag_catalog, "$user", public;
-
--- check the FK name with \d ag_catalog.ag_label
-ALTER TABLE ag_catalog.ag_label DROP CONSTRAINT fk_graph_oid;
-
-UPDATE ag_catalog.ag_label l
-   SET graph = g.namespace::oid
-  FROM ag_catalog.ag_graph g
- WHERE l.graph = g.graphid;
-
-UPDATE ag_catalog.ag_graph SET graphid = namespace::oid;
-
-ALTER TABLE ag_catalog.ag_label
-  ADD CONSTRAINT fk_graph_oid FOREIGN KEY (graph) REFERENCES ag_catalog.ag_graph (graphid);
-COMMIT;
-```
+`memory-db` is PostgreSQL 16 with the pgvector and `pg_trgm` extensions. The
+memory graph is ordinary tables `graph_nodes` and `graph_edges` in the
+`CB_GRAPH_NAME` schema (MEM-ADR-023), so there are no special steps: the
+database is dumped with `pg_dump` and restored with `pg_restore`, including
+into a different cluster (a new volume, a new host).
 
 ```bash
-tools/compose exec -T memory-db psql -U memory -d company_brain -v ON_ERROR_STOP=1 < fix-age-oids.sql
-tools/compose restart memory-service
+tools/compose stop memory-service
+tools/compose exec -T memory-db pg_restore -U memory -d company_brain \
+  --clean --if-exists --no-owner < backups/<stamp>/memory-db-company_brain.dump
+tools/compose up -d memory-service
 curl -fsS http://127.0.0.1:18001/healthz     # {"ok": true, "graph": ..., "nodes": N, "chunks": M}
 ```
 
-The restored FK itself verifies that all labels reference an existing graph.
-
-!!! tip "A physical volume copy avoids the problem"
-    A copy of the `memory_db` volume taken while `memory-db` is **stopped**
-    (`tools/compose stop memory-db` and `tar` of the volume) keeps the OIDs
-    as they are and restores without catalog fixes. This is the most
-    reliable way to move memory to a new host; keep logical dumps for daily
-    copies.
+!!! note "An installation whose graph is still in Apache AGE"
+    Before memory-service v0.2.1, the graph was stored in Apache AGE. A dump
+    of such an installation is restored the same way (the distribution's
+    `memory-db` image is based on the Apache AGE image, so the extension is
+    there), and then the graph is moved into the tables with
+    `cb migrate-graph-from-age` while the service is stopped: first
+    `--dry-run`, then the move. Once the service has started, do not run the
+    move again. The command reads the AGE label tables directly, bypassing the
+    catalog, so the move does not need the AGE catalog OID fix. For details,
+    see [Memory configuration](../memory/configuration.md#age-migration).
 
 After any memory restore, compare the `nodes` and `chunks` counters from
 `/healthz` with the values before the incident.
@@ -240,8 +216,9 @@ tools/compose up -d iam-service
     ```
 
 5. Restore each database with `pg_restore --clean --if-exists --no-owner`.
-6. For memory, apply the AGE OID fix (if you restored from a logical dump)
-   and check `/healthz`.
+6. For memory: if the installation's graph is still in Apache AGE, move it
+   with `cb migrate-graph-from-age` before starting memory-service (see
+   above); then check `/healthz`.
 7. Restore the MinIO volume (`platform_minio`) the same way as
    `caddy_data`: it holds the core's artifact content.
    If the core works with an external S3 (`deploy/local/compose.s3.example.yml`), restore
