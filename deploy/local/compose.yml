@@ -437,7 +437,7 @@ services:
   # the template. Keycloak imports the realm only on its first start — later changes go
   # through the Admin API (deploy/keycloak/).
   realm-render:
-    image: busybox:1.36
+    image: busybox:1.38
     profiles: [idp, console, harness]
     entrypoint: ["/bin/sh", "-c"]
     command:
